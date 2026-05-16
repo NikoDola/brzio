@@ -1,0 +1,58 @@
+/* Single source of truth for every section heading on the site.
+   Edit here once — every section title updates. */
+
+.section-heading {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-heading--center {
+  text-align: center;
+  align-items: center;
+}
+
+.section-heading__eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--primary-green);
+  margin-bottom: 14px;
+}
+
+.section-heading--eyebrow-rose .section-heading__eyebrow {
+  color: var(--primary-rose);
+}
+
+.section-heading__title {
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.section-heading--md .section-heading__title {
+  font-size: clamp(28px, 3.5vw, 44px);
+}
+
+.section-heading--lg .section-heading__title {
+  font-size: clamp(36px, 5vw, 64px);
+}
+
+.section-heading--center .section-heading__title {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-heading__description {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-top: 18px;
+  max-width: 580px;
+}
+
+.section-heading--center .section-heading__description {
+  margin-left: auto;
+  margin-right: auto;
+}

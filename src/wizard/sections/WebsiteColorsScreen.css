@@ -1,0 +1,107 @@
+/* ─── Header ────────────────────────────────────────────────── */
+.wc__header {
+  margin-bottom: var(--space-8);
+}
+
+.wc__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--space-3);
+}
+
+.wc__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* ─── Use existing toggles ──────────────────────────────────── */
+.wc__existing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+.wc__existing-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.wc__existing-toggle:hover {
+  border-color: var(--color-accent-muted);
+}
+
+.wc__existing-toggle--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.wc__existing-radio {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.wc__existing-radio--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.wc__existing-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+  transition: color 0.15s;
+}
+
+.wc__existing-label--active {
+  color: var(--color-accent);
+}
+
+.wc__existing-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-normal);
+}
+
+/* ─── Custom colors label ────────────────────────────────────── */
+.wc__custom {
+  position: relative;
+  margin-bottom: var(--space-6);
+}
+
+.wc__custom-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  letter-spacing: var(--letter-spacing-wider);
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+.wc__custom-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

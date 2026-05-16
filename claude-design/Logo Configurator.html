@@ -1,0 +1,2188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logo Service — Pricing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,700;1,400&family=Spectral:ital,wght@0,400;0,700;1,400&family=Bitter:ital,wght@0,400;0,700;1,400&family=Arvo:ital,wght@0,400;0,700;1,400&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Cardo:ital,wght@0,400;1,400&family=Vollkorn:ital,wght@0,400;0,700;1,400&family=Alegreya:ital,wght@0,400;0,700;1,400&family=Zilla+Slab:wght@400;700&family=Roboto+Slab:wght@400;700&family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;600;700&family=Raleway:wght@300;400;600;700&family=Nunito:wght@300;400;600;700&family=Josefin+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;600;700&family=Montserrat:wght@300;400;600;700&family=Work+Sans:wght@300;400;600;700&family=Barlow:wght@300;400;600;700&family=Manrope:wght@300;400;600;700&family=Rubik:wght@300;400;600;700&family=Karla:wght@300;400;600;700&family=Jost:wght@300;400;600;700&family=Urbanist:wght@300;400;600;700&family=Sora:wght@300;400;600;700&family=Figtree:wght@300;400;600;700&family=Pacifico&family=Dancing+Script:wght@400;700&family=Satisfy&family=Great+Vibes&family=Caveat:wght@400;700&family=Kaushan+Script&family=Sacramento&family=Allura&family=Lobster&family=Courgette&family=Pinyon+Script&family=Alex+Brush&family=Tangerine:wght@400;700&family=Rochester&family=Clicker+Script&family=Italianno&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="design-tokens.js"></script>
+  <script type="text/babel" src="components.jsx"></script>
+  <script type="text/babel" src="logo-demos.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #FAF9F6;
+      color: #1A1714;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #E8E2DA; border-radius: 3px; }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .screen-enter { animation: fadeSlideIn 0.36s cubic-bezier(0,0,0.2,1) both; }
+    .skeleton {
+      background: linear-gradient(90deg, #F0EDE8 25%, #E8E3DC 50%, #F0EDE8 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#D97757",
+  "bgColor": "#FAF9F6",
+  "cardRadius": 22,
+  "showPrice": true,
+  "brandName": "Your Studio"
+}/*EDITMODE-END*/;
+
+// ─────────────────────────────────────────────────────────────
+// STYLE CARD PREVIEWS  (9 placeholder thumbnails)
+// ─────────────────────────────────────────────────────────────
+const STYLE_PRESETS = [
+  {
+    id: "minimalist",
+    label: "Minimalist",
+    sublabel: "Clean, lots of space",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F8F7F4"/>
+        <rect x="55" y="38" width="50" height="50" rx="4" fill="#1A1714" opacity="0.08"/>
+        <rect x="65" y="48" width="30" height="30" rx="2" fill="#1A1714" opacity="0.15"/>
+        <rect x="45" y="98" width="70" height="5" rx="2.5" fill="#1A1714" opacity="0.1"/>
+        <rect x="58" y="108" width="44" height="3" rx="1.5" fill="#1A1714" opacity="0.06"/>
+      </svg>
+    ),
+  },
+  {
+    id: "bold-geometric",
+    label: "Bold & Geometric",
+    sublabel: "Strong shapes, high contrast",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#1A1714"/>
+        <polygon points="80,22 118,82 42,82" fill={accent} opacity="0.9"/>
+        <rect x="30" y="92" width="100" height="8" rx="2" fill="#fff" opacity="0.85"/>
+        <rect x="48" y="105" width="64" height="5" rx="2" fill="#fff" opacity="0.3"/>
+      </svg>
+    ),
+  },
+  {
+    id: "vintage",
+    label: "Vintage / Retro",
+    sublabel: "Ornate, heritage feel",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F5EFE4"/>
+        <rect x="20" y="15" width="120" height="90" rx="3" fill="none" stroke="#8B6F47" strokeWidth="1.5"/>
+        <rect x="26" y="21" width="108" height="78" rx="2" fill="none" stroke="#8B6F47" strokeWidth="0.5" strokeDasharray="3 2"/>
+        <circle cx="80" cy="52" r="20" fill="none" stroke="#8B6F47" strokeWidth="1.5"/>
+        <circle cx="80" cy="52" r="14" fill="#8B6F47" opacity="0.12"/>
+        <text x="80" y="57" textAnchor="middle" fontSize="12" fontWeight="700" fill="#8B6F47" fontFamily="serif">A</text>
+        <rect x="38" y="80" width="84" height="5" rx="1" fill="#8B6F47" opacity="0.4"/>
+        <rect x="52" y="89" width="56" height="3" rx="1" fill="#8B6F47" opacity="0.25"/>
+      </svg>
+    ),
+  },
+  {
+    id: "playful",
+    label: "Playful",
+    sublabel: "Rounded, expressive",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#FFF8F4"/>
+        <circle cx="80" cy="50" r="28" fill={accent} opacity="0.18"/>
+        <circle cx="80" cy="50" r="18" fill={accent} opacity="0.7"/>
+        <circle cx="72" cy="44" r="4" fill="#fff"/>
+        <circle cx="88" cy="44" r="4" fill="#fff"/>
+        <path d="M72 56 Q80 64 88 56" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+        <rect x="40" y="88" width="80" height="7" rx="3.5" fill={accent} opacity="0.25"/>
+        <rect x="52" y="100" width="56" height="5" rx="2.5" fill={accent} opacity="0.15"/>
+      </svg>
+    ),
+  },
+  {
+    id: "luxury",
+    label: "Luxury",
+    sublabel: "Thin lines, premium",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#0F0E0C"/>
+        <polygon points="80,26 102,66 58,66" fill="none" stroke="#C9A96E" strokeWidth="1"/>
+        <circle cx="80" cy="50" r="8" fill="#C9A96E" opacity="0.3"/>
+        <line x1="20" y1="78" x2="60" y2="78" stroke="#C9A96E" strokeWidth="0.8" opacity="0.6"/>
+        <line x1="100" y1="78" x2="140" y2="78" stroke="#C9A96E" strokeWidth="0.8" opacity="0.6"/>
+        <text x="80" y="82" textAnchor="middle" fontSize="7" fill="#C9A96E" letterSpacing="6" fontFamily="serif">BRAND</text>
+        <rect x="50" y="90" width="60" height="0.8" fill="#C9A96E" opacity="0.3"/>
+        <text x="80" y="104" textAnchor="middle" fontSize="5.5" fill="#C9A96E" letterSpacing="4" fontFamily="serif" opacity="0.6">ATELIER</text>
+      </svg>
+    ),
+  },
+  {
+    id: "tech",
+    label: "Tech / Digital",
+    sublabel: "Grid-based, modern",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#0D1117"/>
+        {[...Array(6)].map((_,i) => <line key={i} x1={20+i*24} y1="10" x2={20+i*24} y2="110" stroke="#30363D" strokeWidth="0.5" key={"v"+i}/>)}
+        {[...Array(5)].map((_,i) => <line key={i} x1="10" y1={20+i*20} x2="150" y2={20+i*20} stroke="#30363D" strokeWidth="0.5" key={"h"+i}/>)}
+        <rect x="56" y="36" width="48" height="48" rx="4" fill={accent} opacity="0.15" stroke={accent} strokeWidth="1"/>
+        <text x="80" y="67" textAnchor="middle" fontSize="20" fontWeight="800" fill={accent} fontFamily="monospace">{'</>'}</text>
+        <rect x="30" y="94" width="100" height="6" rx="1" fill={accent} opacity="0.2"/>
+      </svg>
+    ),
+  },
+  {
+    id: "organic",
+    label: "Organic / Natural",
+    sublabel: "Flowing, earthy",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F2F0EB"/>
+        <path d="M80 20 C100 30 115 50 108 70 C100 90 60 95 50 75 C38 55 55 25 80 20Z" fill="#4A7C59" opacity="0.2"/>
+        <path d="M80 30 C95 38 106 54 100 70 C93 85 65 88 57 72 C47 56 60 33 80 30Z" fill="#4A7C59" opacity="0.35"/>
+        <path d="M80 40 C80 40 80 70 80 88" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+        <rect x="38" y="96" width="84" height="6" rx="3" fill="#4A7C59" opacity="0.2"/>
+        <rect x="50" y="107" width="60" height="4" rx="2" fill="#4A7C59" opacity="0.12"/>
+      </svg>
+    ),
+  },
+  {
+    id: "corporate",
+    label: "Corporate / Classic",
+    sublabel: "Professional, timeless",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F7F8FA"/>
+        <rect x="60" y="22" width="40" height="50" rx="3" fill="#1A3A5C" opacity="0.12"/>
+        <rect x="66" y="28" width="28" height="28" rx="2" fill="#1A3A5C" opacity="0.25"/>
+        <path d="M72 42 L80 34 L88 42 L85 42 L85 52 L75 52 L75 42Z" fill="#1A3A5C" opacity="0.6"/>
+        <rect x="20" y="78" width="120" height="2" fill="#1A3A5C" opacity="0.12"/>
+        <rect x="30" y="86" width="100" height="8" rx="1" fill="#1A3A5C" opacity="0.18"/>
+        <rect x="46" y="100" width="68" height="5" rx="1" fill="#1A3A5C" opacity="0.1"/>
+      </svg>
+    ),
+  },
+  {
+    id: "handcrafted",
+    label: "Hand-crafted",
+    sublabel: "Artisan, textured",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F9F4EE"/>
+        <path d="M80 25 C85 25 90 28 92 33 C97 31 103 33 104 39 C109 39 113 44 111 50 C115 53 115 60 111 63 C113 69 110 75 104 76 C103 82 97 85 92 83 C90 88 85 90 80 90 C75 90 70 88 68 83 C63 85 57 82 56 76 C50 75 47 69 49 63 C45 60 45 53 49 50 C47 44 51 39 56 39 C57 33 63 31 68 33 C70 28 75 25 80 25Z" fill="none" stroke="#8B6F47" strokeWidth="1.2" opacity="0.5"/>
+        <text x="80" y="63" textAnchor="middle" fontSize="11" fontWeight="600" fill="#8B6F47" fontFamily="serif">CRAFT</text>
+        <path d="M50 72 Q80 76 110 72" stroke="#8B6F47" strokeWidth="0.8" fill="none" opacity="0.4"/>
+        <rect x="42" y="96" width="76" height="5" rx="1" fill="#8B6F47" opacity="0.2"/>
+      </svg>
+    ),
+  },
+  // ── Batch 2 (lazy-loaded) ────────────────────────────────
+  {
+    id: "duotone",
+    label: "Duotone",
+    sublabel: "Two-color, graphic pop",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#1A1714"/>
+        <rect x="0" y="0" width="80" height="120" fill={accent} opacity="0.18"/>
+        <circle cx="80" cy="55" r="30" fill={accent} opacity="0.85"/>
+        <circle cx="80" cy="55" r="30" fill="#1A1714" opacity="0.4" clipPath="url(#dp)"/>
+        <defs><clipPath id="dp"><rect x="80" y="0" width="80" height="120"/></clipPath></defs>
+        <rect x="28" y="94" width="104" height="7" rx="3" fill="#fff" opacity="0.7"/>
+      </svg>
+    ),
+  },
+  {
+    id: "outlined",
+    label: "Outlined",
+    sublabel: "Stroke-only, lightweight",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#FAFAF9"/>
+        <circle cx="80" cy="50" r="28" stroke="#1A1714" strokeWidth="2"/>
+        <circle cx="80" cy="50" r="18" stroke={accent} strokeWidth="1.5"/>
+        <path d="M80 32 L80 68 M62 50 L98 50" stroke="#1A1714" strokeWidth="1" opacity="0.3"/>
+        <rect x="34" y="88" width="92" height="7" rx="2" fill="none" stroke="#1A1714" strokeWidth="1.2"/>
+        <rect x="50" y="102" width="60" height="4" rx="1" fill="none" stroke="#1A1714" strokeWidth="0.8" opacity="0.4"/>
+      </svg>
+    ),
+  },
+  {
+    id: "abstract",
+    label: "Abstract Mark",
+    sublabel: "Non-literal, conceptual",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F4F2FF"/>
+        <path d="M60 70 Q80 20 100 70 Q80 55 60 70Z" fill="#6B5CE7" opacity="0.7"/>
+        <path d="M55 72 Q80 110 105 72" fill="#6B5CE7" opacity="0.25"/>
+        <circle cx="80" cy="52" r="6" fill="#6B5CE7"/>
+        <rect x="32" y="95" width="96" height="7" rx="3" fill="#6B5CE7" opacity="0.2"/>
+        <rect x="48" y="107" width="64" height="4" rx="2" fill="#6B5CE7" opacity="0.1"/>
+      </svg>
+    ),
+  },
+  {
+    id: "monogram",
+    label: "Monogram",
+    sublabel: "Letter-based mark",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#F8F7F5"/>
+        <rect x="50" y="20" width="60" height="60" rx="6" fill={accent} opacity="0.1" stroke={accent} strokeWidth="1"/>
+        <text x="80" y="66" textAnchor="middle" fontSize="36" fontWeight="800" fill={accent} fontFamily="serif" opacity="0.85">A</text>
+        <rect x="38" y="92" width="84" height="7" rx="3" fill="#1A1714" opacity="0.1"/>
+        <rect x="52" y="104" width="56" height="4" rx="2" fill="#1A1714" opacity="0.06"/>
+      </svg>
+    ),
+  },
+  {
+    id: "retro-sport",
+    label: "Retro Sport",
+    sublabel: "Athletic, bold lettering",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#0B1120"/>
+        <polygon points="80,16 130,40 130,80 80,104 30,80 30,40" fill="none" stroke={accent} strokeWidth="2"/>
+        <polygon points="80,26 120,46 120,74 80,94 40,74 40,46" fill={accent} opacity="0.1"/>
+        <text x="80" y="66" textAnchor="middle" fontSize="22" fontWeight="900" fill="#fff" fontFamily="sans-serif">APEX</text>
+        <rect x="38" y="110" width="84" height="4" rx="1" fill={accent} opacity="0.4"/>
+      </svg>
+    ),
+  },
+  {
+    id: "stacked-type",
+    label: "Stacked Type",
+    sublabel: "All-type, layered",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#FDFCFA"/>
+        <text x="80" y="46" textAnchor="middle" fontSize="32" fontWeight="900" fill="#1A1714" fontFamily="sans-serif" letterSpacing="-2">APEX</text>
+        <rect x="20" y="52" width="120" height="2" fill={accent}/>
+        <text x="80" y="70" textAnchor="middle" fontSize="11" fontWeight="400" fill="#1A1714" fontFamily="sans-serif" letterSpacing="8">STUDIO</text>
+        <text x="80" y="90" textAnchor="middle" fontSize="7" fontWeight="300" fill="#1A1714" fontFamily="sans-serif" letterSpacing="5" opacity="0.5">EST. 2024</text>
+      </svg>
+    ),
+  },
+  {
+    id: "negative-space",
+    label: "Negative Space",
+    sublabel: "Hidden shapes, clever",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#1C2B3A"/>
+        <rect x="45" y="20" width="70" height="70" rx="8" fill={accent}/>
+        <circle cx="80" cy="55" r="22" fill="#1C2B3A"/>
+        <path d="M68 55 L80 43 L92 55 L86 55 L86 67 L74 67 L74 55Z" fill={accent}/>
+        <rect x="32" y="100" width="96" height="7" rx="2" fill="#fff" opacity="0.15"/>
+      </svg>
+    ),
+  },
+  {
+    id: "flat-illustrative",
+    label: "Flat Illustrative",
+    sublabel: "Icon-driven, friendly",
+    preview: (accent) => (
+      <svg width="100%" viewBox="0 0 160 120" fill="none">
+        <rect width="160" height="120" fill="#EEF7F0"/>
+        <circle cx="80" cy="48" r="26" fill="#4A7C59" opacity="0.15"/>
+        <path d="M80 28 L80 68" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M80 38 Q96 38 96 52 Q96 66 80 66" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" fill="none"/>
+        <path d="M80 48 Q92 48 92 56" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+        <rect x="36" y="86" width="88" height="7" rx="3" fill="#4A7C59" opacity="0.2"/>
+        <rect x="50" y="98" width="60" height="4" rx="2" fill="#4A7C59" opacity="0.1"/>
+      </svg>
+    ),
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Service Selection
+// ─────────────────────────────────────────────────────────────
+function ServiceSelection({ onSelect }) {
+  const T = window.TOKENS;
+  const [selected, setSelected] = React.useState(null);
+  return (
+    <div className="screen-enter">
+      <div style={{ marginBottom: T.space["10"] }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: T.space["2"], background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.full, padding: `${T.space["1"]} ${T.space["4"]}`, marginBottom: T.space["5"] }}>
+          <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: T.color.accent }} />
+          <span style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: T.color.accent, letterSpacing: T.letterSpacing.wider, textTransform: "uppercase" }}>Logo Services</span>
+        </div>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          What can we help you with?
+        </h1>
+        <p style={{ fontSize: T.fontSize.md, color: T.color.textSecondary, lineHeight: T.lineHeight.normal, maxWidth: "480px" }}>
+          Choose how you'd like to approach your logo project. Both options include the same care and attention.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", gap: T.space["5"], marginBottom: T.space["10"] }}>
+        <ServiceCard
+          title="Logo Design"
+          description="Start fresh. We'll craft a completely new logo identity tailored to your brand vision from the ground up."
+          price="150"
+          icon={<svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="2" y="2" width="32" height="32" rx="8" fill={T.color.accentLight} stroke={T.color.accentMuted} strokeWidth="1.5"/><path d="M18 9v18M9 18h18" stroke={T.color.accent} strokeWidth="2.5" strokeLinecap="round"/><circle cx="18" cy="18" r="4" fill={T.color.accent} opacity="0.3"/></svg>}
+          selected={selected === "design"}
+          onClick={() => setSelected("design")}
+        />
+        <ServiceCard
+          title="Logo Redesign"
+          description="Give your brand a fresh start — we'll refresh your existing logo with a modern, refined look while keeping the essence of what makes it yours."
+          price="150"
+          icon={<svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="2" y="2" width="32" height="32" rx="8" fill={T.color.accentLight} stroke={T.color.accentMuted} strokeWidth="1.5"/><path d="M26 18a8 8 0 1 1-2.34-5.66" stroke={T.color.accent} strokeWidth="2.2" strokeLinecap="round"/><path d="M26 11v5.5h-5.5" stroke={T.color.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          selected={selected === "redesign"}
+          onClick={() => setSelected("redesign")}
+          badge="Upload your logo"
+        />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button onClick={() => selected && onSelect(selected)} disabled={!selected} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Upload (Redesign) — now includes company name + tagline
+// ─────────────────────────────────────────────────────────────
+function UploadScreen({ onBack, onNext }) {
+  const T = window.TOKENS;
+  const [file, setFile]           = React.useState(null);
+  const [companyName, setCompany] = React.useState("");
+  const [tagline, setTagline]     = React.useState("");
+  const [estYear, setEstYear]     = React.useState("");
+  const [description, setDesc]    = React.useState("");
+  const [errors, setErrors]       = React.useState({});
+
+  const validate = () => {
+    const e = {};
+    if (!companyName.trim()) e.companyName = "Company name is required";
+    if (!file) e.file = "Please upload your current logo";
+    return e;
+  };
+
+  const handleNext = () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    onNext({ companyName, tagline, estYear, description, file });
+  };
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Tell us about your brand
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          Share your current logo and some basic details so we know what we're working with.
+        </p>
+      </div>
+
+      {/* Brand info inputs */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space["5"], marginBottom: T.space["6"] }}>
+        <TextInput
+          label="Company Name"
+          placeholder="e.g. Apex Studio"
+          value={companyName}
+          onChange={v => { setCompany(v); setErrors(p => ({...p, companyName: ""})); }}
+          required
+          error={errors.companyName}
+        />
+        <TextInput
+          label="Tagline"
+          placeholder="e.g. Crafting tomorrow's brands"
+          value={tagline}
+          onChange={setTagline}
+          hint="Optional"
+        />
+        <TextInput
+          label="Established Year"
+          placeholder="e.g. 2019"
+          value={estYear}
+          onChange={setEstYear}
+          hint="Optional"
+          note="This will only appear in your logo if you choose to include it — leave it blank and we'll leave it out."
+        />
+      </div>
+
+      {/* Upload zone */}
+      <div style={{ marginBottom: T.space["2"] }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["3"] }}>
+          Current Logo <span style={{ color: T.color.accent }}>*</span>
+        </div>
+        <UploadZone file={file} onFile={f => { setFile(f); setErrors(p => ({...p, file: ""})); }} />
+        {errors.file && <div style={{ fontSize: T.fontSize.xs, color: T.color.error, marginTop: T.space["2"] }}>{errors.file}</div>}
+      </div>
+
+      {/* Format tips */}
+      <div style={{ display: "flex", gap: T.space["4"], marginBottom: T.space["10"], marginTop: T.space["4"] }}>
+        {[["✦ Preferred", "SVG, AI, EPS, PDF — vector formats give the best results"], ["✦ Accepted", "JPG, PNG — raster files work too; higher resolution is better"]].map(([label, tip]) => (
+          <div key={label} style={{ flex: 1, background: "transparent", borderRadius: T.radius.lg, padding: `${T.space["3"]} 0` }}>
+            <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: T.color.accent, letterSpacing: T.letterSpacing.wider, textTransform: "uppercase", marginBottom: T.space["2"] }}>{label}</div>
+            <div style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>{tip}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button onClick={handleNext} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Next — Variations
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Variations
+// ─────────────────────────────────────────────────────────────
+function VariationsScreen({ onBack, onNext }) {
+  const T = window.TOKENS;
+  const [selected, setSelected] = React.useState([]);
+
+  const toggle = (id) => setSelected(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+  );
+
+  const variations = [
+    { id: "vertical",   title: "Vertical",    description: "Icon stacked above the brand name. Ideal for social profiles and square formats.", demo: <VerticalLogoDemo /> },
+    { id: "horizontal", title: "Horizontal",  description: "Icon beside the brand name. The most versatile format — great for headers and cards.", demo: <HorizontalLogoDemo /> },
+    { id: "badge",      title: "Badge / Seal", description: "Name wraps around the icon in a circular seal. Adds a premium, established feel.", demo: <BadgeLogoDemo /> },
+    { id: "icon",       title: "Icon Only",   description: "Just the logomark, no text. Used as a standalone symbol across all touchpoints.", demo: <IconOnlyDemo /> },
+    { id: "wordmark",   title: "Wordmark",    description: "Typography-only logo. The brand name itself becomes the visual identity.", demo: <WordmarkDemo /> },
+  ];
+
+  // Pricing: first selection free, each additional $25
+  const extraCount = Math.max(0, selected.length - 1);
+  const extrasTotal = extraCount * 25;
+
+  const getPriceLabel = (id) => {
+    if (selected.length === 0) return "Free";
+    if (selected[0] === id) return "Included";
+    if (selected.includes(id)) return "+$25";
+    return "+$25 ea.";
+  };
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["6"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Choose your logo variations
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          Your first variation is <strong>included free</strong>. Each additional format is <strong>+$25</strong>.
+        </p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: T.space["4"], marginBottom: T.space["6"] }}>
+        {variations.map(v => {
+          const priceLabel = getPriceLabel(v.id);
+          const isFree = priceLabel === "Free" || priceLabel === "Included";
+          return (
+            <div key={v.id} style={{ position: "relative" }}>
+              {/* Price badge */}
+              <div style={{
+                position: "absolute", top: T.space["3"], left: T.space["3"], zIndex: 2,
+                background: isFree ? T.color.accent : T.color.surface,
+                border: `1px solid ${isFree ? T.color.accent : T.color.border}`,
+                color: isFree ? "#fff" : T.color.textSecondary,
+                fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold,
+                borderRadius: T.radius.full, padding: `2px ${T.space["3"]}`,
+                letterSpacing: T.letterSpacing.wide,
+              }}>{priceLabel}</div>
+              <VariationCard title={v.title} description={v.description} selected={selected.includes(v.id)} onClick={() => toggle(v.id)}>
+                {v.demo}
+              </VariationCard>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Running total */}
+      {selected.length > 1 && (
+        <div style={{ background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.lg, padding: T.space["4"], marginBottom: T.space["6"], display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary }}>
+            1 included + {extraCount} extra variation{extraCount > 1 ? "s" : ""}
+          </span>
+          <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: T.color.accent }}>+${extrasTotal} added</span>
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>
+          {selected.length === 0 ? "Select at least one variation" : `${selected.length} variation${selected.length > 1 ? "s" : ""} selected`}
+        </span>
+        <Button onClick={() => selected.length > 0 && onNext(selected)} disabled={selected.length === 0} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Next — Style
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Company Info (after choosing variation type)
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Brand Info (step 2 for BOTH flows)
+// New logo → no upload. Redesign → handled by UploadScreen.
+// ─────────────────────────────────────────────────────────────
+function BrandInfoScreen({ onBack, onNext }) {
+  const T = window.TOKENS;
+  const [companyName, setCompany] = React.useState("");
+  const [tagline, setTagline]     = React.useState("");
+  const [estYear, setEstYear]     = React.useState("");
+  const [description, setDesc]    = React.useState("");
+  const [errors, setErrors]       = React.useState({});
+
+  const validate = () => {
+    const e = {};
+    if (!companyName.trim()) e.companyName = "Company name is required";
+    return e;
+  };
+
+  const handleNext = () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    onNext({ companyName, tagline, estYear, description });
+  };
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Tell us about your brand
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          This helps us shape your logo to fit your identity. The more you share, the better the result.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: T.space["6"], maxWidth: "560px", marginBottom: T.space["6"] }}>
+        <TextInput
+          label="Company Name"
+          placeholder="e.g. Apex Studio"
+          value={companyName}
+          onChange={v => { setCompany(v); setErrors(p => ({...p, companyName: ""})); }}
+          required
+          error={errors.companyName}
+        />
+        <TextInput
+          label="Tagline"
+          placeholder="e.g. Crafting tomorrow's brands"
+          value={tagline}
+          onChange={setTagline}
+          hint="Optional"
+        />
+        <TextInput
+          label="Established Year"
+          placeholder="e.g. 2019"
+          value={estYear}
+          onChange={setEstYear}
+          hint="Optional"
+          note="This will only appear in your logo if you'd like it to — leave it blank to keep things clean."
+        />
+      </div>
+
+      {/* About the company */}
+      <div style={{ maxWidth: "560px", marginBottom: T.space["10"] }}>
+        <label style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, display: "block", marginBottom: T.space["2"] }}>
+          About your company
+          <span style={{ fontSize: T.fontSize.xs, fontWeight: 400, color: T.color.accent, marginLeft: T.space["2"] }}>Recommended</span>
+        </label>
+        <p style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginBottom: T.space["3"], lineHeight: T.lineHeight.normal }}>
+          Tell us what you do, who your audience is, your values, and the feeling you want your logo to convey. This is optional but the more context you give, the more tailored the result.
+        </p>
+        <textarea
+          value={description}
+          onChange={e => setDesc(e.target.value)}
+          placeholder="e.g. We're a boutique creative studio focused on sustainable brands. Our clients are conscious entrepreneurs who want a bold but approachable identity…"
+          rows={5}
+          style={{ width: "100%", fontFamily: T.font.sans, fontSize: T.fontSize.base, color: T.color.textPrimary, background: T.color.surface, border: `1.5px solid ${T.color.border}`, borderRadius: T.radius.md, padding: T.space["4"], resize: "vertical", outline: "none", lineHeight: T.lineHeight.normal, boxSizing: "border-box" }}
+        />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button onClick={handleNext} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Next — Variations
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Style Picker (icon path + redesign path)
+// ─────────────────────────────────────────────────────────────
+function Spinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 0.8s linear infinite" }}>
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeDasharray="20 14" opacity="0.6"/>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </svg>
+  );
+}
+
+const MAX_SELECT = 6;
+const BATCH_SIZE = 9;
+
+function StylePickerScreen({ onBack, onNext, accentColor }) {
+  const T = window.TOKENS;
+  const [selected, setSelected]        = React.useState([]);
+  const [inspirationFile, setInspFile] = React.useState(null);
+  const [loadingFirst, setLoadingFirst] = React.useState(true);
+  const [loadingMore, setLoadingMore]  = React.useState(false);
+  const [visibleCount, setVisibleCount] = React.useState(BATCH_SIZE);
+  const fileRef = React.useRef();
+
+  // Initial skeleton → cards
+  React.useEffect(() => {
+    const t = setTimeout(() => setLoadingFirst(false), 900);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Remove unused IntersectionObserver
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= MAX_SELECT) return prev; // cap at 6
+      return [...prev, id];
+    });
+  };
+
+  const visiblePresets = STYLE_PRESETS.slice(0, visibleCount);
+  const hasMore = visibleCount < STYLE_PRESETS.length;
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Choose a design style
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          Pick up to <strong>6 styles</strong> that resonate with your brand. We'll use these as the visual foundation.
+        </p>
+      </div>
+
+      {/* Inspiration upload banner */}
+      <div
+        onClick={() => fileRef.current.click()}
+        style={{
+          display: "flex", alignItems: "center", gap: T.space["4"],
+          background: inspirationFile ? T.color.accentLight : T.color.surface,
+          border: `1.5px dashed ${inspirationFile ? T.color.accent : T.color.border}`,
+          borderRadius: T.radius.lg,
+          padding: T.space["5"],
+          cursor: "pointer",
+          marginBottom: T.space["6"],
+          transition: "all 180ms ease",
+        }}
+      >
+        <input ref={fileRef} type="file" accept="image/*,.pdf,.svg" style={{ display: "none" }}
+          onChange={e => e.target.files[0] && setInspFile(e.target.files[0])} />
+        <div style={{ width: "40px", height: "40px", borderRadius: T.radius.md, background: inspirationFile ? T.color.accent : T.color.surfaceAlt, border: `1px solid ${T.color.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M9 12V4M5 8l4-4 4 4" stroke={inspirationFile ? "#fff" : T.color.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <rect x="3" y="14" width="12" height="2" rx="1" fill={inspirationFile ? "#fff" : T.color.border}/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: inspirationFile ? T.color.accent : T.color.textPrimary }}>
+            {inspirationFile ? inspirationFile.name : "Upload inspiration from a competitor or brand you admire"}
+          </div>
+          <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginTop: "2px" }}>
+            {inspirationFile ? `${(inspirationFile.size/1024).toFixed(1)} KB · Click to replace` : "Optional — JPG, PNG, PDF, SVG · Or just pick styles below"}
+          </div>
+        </div>
+        {!inspirationFile && (
+          <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: T.color.accent, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.full, padding: `${T.space["1"]} ${T.space["3"]}`, whiteSpace: "nowrap" }}>
+            Browse
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: T.space["4"], marginBottom: T.space["5"] }}>
+        <div style={{ flex: 1, height: "1px", background: T.color.border }} />
+        <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, letterSpacing: T.letterSpacing.wide, textTransform: "uppercase" }}>or choose from styles below</span>
+        <div style={{ flex: 1, height: "1px", background: T.color.border }} />
+      </div>
+
+      {/* Selection counter badge */}
+      {selected.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: T.space["3"], marginBottom: T.space["4"] }}>
+          <div style={{ background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.full, padding: `${T.space["1"]} ${T.space["4"]}`, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.accent }}>
+            {selected.length} / {MAX_SELECT} selected
+          </div>
+          {selected.length >= MAX_SELECT && (
+            <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}>Maximum reached — deselect one to choose another</span>
+          )}
+        </div>
+      )}
+
+      {/* Style cards grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: T.space["4"], marginBottom: T.space["6"] }}>
+        {loadingFirst
+          ? [...Array(BATCH_SIZE)].map((_, i) => (
+              <div key={i} className="skeleton" style={{ aspectRatio: "4/3", borderRadius: "12px" }} />
+            ))
+          : visiblePresets.map((s, i) => (
+              <StyleCard
+                key={s.id}
+                label={s.label}
+                sublabel={s.sublabel}
+                selected={selected.includes(s.id)}
+                onClick={() => toggleSelect(s.id)}
+                index={i}
+                dimmed={selected.length >= MAX_SELECT && !selected.includes(s.id)}
+              >
+                {s.preview(accentColor || T.color.accent)}
+              </StyleCard>
+            ))
+        }
+        {/* Lazy-load skeletons */}
+        {loadingMore && [...Array(BATCH_SIZE)].map((_, i) => (
+          <div key={"more-"+i} className="skeleton" style={{ aspectRatio: "4/3", borderRadius: "12px" }} />
+        ))}
+      </div>
+
+      {!loadingFirst && hasMore && (
+        <div style={{ display: "flex", justifyContent: "center", paddingBottom: T.space["6"] }}>
+          <button
+            onClick={() => {
+              if (loadingMore) return;
+              setLoadingMore(true);
+              setTimeout(() => {
+                setVisibleCount(c => Math.min(c + BATCH_SIZE, STYLE_PRESETS.length));
+                setLoadingMore(false);
+              }, 800);
+            }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: T.space["2"],
+              background: T.color.surface, border: `1.5px solid ${T.color.border}`,
+              borderRadius: T.radius.full, padding: `${T.space["3"]} ${T.space["6"]}`,
+              fontSize: T.fontSize.sm, fontWeight: T.fontWeight.medium,
+              color: T.color.textSecondary, fontFamily: T.font.sans,
+              cursor: loadingMore ? "wait" : "pointer",
+              transition: "all 180ms ease",
+              opacity: loadingMore ? 0.6 : 1,
+            }}
+          >
+            {loadingMore
+              ? <><Spinner /> Loading...</>
+              : <><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 9l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg> Load more styles</>
+            }
+          </button>
+        </div>
+      )}
+
+      {!loadingFirst && !hasMore && (
+        <div style={{ textAlign: "center", padding: `${T.space["2"]} 0 ${T.space["6"]}`, fontSize: T.fontSize.xs, color: T.color.textMuted, letterSpacing: T.letterSpacing.wide, textTransform: "uppercase" }}>
+          All styles loaded
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: T.space["4"], borderTop: `1px solid ${T.color.border}` }}>
+        <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>
+          {selected.length === 0 && !inspirationFile
+            ? "Choose up to 6 styles or upload inspiration"
+            : selected.length > 0
+              ? `${selected.length} style${selected.length > 1 ? "s" : ""} selected`
+              : `Inspiration: ${inspirationFile?.name}`
+          }
+        </span>
+        <Button
+          onClick={() => (selected.length > 0 || inspirationFile) && onNext({ styles: selected, inspirationFile })}
+          disabled={selected.length === 0 && !inspirationFile}
+          size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// COLOR PALETTES DATA
+// ─────────────────────────────────────────────────────────────
+const COLOR_FAMILIES = [
+  {
+    id: "designer",
+    label: "Designer's Choice",
+    sublabel: "Curated modern palette",
+    colors: [
+      "#1E2D40","#E85D4A","#4A9E8A",
+      "#F0C060","#7B5EA7","#E8A598",
+      "#2C5F6E","#F5EFE0","#B5714A",
+    ],
+  },
+  {
+    id: "reds",
+    label: "Reds",
+    sublabel: "Crimson to blush",
+    colors: [
+      "#6B0F1A","#A31621","#CC2936",
+      "#E05252","#EA7F7F","#F2AAAA",
+      "#FAD4D4","#FDEAEA","#FFF5F5",
+    ],
+  },
+  {
+    id: "blues",
+    label: "Blues",
+    sublabel: "Navy to sky",
+    colors: [
+      "#0C1E3D","#1A3A8F","#2255CC",
+      "#4A80E0","#6B9EED","#93BDF5",
+      "#C5DAFC","#E3EEFF","#F0F6FF",
+    ],
+  },
+  {
+    id: "greens",
+    label: "Greens",
+    sublabel: "Forest to mint",
+    colors: [
+      "#0B3D2E","#165A42","#1E7A55",
+      "#2EA876","#4DC499","#7EDAB9",
+      "#B4EDD9","#DAFAEF","#F0FDF8",
+    ],
+  },
+  {
+    id: "oranges",
+    label: "Oranges",
+    sublabel: "Amber to peach",
+    colors: [
+      "#7A2800","#B03800","#E04A00",
+      "#F06A20","#F5904C","#F9B480",
+      "#FDD5B4","#FEEDDF","#FFF8F3",
+    ],
+  },
+  {
+    id: "pinks",
+    label: "Pinks",
+    sublabel: "Hot pink to blush",
+    colors: [
+      "#8B0050","#C0106E","#E8258C",
+      "#F05AAA","#F588C4","#F9B5DC",
+      "#FCDDF0","#FEF0F8","#FFF8FD",
+    ],
+  },
+  {
+    id: "purples",
+    label: "Purples",
+    sublabel: "Deep violet to lavender",
+    colors: [
+      "#2A0A4F","#4A1080","#7B2FC4",
+      "#A055E0","#BE88F2","#D8B4FA",
+      "#EDD9FF","#F7EEFF","#FCF8FF",
+    ],
+  },
+  {
+    id: "browns",
+    label: "Browns",
+    sublabel: "Espresso to sand",
+    colors: [
+      "#2C1505","#4E2309","#7A3B10",
+      "#A05A2C","#C47F4E","#D9A87C",
+      "#EDD3B5","#F7EAD8","#FDF6EE",
+    ],
+  },
+  {
+    id: "neutrals",
+    label: "Neutrals",
+    sublabel: "Black to white",
+    colors: [
+      "#080808","#1F1F1F","#3A3A3A",
+      "#5C5C5C","#808080","#A3A3A3",
+      "#C8C8C8","#E4E4E4","#FFFFFF",
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// COLOR PICKER MODAL (HSV)
+// ─────────────────────────────────────────────────────────────
+function hsvToHex(h, s, v) {
+  s /= 100; v /= 100;
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  let r, g, b;
+  if (h < 60)       { r=c; g=x; b=0; }
+  else if (h < 120) { r=x; g=c; b=0; }
+  else if (h < 180) { r=0; g=c; b=x; }
+  else if (h < 240) { r=0; g=x; b=c; }
+  else if (h < 300) { r=x; g=0; b=c; }
+  else              { r=c; g=0; b=x; }
+  const toHex = n => Math.round((n + m) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+function hexToHsv(hex) {
+  const clean = hex.replace(/^#/, "");
+  if (clean.length !== 6) return null;
+  const r = parseInt(clean.slice(0,2),16)/255;
+  const g = parseInt(clean.slice(2,4),16)/255;
+  const b = parseInt(clean.slice(4,6),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r)      h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else                h = (r - g) / d + 4;
+    h = Math.round(h * 60); if (h < 0) h += 360;
+  }
+  return { h, s: max === 0 ? 0 : Math.round(d / max * 100), v: Math.round(max * 100) };
+}
+
+function ColorPickerModal({ onAdd, onClose }) {
+  const T = window.TOKENS;
+  const [hue, setHue]     = React.useState(210);
+  const [sat, setSat]     = React.useState(80);
+  const [val, setVal]     = React.useState(90);
+  const [hexIn, setHexIn] = React.useState("");
+  const [hexErr, setHexErr] = React.useState("");
+  const squareRef = React.useRef();
+  const hueRef    = React.useRef();
+  const popupRef  = React.useRef();
+  const dragging  = React.useRef(null);
+
+  const currentHex = hsvToHex(hue, sat, val);
+  React.useEffect(() => { setHexIn(currentHex.slice(1)); }, [hue, sat, val]);
+
+  // Escape key + click outside to close
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    const onOutside = (e) => { if (popupRef.current && !popupRef.current.contains(e.target)) onClose(); };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onOutside);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onOutside);
+    };
+  }, []);
+
+  const getSquarePos = (e, el) => {
+    const r = el.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    return {
+      s: Math.round(Math.max(0, Math.min(1, (cx - r.left) / r.width)) * 100),
+      v: Math.round(Math.max(0, Math.min(1, 1 - (cy - r.top) / r.height)) * 100),
+    };
+  };
+  const getHuePos = (e, el) => {
+    const r = el.getBoundingClientRect();
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+    return Math.round(Math.max(0, Math.min(1, (cy - r.top) / r.height)) * 360);
+  };
+
+  React.useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+      if (dragging.current === "square") { const p = getSquarePos(e, squareRef.current); setSat(p.s); setVal(p.v); }
+      else { setHue(getHuePos(e, hueRef.current)); }
+    };
+    const onUp = () => { dragging.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const handleHexInput = (v) => {
+    const clean = v.replace(/[^0-9A-Fa-f]/g, "").slice(0, 6);
+    setHexIn(clean); setHexErr("");
+    if (clean.length === 6) { const hsv = hexToHsv("#" + clean); if (hsv) { setHue(hsv.h); setSat(hsv.s); setVal(hsv.v); } }
+  };
+
+  const handleAdd = () => {
+    if (hexIn.length !== 6) { setHexErr("Complete the hex code"); return; }
+    onAdd(currentHex);
+  };
+
+  const hueColor = `hsl(${hue}, 100%, 50%)`;
+
+  return (
+    <div ref={popupRef} style={{
+      position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200,
+      background: T.color.surface, borderRadius: T.radius.xl,
+      boxShadow: "0 8px 32px rgba(26,23,20,0.18), 0 2px 8px rgba(26,23,20,0.10)",
+      padding: T.space["5"], width: "300px",
+      border: `1px solid ${T.color.border}`,
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space["4"] }}>
+        <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary }}>Select a color</span>
+        <button onClick={onClose} style={{ width: "26px", height: "26px", borderRadius: T.radius.full, border: `1px solid ${T.color.border}`, background: T.color.surfaceAlt, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.color.textSecondary }}>
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 1l7 7M8 1L1 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+        </button>
+      </div>
+
+      {/* Picker: square + hue */}
+      <div style={{ display: "flex", gap: T.space["3"], marginBottom: T.space["4"] }}>
+        <div ref={squareRef}
+          onMouseDown={e => { dragging.current = "square"; const p = getSquarePos(e, squareRef.current); setSat(p.s); setVal(p.v); }}
+          style={{ flex: 1, aspectRatio: "1/1", borderRadius: T.radius.md, cursor: "crosshair", position: "relative", overflow: "hidden", userSelect: "none", background: hueColor, boxShadow: `inset 0 0 0 1px ${T.color.border}` }}
+        >
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, #fff, transparent)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #000, transparent)" }} />
+          <div style={{ position: "absolute", left: `${sat}%`, top: `${100 - val}%`, width: "13px", height: "13px", borderRadius: "50%", border: "2.5px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.4)", transform: "translate(-50%,-50%)", pointerEvents: "none", background: currentHex }} />
+        </div>
+        <div style={{ width: "18px", position: "relative", flexShrink: 0 }}>
+          <div ref={hueRef}
+            onMouseDown={e => { dragging.current = "hue"; setHue(getHuePos(e, hueRef.current)); }}
+            style={{ width: "100%", height: "100%", borderRadius: T.radius.sm, cursor: "pointer", userSelect: "none", background: "linear-gradient(to bottom,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)", boxShadow: `inset 0 0 0 1px ${T.color.border}` }}
+          />
+          <div style={{ position: "absolute", left: "-3px", right: "-3px", top: `${(hue / 360) * 100}%`, height: "4px", borderRadius: "2px", background: "#fff", boxShadow: "0 0 0 1.5px rgba(0,0,0,0.25)", pointerEvents: "none", transform: "translateY(-50%)" }} />
+        </div>
+      </div>
+
+      {/* Bottom row: swatch + hex + add */}
+      <div style={{ display: "flex", gap: T.space["2"], alignItems: "center" }}>
+        <div style={{ width: "34px", height: "34px", borderRadius: T.radius.md, background: currentHex, border: `1px solid ${T.color.border}`, flexShrink: 0 }} />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", border: `1.5px solid ${hexErr ? T.color.error : T.color.border}`, borderRadius: T.radius.md, overflow: "hidden", background: T.color.surfaceAlt }}>
+          <span style={{ padding: `0 ${T.space["1"]} 0 ${T.space["3"]}`, fontSize: T.fontSize.sm, color: T.color.textMuted, fontFamily: T.font.mono, userSelect: "none" }}>#</span>
+          <input value={hexIn} onChange={e => handleHexInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") onClose(); }}
+            placeholder="D97757"
+            style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: T.font.mono, fontSize: T.fontSize.sm, color: T.color.textPrimary, padding: `${T.space["2"]} ${T.space["1"]} ${T.space["2"]} 0`, textTransform: "uppercase", width: "100%" }}
+          />
+        </div>
+        <Button onClick={handleAdd} size="sm">Add</Button>
+      </div>
+      {hexErr && <div style={{ fontSize: T.fontSize.xs, color: T.color.error, marginTop: T.space["2"] }}>{hexErr}</div>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// COLOR SWATCH CARD (3×3 grid)
+// ─────────────────────────────────────────────────────────────
+function ColorFamilyCard({ family, selected, onClick, index, dimmed }) {
+  const T = window.TOKENS;
+  const [hovered, setHovered] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setVisible(true), index * 60);
+    return () => clearTimeout(t);
+  }, [index]);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        borderRadius: T.radius.lg,
+        border: `3px solid ${selected ? T.color.accent : hovered ? T.color.accentMuted : "transparent"}`,
+        cursor: "pointer",
+        transition: "all 200ms cubic-bezier(0,0,0.2,1)",
+        boxShadow: selected ? T.shadow.lg : hovered ? T.shadow.md : T.shadow.sm,
+        overflow: "hidden",
+        opacity: visible ? (dimmed ? 0.35 : 1) : 0,
+        cursor: dimmed ? "not-allowed" : "pointer",
+        transform: visible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.97)",
+        position: "relative",
+      }}
+    >
+      {selected && (
+        <div style={{ position: "absolute", top: 8, right: 8, width: "22px", height: "22px", borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}>
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l2.5 2.5 5-5" stroke={T.color.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+      )}
+
+      {/* 3×3 color grid — fills entire card */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(3, 1fr)", aspectRatio: "1/1" }}>
+        {family.colors.map((hex, i) => (
+          <div key={i} style={{ background: hex, aspectRatio: "1/1" }} />
+        ))}
+      </div>
+
+      {/* Label */}
+      <div style={{ padding: `${T.space["3"]} ${T.space["4"]}`, background: T.color.surface }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary }}>{family.label}</div>
+        <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginTop: "2px" }}>{family.sublabel}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Color Picker
+// ─────────────────────────────────────────────────────────────
+function ColorPickerScreen({ onBack, onNext, serviceType }) {
+  const T = window.TOKENS;
+  const MAX_COLORS = 5;
+  const MAX_CUSTOM = 10;
+  const [selected, setSelected]       = React.useState([]);
+  const [useSameColors, setUseSame]   = React.useState(false);
+  const [customColors, setCustom]     = React.useState([]);
+  const [showPicker, setShowPicker]   = React.useState(false);
+
+  const toggle = (id) => {
+    setSelected(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= MAX_COLORS) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const canProceed = useSameColors || selected.length > 0 || customColors.length > 0;
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Choose a color direction
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          Pick up to <strong>5 palettes</strong>, add custom hex colors, or both.
+        </p>
+      </div>
+
+      {/* Use same colors — redesign only */}
+      {serviceType === "redesign" && (
+        <div
+          onClick={() => setUseSame(v => !v)}
+          style={{
+            display: "flex", alignItems: "center", gap: T.space["4"],
+            background: useSameColors ? T.color.accentLight : T.color.surface,
+            border: `1.5px solid ${useSameColors ? T.color.accent : T.color.border}`,
+            borderRadius: T.radius.lg, padding: T.space["5"], cursor: "pointer",
+            marginBottom: T.space["4"], transition: "all 180ms ease",
+          }}
+        >
+          <div style={{
+            width: "22px", height: "22px", borderRadius: T.radius.full, flexShrink: 0,
+            border: `2px solid ${useSameColors ? T.color.accent : T.color.border}`,
+            background: useSameColors ? T.color.accent : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 180ms ease",
+          }}>
+            {useSameColors && <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l2.5 2.5 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+          <div>
+            <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: useSameColors ? T.color.accent : T.color.textPrimary }}>Use the same colors as my current logo</div>
+            <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginTop: "2px" }}>We'll extract and carry over the color palette from your uploaded logo</div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom color input row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: T.space["3"], flexWrap: "wrap",
+        background: T.color.surface, border: `1.5px solid ${T.color.border}`,
+        borderRadius: T.radius.lg, padding: `${T.space["4"]} ${T.space["5"]}`,
+        marginBottom: T.space["5"], minHeight: "60px",
+      }}>
+        {/* (+) button with anchored picker */}
+        {customColors.length < MAX_CUSTOM && (
+          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: T.space["3"] }}>
+            <button
+              onClick={() => setShowPicker(v => !v)}
+              style={{
+                width: "36px", height: "36px", borderRadius: T.radius.md, flexShrink: 0,
+                background: showPicker ? T.color.accentLight : T.color.surfaceAlt,
+                border: `1.5px solid ${showPicker ? T.color.accent : T.color.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "all 150ms ease",
+                color: showPicker ? T.color.accent : T.color.textSecondary, fontFamily: T.font.sans,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </button>
+            {customColors.length === 0 && !showPicker && (
+              <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>Add a custom color</span>
+            )}
+            {showPicker && (
+              <ColorPickerModal
+                onAdd={(hex) => {
+                  if (!customColors.includes(hex) && customColors.length < MAX_CUSTOM) {
+                    setCustom(prev => [...prev, hex]);
+                  }
+                  setShowPicker(false);
+                }}
+                onClose={() => setShowPicker(false)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Color swatches */}
+        {customColors.map((hex, i) => (
+          <div key={hex+i} style={{ position: "relative", flexShrink: 0 }} title={hex}>
+            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: hex, border: `1px solid ${T.color.border}`, cursor: "pointer", transition: "transform 150ms ease" }}
+              onMouseEnter={e => e.currentTarget.nextSibling.style.opacity = "1"}
+              onMouseLeave={e => e.currentTarget.nextSibling.style.opacity = "0"}
+            />
+            <button
+              onClick={() => setCustom(prev => prev.filter((_, j) => j !== i))}
+              style={{ position: "absolute", top: "-5px", right: "-5px", width: "16px", height: "16px", borderRadius: "50%", background: T.color.textPrimary, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 150ms ease" }}
+            >
+              <svg width="7" height="7" viewBox="0 0 7 7" fill="none"><path d="M1 1l5 5M6 1L1 6" stroke="#fff" strokeWidth="1.4" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+        ))}
+
+        {customColors.length > 0 && (
+          <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginLeft: "auto" }}>{customColors.length}/{MAX_CUSTOM}</span>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div style={{ display: "flex", alignItems: "center", gap: T.space["4"], marginBottom: T.space["5"] }}>
+        <div style={{ flex: 1, height: "1px", background: T.color.border }} />
+        <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, letterSpacing: T.letterSpacing.wide, textTransform: "uppercase" }}>or pick a palette family</span>
+        <div style={{ flex: 1, height: "1px", background: T.color.border }} />
+      </div>
+
+      {/* Counter badge */}
+      {selected.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: T.space["3"], marginBottom: T.space["4"] }}>
+          <div style={{ background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.full, padding: `${T.space["1"]} ${T.space["4"]}`, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.accent }}>
+            {selected.length} / {MAX_COLORS} selected
+          </div>
+          {selected.length >= MAX_COLORS && <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}>Maximum reached</span>}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: T.space["4"], marginBottom: T.space["10"] }}>
+        {COLOR_FAMILIES.map((family, i) => (
+          <ColorFamilyCard
+            key={family.id}
+            family={family}
+            selected={selected.includes(family.id)}
+            onClick={() => toggle(family.id)}
+            index={i}
+            dimmed={selected.length >= MAX_COLORS && !selected.includes(family.id)}
+          />
+        ))}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: T.space["4"], borderTop: `1px solid ${T.color.border}` }}>
+        <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>
+          {!canProceed ? "Select a palette, add custom colors, or use your logo's colors" : [
+            selected.length > 0 && `${selected.length} palette${selected.length > 1 ? "s" : ""}`,
+            customColors.length > 0 && `${customColors.length} custom color${customColors.length > 1 ? "s" : ""}`,
+            useSameColors && "using logo colors",
+          ].filter(Boolean).join(" · ")}
+        </span>
+        <Button
+          onClick={() => canProceed && onNext({ colorFamilies: selected, customColors, useSameColors })}
+          disabled={!canProceed}
+          size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        >
+          Next — Review Order
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// TYPOGRAPHY SCREEN
+// ─────────────────────────────────────────────────────────────
+const FONT_CATEGORIES = {
+  serif: {
+    label: "Serif",
+    fonts: [
+      // Top 9
+      { id: "playfair",    name: "Playfair Display",   family: "'Playfair Display', serif",    weight: 700, sample: "Elegant & Timeless" },
+      { id: "lora",        name: "Lora",               family: "'Lora', serif",                weight: 600, sample: "Warm & Readable" },
+      { id: "merriweather",name: "Merriweather",       family: "'Merriweather', serif",        weight: 700, sample: "Solid & Dependable" },
+      { id: "cormorant",   name: "Cormorant Garamond", family: "'Cormorant Garamond', serif",  weight: 600, sample: "Refined & Delicate" },
+      { id: "ebgaramond",  name: "EB Garamond",        family: "'EB Garamond', serif",         weight: 700, sample: "Classic & Literary" },
+      { id: "baskerville", name: "Libre Baskerville",  family: "'Libre Baskerville', serif",   weight: 700, sample: "Strong & Editorial" },
+      { id: "crimson",     name: "Crimson Text",       family: "'Crimson Text', serif",        weight: 700, sample: "Rich & Bookish" },
+      { id: "sourceserif", name: "Source Serif 4",     family: "'Source Serif 4', serif",      weight: 700, sample: "Neutral & Versatile" },
+      { id: "spectral",    name: "Spectral",           family: "'Spectral', serif",            weight: 700, sample: "Crisp & Digital" },
+      // Load more
+      { id: "bitter",      name: "Bitter",             family: "'Bitter', serif",              weight: 700, sample: "Punchy & Slab" },
+      { id: "arvo",        name: "Arvo",               family: "'Arvo', serif",                weight: 700, sample: "Geometric Slab" },
+      { id: "ptserif",     name: "PT Serif",           family: "'PT Serif', serif",            weight: 700, sample: "Workhorse Classic" },
+      { id: "cardo",       name: "Cardo",              family: "'Cardo', serif",               weight: 400, sample: "Scholarly & Fine" },
+      { id: "vollkorn",    name: "Vollkorn",           family: "'Vollkorn', serif",            weight: 700, sample: "Dark & Sturdy" },
+      { id: "alegreya",    name: "Alegreya",           family: "'Alegreya', serif",            weight: 700, sample: "Literary & Flowing" },
+      { id: "zillaslab",   name: "Zilla Slab",         family: "'Zilla Slab', serif",          weight: 700, sample: "Mozilla & Modern" },
+      { id: "robotoslab",  name: "Roboto Slab",        family: "'Roboto Slab', serif",         weight: 700, sample: "Tech-forward Serif" },
+      { id: "spectral2",   name: "Spectral Light",     family: "'Spectral', serif",            weight: 300, sample: "Airy & Refined" },
+    ],
+  },
+  sans: {
+    label: "Sans-Serif",
+    fonts: [
+      // Top 9
+      { id: "outfit",      name: "Outfit",             family: "'Outfit', sans-serif",         weight: 700, sample: "Modern & Geometric" },
+      { id: "jakarta",     name: "Plus Jakarta Sans",  family: "'Plus Jakarta Sans', sans-serif", weight: 700, sample: "Friendly & Clean" },
+      { id: "raleway",     name: "Raleway",            family: "'Raleway', sans-serif",        weight: 700, sample: "Sleek & Stylish" },
+      { id: "nunito",      name: "Nunito",             family: "'Nunito', sans-serif",         weight: 700, sample: "Rounded & Warm" },
+      { id: "josefin",     name: "Josefin Sans",       family: "'Josefin Sans', sans-serif",   weight: 700, sample: "Geometric & Minimal" },
+      { id: "poppins",     name: "Poppins",            family: "'Poppins', sans-serif",        weight: 700, sample: "Trendy & Bubbly" },
+      { id: "montserrat",  name: "Montserrat",         family: "'Montserrat', sans-serif",     weight: 700, sample: "Strong & Versatile" },
+      { id: "worksans",    name: "Work Sans",          family: "'Work Sans', sans-serif",      weight: 700, sample: "Practical & Clean" },
+      { id: "barlow",      name: "Barlow",             family: "'Barlow', sans-serif",         weight: 700, sample: "Condensed & Bold" },
+      // Load more
+      { id: "manrope",     name: "Manrope",            family: "'Manrope', sans-serif",        weight: 700, sample: "Sharp & Technical" },
+      { id: "rubik",       name: "Rubik",              family: "'Rubik', sans-serif",          weight: 700, sample: "Playful & Rounded" },
+      { id: "karla",       name: "Karla",              family: "'Karla', sans-serif",          weight: 700, sample: "Low-key & Friendly" },
+      { id: "jost",        name: "Jost",               family: "'Jost', sans-serif",           weight: 700, sample: "Futuristic & Light" },
+      { id: "urbanist",    name: "Urbanist",           family: "'Urbanist', sans-serif",       weight: 700, sample: "City & Contemporary" },
+      { id: "sora",        name: "Sora",               family: "'Sora', sans-serif",           weight: 700, sample: "Clean & Techy" },
+      { id: "figtree",     name: "Figtree",            family: "'Figtree', sans-serif",        weight: 700, sample: "Friendly & Modern" },
+      { id: "dmsans",      name: "DM Sans",            family: "'DM Sans', sans-serif",        weight: 700, sample: "Neutral & Precise" },
+      { id: "josefinlight",name: "Josefin Light",      family: "'Josefin Sans', sans-serif",   weight: 300, sample: "Airy & Minimalist" },
+    ],
+  },
+  handwriting: {
+    label: "Handwriting",
+    fonts: [
+      // Top 9
+      { id: "pacifico",    name: "Pacifico",           family: "'Pacifico', cursive",          weight: 400, sample: "Playful & Retro" },
+      { id: "dancing",     name: "Dancing Script",     family: "'Dancing Script', cursive",    weight: 700, sample: "Flowing & Elegant" },
+      { id: "satisfy",     name: "Satisfy",            family: "'Satisfy', cursive",           weight: 400, sample: "Casual & Charming" },
+      { id: "greatvibes",  name: "Great Vibes",        family: "'Great Vibes', cursive",       weight: 400, sample: "Romantic & Script" },
+      { id: "caveat",      name: "Caveat",             family: "'Caveat', cursive",            weight: 700, sample: "Authentic & Human" },
+      { id: "kaushan",     name: "Kaushan Script",     family: "'Kaushan Script', cursive",    weight: 400, sample: "Bold & Expressive" },
+      { id: "sacramento",  name: "Sacramento",         family: "'Sacramento', cursive",        weight: 400, sample: "Thin & Delicate" },
+      { id: "allura",      name: "Allura",             family: "'Allura', cursive",            weight: 400, sample: "Graceful & Formal" },
+      { id: "lobster",     name: "Lobster",            family: "'Lobster', cursive",           weight: 400, sample: "Fun & Retro" },
+      // Load more
+      { id: "courgette",   name: "Courgette",          family: "'Courgette', cursive",         weight: 400, sample: "Soft & Friendly" },
+      { id: "pinyon",      name: "Pinyon Script",      family: "'Pinyon Script', cursive",     weight: 400, sample: "Ornate & Wedding" },
+      { id: "alex",        name: "Alex Brush",         family: "'Alex Brush', cursive",        weight: 400, sample: "Brush & Modern" },
+      { id: "tangerine",   name: "Tangerine",          family: "'Tangerine', cursive",         weight: 700, sample: "Ultra Fine & Airy" },
+      { id: "rochester",   name: "Rochester",          family: "'Rochester', cursive",         weight: 400, sample: "Vintage & Ink" },
+      { id: "clicker",     name: "Clicker Script",     family: "'Clicker Script', cursive",    weight: 400, sample: "Inky & Casual" },
+      { id: "italianno",   name: "Italianno",          family: "'Italianno', cursive",         weight: 400, sample: "Italian & Romantic" },
+      { id: "caveatbold",  name: "Caveat Bold",        family: "'Caveat', cursive",            weight: 700, sample: "Sketchy & Chunky" },
+      { id: "dancing2",    name: "Dancing Script Light",family: "'Dancing Script', cursive",   weight: 400, sample: "Light & Airy Script" },
+    ],
+  },
+  designer: {
+    label: "Designer's Choice",
+    fonts: [
+      { id: "d-editorial", name: "Editorial Pairing",    family: "'Playfair Display', serif",    weight: 700, sample: "Playfair + Raleway",    sublabel: "Serif headline · Sans body" },
+      { id: "d-modern",    name: "Modern Minimal",       family: "'Josefin Sans', sans-serif",   weight: 700, sample: "Josefin + Nunito",      sublabel: "Geometric · Rounded body" },
+      { id: "d-warm",      name: "Warm & Friendly",      family: "'Lora', serif",                weight: 600, sample: "Lora + Jakarta",        sublabel: "Serif warmth · Clean body" },
+      { id: "d-bold",      name: "Bold Impact",          family: "'Outfit', sans-serif",         weight: 700, sample: "Outfit + EB Garamond",  sublabel: "Strong sans · Classic serif" },
+      { id: "d-script",    name: "Crafted & Script",     family: "'Dancing Script', cursive",    weight: 700, sample: "Dancing + Outfit",      sublabel: "Script accent · Modern body" },
+      { id: "d-luxury",    name: "Luxury Brand",         family: "'Cormorant Garamond', serif",  weight: 300, sample: "Cormorant + Montserrat",sublabel: "Ultra-thin serif · Geometric" },
+      { id: "d-tech",      name: "Tech Forward",         family: "'Manrope', sans-serif",        weight: 700, sample: "Manrope + Jost",        sublabel: "Technical · Futuristic body" },
+      { id: "d-craft",     name: "Artisan Craft",        family: "'Caveat', cursive",            weight: 700, sample: "Caveat + Lora",         sublabel: "Handmade accent · Warm serif" },
+      { id: "d-editorial2",name: "Sophisticated",        family: "'Spectral', serif",            weight: 700, sample: "Spectral + Barlow",     sublabel: "Digital serif · Condensed sans" },
+      // load more
+      { id: "d-playful",   name: "Playful & Pop",        family: "'Pacifico', cursive",          weight: 400, sample: "Pacifico + Nunito",     sublabel: "Fun script · Rounded sans" },
+      { id: "d-editorial3",name: "Magazine",             family: "'Merriweather', serif",        weight: 700, sample: "Merriweather + Work Sans",sublabel: "News serif · Clean editorial" },
+      { id: "d-organic",   name: "Organic & Natural",    family: "'Alegreya', serif",            weight: 700, sample: "Alegreya + Karla",      sublabel: "Literary serif · Subtle sans" },
+      { id: "d-urban",     name: "Urban Street",         family: "'Urbanist', sans-serif",       weight: 700, sample: "Urbanist + Outfit",     sublabel: "City sans · Geometric body" },
+      { id: "d-classic",   name: "Timeless Classic",     family: "'EB Garamond', serif",         weight: 700, sample: "EB Garamond + Josefin", sublabel: "Old-style serif · Thin sans" },
+      { id: "d-retro",     name: "Retro Revival",        family: "'Lobster', cursive",           weight: 400, sample: "Lobster + Raleway",     sublabel: "Retro script · Sleek sans" },
+      { id: "d-minimal2",  name: "Ultra Minimal",        family: "'Figtree', sans-serif",        weight: 300, sample: "Figtree Light + Jost",  sublabel: "Hairline weight · Airy feel" },
+      { id: "d-heritage",  name: "Heritage Brand",       family: "'Bitter', serif",              weight: 700, sample: "Bitter + Work Sans",    sublabel: "Slab serif · Workhorse sans" },
+      { id: "d-creative",  name: "Creative Studio",      family: "'Satisfy', cursive",           weight: 400, sample: "Satisfy + Poppins",     sublabel: "Script warmth · Trendy sans" },
+    ],
+  },
+};
+
+function FontCard({ font, selected, onClick, index, dimmed }) {
+  const T = window.TOKENS;
+  const [visible, setVisible] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false);
+  React.useEffect(() => { const t = setTimeout(() => setVisible(true), index * 60); return () => clearTimeout(t); }, [index]);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: selected ? T.color.accentLight : T.color.surface,
+        border: `2px solid ${selected ? T.color.accent : hovered ? T.color.accentMuted : T.color.border}`,
+        borderRadius: T.radius.lg, padding: T.space["5"], cursor: dimmed ? "not-allowed" : "pointer",
+        transition: "all 200ms ease", position: "relative",
+        opacity: !visible ? 0 : dimmed ? 0.35 : 1,
+        transform: visible ? "translateY(0)" : "translateY(8px)",
+      }}
+    >
+      {selected && (
+        <div style={{ position: "absolute", top: T.space["3"], right: T.space["3"], width: "20px", height: "20px", borderRadius: "50%", background: T.color.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+      )}
+      <div style={{ fontFamily: font.family, fontWeight: font.weight, fontSize: "22px", color: T.color.textPrimary, lineHeight: 1.2, marginBottom: T.space["2"], letterSpacing: "-0.01em" }}>
+        {font.name}
+      </div>
+      <div style={{ fontFamily: font.family, fontWeight: 400, fontSize: "13px", color: T.color.textSecondary, fontStyle: "italic", marginBottom: T.space["3"] }}>
+        {font.sample}
+      </div>
+      {font.sublabel && (
+        <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, background: T.color.surfaceAlt, borderRadius: T.radius.sm, padding: `2px ${T.space["2"]}`, display: "inline-block" }}>{font.sublabel}</div>
+      )}
+      <div style={{ marginTop: T.space["2"], fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: T.color.textMuted, letterSpacing: T.letterSpacing.wide, textTransform: "uppercase" }}>
+        {font.name}
+      </div>
+    </div>
+  );
+}
+
+function TypographyScreen({ onBack, onNext, serviceType, selectedVariations }) {
+  const T = window.TOKENS;
+  const MAX_FONTS = 10;
+  const BATCH = 9;
+  const [sameBrandFont,   setSameBrand]   = React.useState(false);
+  const [uploadedFont,    setUploadFont]  = React.useState(null);
+  const [fontName,        setFontName]    = React.useState("");
+  const [typographyType,  setTypoType]    = React.useState(null);
+  const [inspireFile,     setInspireFile] = React.useState(null);
+  const [inspireLink,     setInspireLink] = React.useState("");
+  const [activeCategory,  setActiveCategory] = React.useState("serif");
+  const [selectedFonts,   setSelectedFonts] = React.useState([]);
+  const [visibleCount,    setVisible]     = React.useState(BATCH);
+  const [loadingMore,     setLoadingMore] = React.useState(false);
+  const fontInputRef  = React.useRef();
+  const inspireRef    = React.useRef();
+
+  const isWordmark  = selectedVariations.includes("wordmark") && selectedVariations.length === 1;
+  const isRedesign  = serviceType === "redesign";
+  const customPrice = isWordmark ? 0 : 100;
+  const canProceed  = typographyType !== null || sameBrandFont;
+
+  const currentFonts = FONT_CATEGORIES[activeCategory].fonts;
+  const visibleFonts = currentFonts.slice(0, visibleCount);
+  const hasMore      = visibleCount < currentFonts.length;
+
+  // Reset visible count when category changes
+  React.useEffect(() => { setVisible(BATCH); }, [activeCategory]);
+
+  const toggleFont = (id) => {
+    setSelectedFonts(prev => {
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      if (prev.length >= MAX_FONTS) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    setTimeout(() => {
+      setVisible(v => Math.min(v + BATCH, currentFonts.length));
+      setLoadingMore(false);
+    }, 700);
+  };
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Typography
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          Choose the type style for your logo. This shapes how your brand voice feels in print and digital.
+        </p>
+      </div>
+
+      {/* ── Same brand font (redesign only) ── */}
+      {isRedesign && (
+        <div style={{ marginBottom: T.space["5"] }}>
+          <div
+            onClick={() => { setSameBrand(v => !v); if (sameBrandFont) { setUploadFont(null); setFontName(""); }; }}
+            style={{ display: "flex", alignItems: "center", gap: T.space["4"], background: sameBrandFont ? T.color.accentLight : T.color.surface, border: `1.5px solid ${sameBrandFont ? T.color.accent : T.color.border}`, borderRadius: T.radius.lg, padding: T.space["5"], cursor: "pointer", transition: "all 180ms ease", marginBottom: sameBrandFont ? T.space["4"] : 0 }}
+          >
+            <div style={{ width: "22px", height: "22px", borderRadius: T.radius.full, border: `2px solid ${sameBrandFont ? T.color.accent : T.color.border}`, background: sameBrandFont ? T.color.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 180ms ease" }}>
+              {sameBrandFont && <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l2.5 2.5 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+            <div>
+              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: sameBrandFont ? T.color.accent : T.color.textPrimary }}>Use the same font as my current brand</div>
+              <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, marginTop: "2px" }}>We'll carry over your existing typeface into the refreshed logo</div>
+            </div>
+          </div>
+          {sameBrandFont && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space["4"], padding: `${T.space["4"]} ${T.space["5"]}`, background: T.color.surfaceAlt, borderRadius: T.radius.lg, border: `1px solid ${T.color.border}` }}>
+              <div>
+                <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["2"] }}>Upload font file <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, fontWeight: 400 }}>Optional</span></div>
+                <div onClick={() => fontInputRef.current.click()} style={{ display: "flex", alignItems: "center", gap: T.space["3"], background: T.color.surface, border: `1.5px dashed ${uploadedFont ? T.color.accent : T.color.border}`, borderRadius: T.radius.md, padding: T.space["3"], cursor: "pointer" }}>
+                  <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" style={{ display: "none" }} onChange={e => e.target.files[0] && setUploadFont(e.target.files[0])} />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 10V3M5 6l3-3 3 3" stroke={uploadedFont ? T.color.accent : T.color.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><rect x="2" y="12" width="12" height="1.5" rx=".75" fill={uploadedFont ? T.color.accent : T.color.border}/></svg>
+                  <span style={{ fontSize: T.fontSize.xs, color: uploadedFont ? T.color.accent : T.color.textMuted }}>{uploadedFont ? uploadedFont.name : "TTF, OTF, WOFF"}</span>
+                </div>
+              </div>
+              <TextInput label="Font Name" placeholder="e.g. Helvetica Neue" value={fontName} onChange={setFontName} hint="Optional" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Typography type options ── */}
+      <div style={{ marginBottom: T.space["6"] }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["3"] }}>Typography type</div>
+        <div style={{ display: "flex", gap: T.space["3"] }}>
+          {[
+            { id: "custom", label: "Custom Typography", sublabel: isWordmark ? "Included with your Wordmark logo" : "Professional custom lettering", price: customPrice },
+            { id: "free",   label: "Free Font",         sublabel: "Curated from our free font library", price: 0 },
+          ].map(opt => {
+            const sel = typographyType === opt.id;
+            return (
+              <div key={opt.id} onClick={() => setTypoType(opt.id)} style={{ flex: 1, padding: T.space["5"], borderRadius: T.radius.lg, border: `2px solid ${sel ? T.color.accent : T.color.border}`, background: sel ? T.color.accentLight : T.color.surface, cursor: "pointer", transition: "all 180ms ease", position: "relative" }}>
+                {opt.id === "custom" && customPrice === 0 && (
+                  <div style={{ position: "absolute", top: "-10px", left: T.space["4"], background: T.color.accent, color: "#fff", fontSize: T.fontSize.xs, fontWeight: T.fontWeight.bold, borderRadius: T.radius.full, padding: `2px ${T.space["3"]}` }}>INCLUDED</div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: T.space["2"] }}>
+                  <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: sel ? T.color.accent : T.color.textPrimary }}>{opt.label}</div>
+                  <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: sel ? T.color.accent : T.color.textPrimary }}>{opt.price === 0 ? "Free" : `+$${opt.price}`}</div>
+                </div>
+                <div style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary }}>{opt.sublabel}</div>
+                <div style={{ marginTop: T.space["3"], width: "20px", height: "20px", borderRadius: "50%", border: `2px solid ${sel ? T.color.accent : T.color.border}`, background: sel ? T.color.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 180ms ease" }}>
+                  {sel && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Inspiration ── */}
+      <div style={{ marginBottom: T.space["6"] }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["3"] }}>Typography inspiration <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, fontWeight: 400 }}>Optional</span></div>
+        <div style={{ display: "flex", gap: T.space["3"] }}>
+          <div onClick={() => inspireRef.current.click()} style={{ flex: 1, display: "flex", alignItems: "center", gap: T.space["3"], background: inspireFile ? T.color.accentLight : T.color.surface, border: `1.5px dashed ${inspireFile ? T.color.accent : T.color.border}`, borderRadius: T.radius.lg, padding: T.space["4"], cursor: "pointer", transition: "all 180ms ease" }}>
+            <input ref={inspireRef} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => e.target.files[0] && setInspireFile(e.target.files[0])} />
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 12V4M5 8l4-4 4 4" stroke={inspireFile ? T.color.accent : T.color.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><rect x="3" y="14" width="12" height="2" rx="1" fill={inspireFile ? T.color.accent : T.color.border}/></svg>
+            <div>
+              <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: inspireFile ? T.color.accent : T.color.textPrimary }}>{inspireFile ? inspireFile.name : "Upload inspiration"}</div>
+              <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}>Image or PDF</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: T.space["2"], background: T.color.surface, border: `1.5px solid ${T.color.border}`, borderRadius: T.radius.lg, padding: `0 ${T.space["4"]}` }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0M10 8h4M2 8h4M8 2v4M8 10v4" stroke={T.color.textMuted} strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <input value={inspireLink} onChange={e => setInspireLink(e.target.value)} placeholder="Paste a link (Google Fonts, website…)" style={{ flex: 1, border: "none", outline: "none", fontFamily: T.font.sans, fontSize: T.fontSize.sm, color: T.color.textPrimary, background: "transparent", padding: `${T.space["4"]} 0` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Font category tabs ── */}
+      <div style={{ marginBottom: T.space["4"] }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["3"] }}>Choose a type style to browse</div>
+        <div style={{ display: "flex", gap: T.space["2"], padding: "4px", background: T.color.surfaceAlt, borderRadius: T.radius.full, width: "fit-content" }}>
+          {Object.entries(FONT_CATEGORIES).map(([key, cat]) => (
+            <button key={key} onClick={() => { setActiveCategory(key); setSelectedFont(null); }}
+              style={{ padding: `${T.space["2"]} ${T.space["5"]}`, borderRadius: T.radius.full, border: "none", cursor: "pointer", fontFamily: T.font.sans, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.medium, transition: "all 180ms ease",
+                background: activeCategory === key ? T.color.surface : "transparent",
+                color: activeCategory === key ? T.color.textPrimary : T.color.textMuted,
+                boxShadow: activeCategory === key ? T.shadow.xs : "none",
+              }}>
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Font selection counter */}
+      {selectedFonts.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: T.space["3"], marginBottom: T.space["3"] }}>
+          <div style={{ background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.full, padding: `${T.space["1"]} ${T.space["4"]}`, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.accent }}>
+            {selectedFonts.length} / {MAX_FONTS} selected
+          </div>
+          {selectedFonts.length >= MAX_FONTS && (
+            <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}>Maximum reached — deselect one to choose another</span>
+          )}
+        </div>
+      )}
+
+      {/* ── Font cards grid ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: T.space["4"], marginBottom: T.space["4"] }}>
+        {visibleFonts.map((font, i) => (
+          <FontCard key={font.id} font={font} selected={selectedFonts.includes(font.id)}
+            onClick={() => toggleFont(font.id)} index={i}
+            dimmed={selectedFonts.length >= MAX_FONTS && !selectedFonts.includes(font.id)}
+          />
+        ))}
+        {loadingMore && [...Array(BATCH)].map((_,i) => (
+          <div key={"sk"+i} className="skeleton" style={{ height: "120px", borderRadius: "12px" }} />
+        ))}
+      </div>
+
+      {/* Load more */}
+      {hasMore && !loadingMore && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: T.space["6"] }}>
+          <button onClick={loadMore} style={{ display: "inline-flex", alignItems: "center", gap: T.space["2"], background: T.color.surface, border: `1.5px solid ${T.color.border}`, borderRadius: T.radius.full, padding: `${T.space["3"]} ${T.space["6"]}`, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.medium, color: T.color.textSecondary, fontFamily: T.font.sans, cursor: "pointer" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 9l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Load more fonts
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: T.space["4"], borderTop: `1px solid ${T.color.border}` }}>
+        <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>
+          {!canProceed ? "Choose a typography type to continue" : [
+            typographyType === "custom" && `Custom Typography${customPrice > 0 ? ` (+$${customPrice})` : " (included)"}`,
+            typographyType === "free" && "Free Font",
+            sameBrandFont && "Using brand font",
+            selectedFonts.length > 0 && `· ${selectedFonts.length} font${selectedFonts.length > 1 ? "s" : ""} selected`,
+          ].filter(Boolean).join(" ")}
+        </span>
+        <Button onClick={() => canProceed && onNext({ typographyType, customPrice, sameBrandFont, uploadedFont, fontName, inspireFile, inspireLink, selectedFonts })}
+          disabled={!canProceed} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Next — Colors
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCREEN: Summary
+// ─────────────────────────────────────────────────────────────
+const VARIATION_LABELS = {
+  vertical: "Vertical Logo", horizontal: "Horizontal Logo",
+  badge: "Badge / Seal Logo", icon: "Icon Only", wordmark: "Wordmark",
+};
+
+function calcTotal(order) {
+  const base = 150;
+  const extras = Math.max(0, (order.variations?.length || 0) - 1) * 25;
+  const typo = (order.typographyType === "custom" && order.customPrice > 0) ? order.customPrice : 0;
+  return base + extras + typo;
+}
+function calcDeposit(total) {
+  return Math.round(total * 0.35 / 5) * 5; // round to nearest $5
+}
+
+function PaymentOption({ label, sublabel, amount, recommended, selected, onClick }) {
+  const T = window.TOKENS;
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flex: 1, padding: T.space["5"], borderRadius: T.radius.lg, cursor: "pointer",
+        border: `2px solid ${selected ? T.color.accent : hovered ? T.color.accentMuted : T.color.border}`,
+        background: selected ? T.color.accentLight : T.color.surface,
+        transition: "all 180ms ease", position: "relative",
+      }}
+    >
+      {recommended && (
+        <div style={{ position: "absolute", top: "-11px", left: T.space["5"], background: T.color.accent, color: "#fff", fontSize: T.fontSize.xs, fontWeight: T.fontWeight.bold, borderRadius: T.radius.full, padding: `2px ${T.space["3"]}`, letterSpacing: T.letterSpacing.wide }}>
+          RECOMMENDED
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: T.space["3"] }}>
+        <div>
+          <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: selected ? T.color.accent : T.color.textPrimary, marginBottom: T.space["1"] }}>{label}</div>
+          <div style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>{sublabel}</div>
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: selected ? T.color.accent : T.color.textPrimary }}>${amount}</div>
+        </div>
+      </div>
+      <div style={{ marginTop: T.space["3"], width: "22px", height: "22px", borderRadius: T.radius.full, border: `2px solid ${selected ? T.color.accent : T.color.border}`, background: selected ? T.color.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 180ms ease" }}>
+        {selected && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// MINI BRAND GUIDELINES DATA
+// ─────────────────────────────────────────────────────────────
+const BRAND_SERVICES = [
+  // Per-variation (price scales with number of logo variations)
+  { id: "safezone",   label: "Logo Safe Zone Instructions", perVariation: true,  tooltip: "Defines the minimum clear space around your logo so it always looks clean and never gets crowded by other elements in layouts, print, or digital media." },
+  { id: "aspectratio",label: "Aspect Ratio Guidelines",     perVariation: true,  tooltip: "Documents the correct proportions for every logo version so it scales perfectly from a tiny favicon to a massive billboard without distortion." },
+  { id: "mockups",    label: "3D Mockups",                  perVariation: true,  tooltip: "Photorealistic renders of your logo on real-world objects — business cards, signage, apparel, packaging — so you can instantly visualize the brand in context." },
+  { id: "nouselogo",  label: "How Not to Use the Logo",     perVariation: true,  tooltip: "A visual guide showing common misuses — stretching, wrong colors, busy backgrounds, rotation — so anyone using your brand stays on-brand automatically." },
+  { id: "mono",       label: "Mono Color Version",          perVariation: true,  tooltip: "A single-color (black or white) version of every logo variation, essential for embroidery, stamps, foil printing, and any scenario where full color isn't available." },
+  // Flat (same cost regardless of variations)
+  { id: "colors",     label: "Color Usage Guidelines",      perVariation: false, tooltip: "Documents your exact brand colors with HEX, RGB, CMYK, and Pantone codes plus rules on when and how to use each — primary, secondary, and accent." },
+  { id: "fonts",      label: "Typography Guidelines",       perVariation: false, tooltip: "Specifies your brand fonts with hierarchy rules (headline, body, caption), sizing guidance, and pairing rationale so your brand voice stays consistent everywhere." },
+  { id: "usage",      label: "Brand Usage Examples",        perVariation: false, tooltip: "Real-world examples showing how the logo, colors, and type work together across business cards, social headers, email signatures, and presentation decks." },
+  { id: "backgrounds",label: "Light & Dark Background Rules",perVariation: false,tooltip: "Shows which logo version to use on light, dark, and colored backgrounds — preventing illegibility and preserving visual hierarchy in every context." },
+  { id: "pattern",    label: "Brand Pattern / Texture",     perVariation: false, tooltip: "A custom repeating pattern derived from your logo mark — useful for packaging, backgrounds, merchandise, and adding depth to brand materials." },
+];
+
+function calcBrandGuidelinesPrice(numVariations) {
+  const perVar = BRAND_SERVICES.filter(s => s.perVariation).length;  // 5
+  const flat   = BRAND_SERVICES.filter(s => !s.perVariation).length; // 5
+  return (perVar * numVariations + flat) * 25;
+}
+
+// Info tooltip component
+function InfoTip({ text }) {
+  const T = window.TOKENS;
+  const [show, setShow] = React.useState(false);
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <div style={{ width: "16px", height: "16px", borderRadius: "50%", border: `1.5px solid ${T.color.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "help", color: T.color.textMuted, flexShrink: 0 }}>
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="3.5" stroke="currentColor" strokeWidth="1"/><path d="M4 3.5v2M4 2.5v.3" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
+      </div>
+      {show && (
+        <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", width: "220px", background: T.color.textPrimary, color: "#fff", fontSize: T.fontSize.xs, lineHeight: T.lineHeight.normal, borderRadius: T.radius.md, padding: `${T.space["3"]} ${T.space["4"]}`, zIndex: 100, pointerEvents: "none", boxShadow: T.shadow.lg }}>
+          {text}
+          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: `5px solid ${T.color.textPrimary}` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mini Brand Guidelines toggle + list
+function BrandGuidelinesAddon({ numVariations, selected, onToggle }) {
+  const T = window.TOKENS;
+  const price = calcBrandGuidelinesPrice(numVariations);
+  const [hovered, setHovered] = React.useState(false);
+
+  return (
+    <div style={{ marginBottom: T.space["6"] }}>
+      <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["4"] }}>
+        Enhance your package
+      </div>
+
+      {/* Toggle card */}
+      <div
+        onClick={onToggle}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{ border: `2px solid ${selected ? T.color.accent : hovered ? T.color.accentMuted : T.color.border}`, borderRadius: T.radius.xl, background: selected ? T.color.accentLight : T.color.surface, cursor: "pointer", transition: "all 180ms ease", overflow: "hidden" }}
+      >
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `${T.space["5"]} ${T.space["6"]}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: T.space["4"] }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: T.radius.md, background: selected ? T.color.accent : T.color.surfaceAlt, border: `1px solid ${selected ? T.color.accent : T.color.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 180ms ease" }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <rect x="2" y="3" width="16" height="14" rx="2" stroke={selected ? "#fff" : T.color.textMuted} strokeWidth="1.5"/>
+                <path d="M5 7h10M5 10h7M5 13h5" stroke={selected ? "#fff" : T.color.textMuted} strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: selected ? T.color.accent : T.color.textPrimary }}>Mini Brand Guidelines</div>
+              <div style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary, marginTop: "2px" }}>
+                Complete visual identity guide · {BRAND_SERVICES.length} deliverables · {numVariations} logo variation{numVariations > 1 ? "s" : ""}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: T.space["4"] }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: selected ? T.color.accent : T.color.textPrimary }}>+${price}</div>
+              <div style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}>${25}/hr · {(perVar => perVar * numVariations + (BRAND_SERVICES.length - perVar))(BRAND_SERVICES.filter(s=>s.perVariation).length)} hrs total</div>
+            </div>
+            <div style={{ width: "24px", height: "24px", borderRadius: T.radius.full, border: `2px solid ${selected ? T.color.accent : T.color.border}`, background: selected ? T.color.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 180ms ease" }}>
+              {selected && <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5l2.5 2.5 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </div>
+          </div>
+        </div>
+
+        {/* Services list — shown when selected */}
+        {selected && (
+          <div style={{ borderTop: `1px solid ${T.color.accentMuted}`, padding: `${T.space["4"]} ${T.space["6"]} ${T.space["5"]}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: `${T.space["3"]} ${T.space["6"]}` }}>
+              {BRAND_SERVICES.map(svc => {
+                const svcPrice = svc.perVariation ? 25 * numVariations : 25;
+                return (
+                  <div key={svc.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: T.space["3"], padding: `${T.space["2"]} 0`, borderBottom: `1px solid ${T.color.accentMuted}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: T.space["2"], flex: 1 }}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0 }}><path d="M2 6l3 3 5-5" stroke={T.color.accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span style={{ fontSize: T.fontSize.sm, color: T.color.textPrimary, lineHeight: T.lineHeight.snug }}>{svc.label}</span>
+                      <InfoTip text={svc.tooltip} />
+                    </div>
+                    <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textSecondary, flexShrink: 0 }}>
+                      ${svcPrice}{svc.perVariation && numVariations > 1 ? <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted }}> ×{numVariations}</span> : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: T.space["4"], display: "flex", justifyContent: "flex-end", fontSize: T.fontSize.sm, color: T.color.textSecondary }}>
+              Subtotal: <strong style={{ color: T.color.accent, marginLeft: T.space["2"] }}>${price}</strong>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryScreen({ onBack, order }) {
+  const T = window.TOKENS;
+  const [submitted, setSubmitted]   = React.useState(false);
+  const [payOption, setPayOption]   = React.useState("deposit");
+  const [addBrandGuide, setBrandGuide] = React.useState(false);
+
+  const numVariations  = order.variations?.length || 1;
+  const brandGuidePrice = addBrandGuide ? calcBrandGuidelinesPrice(numVariations) : 0;
+  const total   = calcTotal(order) + brandGuidePrice;
+  const deposit = calcDeposit(total);
+  const dueNow  = payOption === "deposit" ? deposit : total;
+  const dueLater = payOption === "deposit" ? total - deposit : 0;
+
+  if (submitted) {
+    return (
+      <div className="screen-enter" style={{ textAlign: "center", padding: `${T.space["16"]} 0` }}>
+        <div style={{ width: "72px", height: "72px", borderRadius: T.radius.full, background: T.color.accentLight, border: `2px solid ${T.color.accentMuted}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", marginBottom: T.space["6"] }}>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M6 16l8 8 12-12" stroke={T.color.accent} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+        <h2 style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: T.color.textPrimary, marginBottom: T.space["3"] }}>Order received!</h2>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary, lineHeight: T.lineHeight.normal, maxWidth: "380px", margin: "0 auto" }}>
+          We'll be in touch within 24 hours to confirm your project details and get started.
+        </p>
+      </div>
+    );
+  }
+
+  const rows = [
+    ["Service", order.serviceType === "design" ? "Logo Design" : "Logo Redesign"],
+    order.description && ["About the company", order.description],
+    order.tagline && ["Tagline", `"${order.tagline}"`],
+    order.variations?.length && ["Variations", order.variations.map(v => VARIATION_LABELS[v]).join(", ")],
+    order.typographyType && ["Typography", order.typographyType === "custom" ? `Custom${order.customPrice > 0 ? ` (+$${order.customPrice})` : " (included)"}` : "Free Font"],
+    order.selectedFonts?.length && ["Font inspirations", order.selectedFonts.map(id => Object.values(FONT_CATEGORIES).flatMap(c=>c.fonts).find(f=>f.id===id)?.name).filter(Boolean).join(", ")],
+    order.variations?.length > 1 && ["Variation extras", `${order.variations.length - 1} × $25`],
+    order.colorFamilies?.length && ["Color palettes", order.colorFamilies.map(id => COLOR_FAMILIES.find(f => f.id === id)?.label).join(", ")],
+    order.customColors?.length && ["Custom colors", order.customColors.join("  ")],
+    order.useSameColors && ["Logo colors", "Using colors from uploaded logo"],
+    order.inspirationFile && ["Inspiration file", order.inspirationFile.name],
+    ["Delivery", "SVG + PNG + PDF"],
+    ["Revisions", "2 rounds included"],
+  ].filter(Boolean);
+
+  return (
+    <div className="screen-enter">
+      <BackButton onClick={onBack} />
+      <div style={{ marginBottom: T.space["8"] }}>
+        <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: T.letterSpacing.tight, lineHeight: T.lineHeight.tight, marginBottom: T.space["3"] }}>
+          Review your order
+        </h1>
+        <p style={{ fontSize: T.fontSize.base, color: T.color.textSecondary }}>Everything looks good? Choose how you'd like to pay.</p>
+      </div>
+
+      {/* Order breakdown */}
+      <div style={{ background: T.color.surface, border: `1px solid ${T.color.border}`, borderRadius: T.radius.xl, padding: T.space["8"], marginBottom: T.space["6"] }}>
+        {rows.map(([label, value]) => <SummaryRow key={label} label={label} value={value} />)}
+        <div style={{ marginTop: T.space["2"] }}>
+          <SummaryRow label="Total" value={`$${total}`} highlight />
+        </div>
+      </div>
+
+      {/* Brand Guidelines add-on */}
+      <BrandGuidelinesAddon
+        numVariations={order.variations?.length || 1}
+        selected={addBrandGuide}
+        onToggle={() => setBrandGuide(v => !v)}
+      />
+
+      {/* Payment options */}
+      <div style={{ marginBottom: T.space["6"] }}>
+        <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: T.color.textPrimary, marginBottom: T.space["5"] }}>How would you like to pay?</div>
+        <div style={{ display: "flex", gap: T.space["4"] }}>
+          <PaymentOption
+            label="35% Deposit"
+            sublabel={`Pay now to get started. Remaining $${dueLater > 0 ? dueLater : total - deposit} due on delivery.`}
+            amount={deposit}
+            recommended
+            selected={payOption === "deposit"}
+            onClick={() => setPayOption("deposit")}
+          />
+          <PaymentOption
+            label="Full Payment"
+            sublabel="Pay the complete amount upfront. No balance due on delivery."
+            amount={total}
+            selected={payOption === "full"}
+            onClick={() => setPayOption("full")}
+          />
+        </div>
+      </div>
+
+      {/* Info note */}
+      <div style={{ background: T.color.accentLight, border: `1px solid ${T.color.accentMuted}`, borderRadius: T.radius.lg, padding: T.space["5"], marginBottom: T.space["8"], display: "flex", gap: T.space["3"] }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: "1px" }}><circle cx="9" cy="9" r="8" stroke={T.color.accent} strokeWidth="1.5"/><path d="M9 8v5M9 6v.5" stroke={T.color.accent} strokeWidth="1.8" strokeLinecap="round"/></svg>
+        <p style={{ fontSize: T.fontSize.sm, color: T.color.textSecondary, lineHeight: T.lineHeight.normal }}>
+          We accept all major cards and bank transfers. Work begins once payment is confirmed.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button onClick={() => setSubmitted(true)} size="lg"
+          icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>
+          Pay ${dueNow} Now
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHARED: Back Button
+// ─────────────────────────────────────────────────────────────
+function BackButton({ onClick }) {
+  const T = window.TOKENS;
+  return (
+    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: T.space["2"], background: "none", border: "none", cursor: "pointer", color: T.color.textSecondary, fontSize: T.fontSize.sm, fontFamily: T.font.sans, marginBottom: T.space["8"], padding: 0 }}>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 7H3M6 3L2 7l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      Back
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// FLOWS + PROGRESS CONFIG
+// ─────────────────────────────────────────────────────────────
+// Design → icon path:    service → brand-info → variations → style → colors → summary
+// Design → other path:   service → brand-info → variations → style → typography → colors → summary
+// Redesign path:         service → upload → style → variations → typography → colors → summary
+
+const FLOW_STEPS = {
+  design_icon:    ["Service", "Brand", "Variations", "Style", "Colors", "Review"],
+  design_other:   ["Service", "Brand", "Variations", "Style", "Typography", "Colors", "Review"],
+  redesign:       ["Service", "Upload", "Style", "Variations", "Typography", "Colors", "Review"],
+  default:        ["Service", "Brand", "Variations", "Style", "Colors", "Review"],
+};
+
+const SCREEN_STEP = {
+  service:       { design_icon: 0, design_other: 0, redesign: 0, default: 0 },
+  "brand-info":  { design_icon: 1, design_other: 1, default: 1 },
+  upload:        { redesign: 1 },
+  variations:    { design_icon: 2, design_other: 2, redesign: 3, default: 2 },
+  "style-icon":  { design_icon: 3, design_other: 3, default: 3 },
+  "style-red":   { redesign: 2 },
+  typography:    { design_other: 4, redesign: 4, default: 4 },
+  colors:        { design_icon: 4, design_other: 5, redesign: 5, default: 4 },
+  summary:       { design_icon: 5, design_other: 6, redesign: 6, default: 5 },
+};
+
+// ─────────────────────────────────────────────────────────────
+// ROOT APP
+// ─────────────────────────────────────────────────────────────
+function App() {
+  const T = window.TOKENS;
+  const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakToggle, TweakSlider, TweakText } = window;
+  const [tweaks, setTweaks] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    window.TOKENS.color.accent      = tweaks.accentColor;
+    window.TOKENS.color.accentHover = tweaks.accentColor;
+    window.TOKENS.color.bg          = tweaks.bgColor;
+    document.body.style.background  = tweaks.bgColor;
+    window.TOKENS.radius.xl         = tweaks.cardRadius + "px";
+  }, [tweaks]);
+
+  // ── State ──
+  const [screen, setScreen]           = React.useState("service");
+  const [serviceType, setServiceType] = React.useState(null);  // "design" | "redesign"
+  const [variations, setVariations]   = React.useState([]);
+  const [companyInfo, setCompanyInfo] = React.useState({});
+  const [styleInfo, setStyleInfo]     = React.useState({});
+  const [uploadInfo, setUploadInfo]   = React.useState({});
+  const [colorInfo, setColorInfo]     = React.useState({});
+  const [typographyInfo, setTypoInfo] = React.useState({});
+
+  // Determine which flow we're in
+  const iconOnly = variations.length > 0 && variations.every(v => v === "icon");
+  const hasNonIcon = variations.some(v => v !== "icon");
+
+  let flowKey = "default";
+  if (serviceType === "redesign") flowKey = "redesign";
+  else if (serviceType === "design" && iconOnly && !hasNonIcon) flowKey = "design_icon";
+  else if (serviceType === "design" && (hasNonIcon || variations.length === 0)) flowKey = "design_other";
+
+  const steps    = FLOW_STEPS[flowKey] || FLOW_STEPS.default;
+  const stepMap  = SCREEN_STEP[screen] || {};
+  const stepIdx  = stepMap[flowKey] ?? stepMap["default"] ?? 0;
+
+  const order = { serviceType, variations, ...companyInfo, ...styleInfo, ...uploadInfo, ...colorInfo, ...typographyInfo };
+
+  return (
+    <div style={{ minHeight: "100vh", background: tweaks.bgColor, display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <header style={{ borderBottom: `1px solid ${T.color.border}`, background: T.color.surface, padding: `${T.space["5"]} ${T.space["8"]}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space["3"] }}>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="7" fill={tweaks.accentColor}/>
+            <path d="M7 20L14 8L21 20" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9.5 16h9" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.bold, color: T.color.textPrimary, letterSpacing: "-0.02em" }}>{tweaks.brandName}</span>
+        </div>
+      </header>
+
+      {/* Progress */}
+      <div style={{ borderBottom: `1px solid ${T.color.border}`, background: T.color.surface, padding: `${T.space["5"]} ${T.space["8"]}` }}>
+        <div style={{ maxWidth: "560px" }}>
+          <ProgressBar steps={steps} current={stepIdx} />
+        </div>
+      </div>
+
+      {/* Main */}
+      <main style={{ flex: 1, display: "flex", justifyContent: "center", padding: `${T.space["12"]} ${T.space["8"]} ${T.space["24"]}` }}>
+        <div style={{ width: "100%", maxWidth: "880px" }}>
+
+          {screen === "service" && (
+            <ServiceSelection onSelect={(type) => {
+              setServiceType(type);
+              setScreen(type === "design" ? "brand-info" : "upload");
+            }} />
+          )}
+
+          {screen === "brand-info" && (
+            <BrandInfoScreen
+              onBack={() => setScreen("service")}
+              onNext={(info) => { setCompanyInfo(info); setScreen("variations"); }}
+            />
+          )}
+
+          {screen === "upload" && (
+            <UploadScreen
+              onBack={() => setScreen("service")}
+              onNext={(info) => { setUploadInfo(info); setScreen("style-red"); }}
+            />
+          )}
+
+          {/* Style picker — redesign path */}
+          {screen === "style-red" && (
+            <StylePickerScreen
+              accentColor={tweaks.accentColor}
+              onBack={() => setScreen("upload")}
+              onNext={(info) => { setStyleInfo(info); setScreen("variations"); }}
+            />
+          )}
+
+          {screen === "variations" && (
+            <VariationsScreen
+              onBack={() => setScreen(serviceType === "redesign" ? "style-red" : "brand-info")}
+              onNext={(vars) => {
+                setVariations(vars);
+                setScreen("style-icon");
+              }}
+            />
+          )}
+
+          {/* Style picker — new logo design (all variation types) */}
+          {screen === "style-icon" && (
+            <StylePickerScreen
+              accentColor={tweaks.accentColor}
+              nextLabel={variations.every(v => v === "icon") ? "Next — Colors" : "Next — Details"}
+              onBack={() => setScreen("variations")}
+              onNext={(info) => {
+                setStyleInfo(info);
+                const onlyIcon = variations.length > 0 && variations.every(v => v === "icon");
+                setScreen(onlyIcon ? "colors" : "typography");
+              }}
+            />
+          )}
+
+          {screen === "typography" && (
+            <TypographyScreen
+              serviceType={serviceType}
+              selectedVariations={variations}
+              onBack={() => setScreen(serviceType === "redesign" ? "variations" : "brand-info")}
+              onNext={(info) => {
+                setTypoInfo(info);
+                setScreen("colors");
+              }}
+            />
+          )}
+
+          {/* company-info removed — brand info now collected at step 2 (brand-info / upload screens) */}
+
+          {screen === "colors" && (
+            <ColorPickerScreen
+              serviceType={serviceType}
+              onBack={() => {
+                const onlyIcon = variations.length > 0 && variations.every(v => v === "icon");
+                setScreen(serviceType === "redesign" ? "variations" : onlyIcon ? "style-icon" : "typography");
+              }}
+              onNext={(info) => { setColorInfo(info); setScreen("summary"); }}
+            />
+          )}
+
+          {screen === "summary" && (
+            <SummaryScreen
+              order={order}
+              onBack={() => {
+                if (serviceType === "redesign") setScreen("variations");
+                else if (variations.every(v => v === "icon")) setScreen("style-icon");
+                else setScreen("typography");
+              }}
+            />
+          )}
+        </div>
+      </main>
+
+      {/* Sticky price footer */}
+      {tweaks.showPrice && screen !== "summary" && (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: T.color.surface, borderTop: `1px solid ${T.color.border}`, padding: `${T.space["4"]} ${T.space["8"]}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: T.space["3"] }}>
+            <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>Estimated total</span>
+            {variations.length > 1 && (
+              <span style={{ fontSize: T.fontSize.xs, color: T.color.textMuted, background: T.color.surfaceAlt, border: `1px solid ${T.color.border}`, borderRadius: T.radius.full, padding: `2px ${T.space["3"]}` }}>
+                {variations.length - 1} extra variation{variations.length > 2 ? "s" : ""} +${(variations.length - 1) * 25}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: T.space["1"] }}>
+            <span style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: T.color.textPrimary }}>${150 + Math.max(0, variations.length - 1) * 25 + (typographyInfo.typographyType === "custom" && typographyInfo.customPrice > 0 ? typographyInfo.customPrice : 0)}</span>
+            <span style={{ fontSize: T.fontSize.sm, color: T.color.textMuted }}>total</span>
+          </div>
+        </div>
+      )}
+
+      {/* Tweaks Panel */}
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks}>
+        <TweakSection title="Brand">
+          <TweakText   id="brandName"   label="Studio name"    tweaks={tweaks} setTweaks={setTweaks} />
+          <TweakColor  id="accentColor" label="Accent color"   tweaks={tweaks} setTweaks={setTweaks} />
+          <TweakColor  id="bgColor"     label="Background"     tweaks={tweaks} setTweaks={setTweaks} />
+        </TweakSection>
+        <TweakSection title="Layout">
+          <TweakSlider id="cardRadius"  label="Card radius" min={8} max={36} step={2} tweaks={tweaks} setTweaks={setTweaks} />
+          <TweakToggle id="showPrice"   label="Show price in header" tweaks={tweaks} setTweaks={setTweaks} />
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

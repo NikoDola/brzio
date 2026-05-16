@@ -1,0 +1,48 @@
+/* HTML: <div class="loader"></div> */
+
+.loaderWrapper{
+display: flex;
+justify-content: start;
+margin-top: 14rem;
+   
+
+}
+
+.loader {
+    width: 320px;
+    height: 200px;
+    --c:no-repeat radial-gradient(farthest-side,#f22696 93%,transparent) ;
+    background:
+      var(--c) 0    0,
+      var(--c) 50%  0,
+      var(--c) 100% 0;
+    background-size: 64px 64px;
+    position: relative;
+    animation: l4-0 1s linear infinite alternate;
+  }
+  .loader:before {
+    content: "";
+    position: absolute;
+    width: 53px;
+    height: 200px;
+    background: #f22696;
+    left: 0;
+    top: 1.4px;
+
+    animation: 
+      l4-1 1s  linear infinite alternate,
+      l4-2 0.5s cubic-bezier(0,200,.8,200) infinite;
+  }
+  @keyframes l4-0 {
+    0%      {background-position: 0  100%,50% 0   ,100% 0}
+    8%,42%  {background-position: 0  0   ,50% 0   ,100% 0}
+    50%     {background-position: 0  0   ,50% 100%,100% 0}
+    58%,92% {background-position: 0  0   ,50% 0   ,100% 0}
+    100%    {background-position: 0  0   ,50% 0   ,100% 100%}
+  }
+  @keyframes l4-1 {
+    100% {left:calc(100% - 44px)}
+  }
+  @keyframes l4-2 {
+    100% {top:-0.6px}
+  }

@@ -1,0 +1,41 @@
+[
+  {
+    "id": "niko-dola",
+    "name": "Nikola Dola",
+    "slug": "niko-dola",
+    "role": "Graphic Designer & Brand Strategist",
+    "image": "/team/niko-dola/personal-images/profile.jpg",
+    "heroBg": "/team/niko-dola/personal-images/hero-bg.jpg",
+    "quote": "Great communication equals great progress and great brands.",
+    "bio": "My name is Nikola, and I'm a graphic designer at The Logo Professionals. I'm passionate about international marketing and innovation. My goal is to realize the client's needs by establishing perfect communication between client and designer — because I believe great communication equals great brands.",
+    "instagram": "https://www.instagram.com/logoprofessionals/",
+    "website": "http://www.nikodola.com",
+    "order": 1
+  },
+  {
+    "id": "alekxa-dola",
+    "name": "Aleksandra Dola",
+    "slug": "alekxa-dola",
+    "role": "Senior Graphic Designer",
+    "image": "/team/alekxa-dola/personal-images/profile.webp",
+    "heroBg": "/team/alekxa-dola/personal-images/hero-bg.avif",
+    "quote": "Styles come and go. Good design is a signature, not a style.",
+    "bio": "Hi, I'm Aleksandra — the most creative member of our team. My exceptional skills in vintage and rustic drawing make me a unique asset to every project. With a degree in Informatics and Computer Engineering from Ss. Cyril and Methodius University in Skopje, I combine technical expertise with artistic talent to create designs that perfectly capture our clients' brand identities.",
+    "instagram": "https://www.instagram.com/logoprofessionals/",
+    "website": "",
+    "order": 2
+  },
+  {
+    "id": "igor-dola",
+    "name": "Igor Dola",
+    "slug": "igor-dola",
+    "role": "Creative Director & Lead Designer",
+    "image": "/team/igor-dola/personal-images/profile.webp",
+    "heroBg": "/team/igor-dola/personal-images/hero-bg.avif",
+    "quote": "Every brand has a story. My job is to make it impossible to ignore.",
+    "bio": "Hello, I'm Igor. With over a decade of experience in digital illustration and design, I'm a self-motivated creative who brings ideas to life across both print and digital media. I'm proficient in Photoshop, InDesign, After Effects, and Illustrator, and I also work with advanced 3D tools like Blender to create realistic product presentations and visuals. I don't just build brands visually, I help turn concepts into something you can actually see and feel. My get it done mindset, combined with a strong focus on quality, ensures every project delivers strong, effective results.",
+    "instagram": "https://www.instagram.com/logoprofessionals/",
+    "website": "",
+    "order": 3
+  }
+]

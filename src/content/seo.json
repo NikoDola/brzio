@@ -1,0 +1,42 @@
+{
+  "/": {
+    "title": "Digital Nectar | Creative & Tech Studio",
+    "description": "Digital Nectar is a creative and technology studio specialising in brand identity, logo design, UI/UX, and software engineering. Built by freelance veterans with 15+ years of experience.",
+    "ogImage": ""
+  },
+  "/services": {
+    "title": "Services & Pricing | Digital Nectar",
+    "description": "Order a custom logo design, brand redesign, or full website build. Transparent pricing, fast turnaround, and senior designers on every project.",
+    "ogImage": ""
+  },
+  "/our-work": {
+    "title": "Our Work | Digital Nectar",
+    "description": "Browse the Digital Nectar portfolio: 370+ logos, brand identities, and websites delivered to clients across 36 countries.",
+    "ogImage": ""
+  },
+  "/about-us": {
+    "title": "About Us | Digital Nectar",
+    "description": "Meet the people behind Digital Nectar. A small creative and engineering studio with 15+ years of experience in design, branding, and software.",
+    "ogImage": ""
+  },
+  "/our-team": {
+    "title": "Our Team | Digital Nectar",
+    "description": "Meet the designers, developers, and brand strategists behind Digital Nectar.",
+    "ogImage": ""
+  },
+  "/contact-us": {
+    "title": "Contact Digital Nectar",
+    "description": "Get in touch with our design and development team. We reply within 1 to 2 business days.",
+    "ogImage": ""
+  },
+  "/blog": {
+    "title": "Blog | Digital Nectar",
+    "description": "Design tips, branding strategy, and behind-the-scenes from the Digital Nectar studio.",
+    "ogImage": ""
+  },
+  "/cookie-policy": {
+    "title": "Cookie Policy | Digital Nectar",
+    "description": "What cookies and browser storage we use on this site, why we use them, and how you can control them. No tracking, no advertising cookies.",
+    "ogImage": ""
+  }
+}

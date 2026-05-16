@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════════
+   Digital Nectar — Global Stylesheet
+   Single source of truth for design tokens + base styles.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+/* (no Tailwind — vanilla CSS only) */
+:root {
+  /* Surfaces */
+  --bg: #151717;
+  --surface: #1a1d1c;
+  --card: #242b2c;
+  --border: #0a0b0b;
+
+  /* Brand — primary green (teal) */
+  --primary-green: #58B9A5;
+  --primary-green-light: #7ECABB;
+  --primary-green-dim: #3D9B88;
+
+  /* Brand — primary rose (pastel pink) */
+  --primary-rose: #E3688B;
+  --primary-rose-light: #EA8BA5;
+  --primary-rose-dim: #C4506F;
+
+  /* Text */
+  --text: #ffffff;
+  --text-secondary: #dadada;
+  --text-muted: #8f8f8f;
+
+  /* Status */
+  --success: #58B9A5;
+  --error: #e05c5c;
+  --warning: #d4a04a;
+  --info: #60a5fa;
+
+  /* Opacity */
+    --primary-green-light-opacity: rgb(88, 185, 165, 0.3);
+  /* Subtle dividers / hairlines (overlay-on-dark) */
+  --line: color-mix(in srgb, var(--text) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--text) 14%, transparent);
+
+  /* Even quieter text than text-muted */
+  --text-faint: color-mix(in srgb, var(--text) 28%, transparent);
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  line-height: 1.2;
+  width: fit-content;
+  max-width: 100%;
+}
+
+h2 {
+  position: relative;
+  padding-bottom: 1.5rem;
+
+}
+
+h2::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 1rem;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--primary-rose);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+h2.in-view::after {
+  transform: scaleX(1);
+}
+
+/* Don't apply to wizard or admin headings */
+.lc-root h2::after { display: none; }
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--primary-green-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-green); }
+
+/* ── Utilities ─────────────────────────────────────────────────── */
+.accent-line {
+  display: inline-block;
+  position: relative;
+}
+.accent-line::after {
+  content: '';
+  position: absolute;
+bottom: 0;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--primary-green);
+}
+
+.section-pad { padding: 100px 0; }
+
+/* Fully hidden (no layout, not accessible — for ReCAPTCHA badge etc.) */
+.is-hidden { display: none !important; }
+
+/* Visually hidden but accessible to screen readers */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+@media (max-width: 768px) {
+  .container { padding: 0 20px; }
+  .section-pad { padding: 70px 0; }
+}
+
+/* ── Site-wide error message color ─────────────────────────────── */
+.contact-error-msg,
+.order-error,
+.bo-error,
+.input-error,
+.admin-error-msg,
+.admin-login-error,
+.text-input__error,
+.text-input__field--error,
+.summary__send-error,
+.summary__coupon-error,
+.color-picker__hex-error,
+.wst__input-error,
+[class*="-error"]:not(input):not(textarea):not(select):not(button),
+[class*="__error"]:not(input):not(textarea):not(select):not(button) {
+  color: var(--error) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   /services wizard — scoped tokens
+   The wizard was authored with a different naming convention
+   (--color-*, --space-*, --radius-*). We alias them here under
+   .lc-root so the wizard inherits site-wide changes from above.
+   ═══════════════════════════════════════════════════════════════ */
+.lc-root {
+  /* Colors → mapped to site tokens */
+  --color-bg:              var(--bg);
+  --color-surface:         var(--surface);
+  --color-surface-alt:     var(--card);
+  --color-overlay:         rgba(0, 0, 0, 0.6);
+  --color-border:          var(--border);
+  --color-border-focus:    var(--primary-green);
+  --color-text-primary:    var(--text);
+  --color-text-secondary:  var(--text-secondary);
+  --color-text-muted:      var(--text-muted);
+  --color-text-inverse:    var(--bg);
+  --color-accent:          var(--primary-green);
+  --color-accent-hover:    var(--primary-green-light);
+  --color-accent-light:    color-mix(in srgb, var(--primary-green) 12%, transparent);
+  --color-accent-muted:    color-mix(in srgb, var(--primary-green) 22%, transparent);
+  --color-designer-bg:     color-mix(in srgb, var(--primary-green) 8%, transparent);
+  --color-designer-border: color-mix(in srgb, var(--primary-green) 30%, transparent);
+  --color-success:         var(--success);
+  --color-error:           var(--error);
+  --color-warning:         var(--warning);
+
+  /* Typography */
+  --font-sans: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  --font-size-xs:  11px;
+  --font-size-sm:  13px;
+  --font-size-base: 15px;
+  --font-size-md:  17px;
+  --font-size-lg:  20px;
+  --font-size-xl:  24px;
+  --font-size-2xl: 30px;
+  --font-size-3xl: 38px;
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  --line-height-tight:  1.2;
+  --line-height-snug:   1.4;
+  --line-height-normal: 1.6;
+  --line-height-loose:  1.8;
+
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0em;
+  --letter-spacing-wide:   0.04em;
+  --letter-spacing-wider:  0.08em;
+  --letter-spacing-widest: 0.14em;
+
+  /* Spacing */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-9:  36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  --space-13: 52px;
+  --space-14: 56px;
+  --space-15: 60px;
+  --space-16: 64px;
+  --space-17: 68px;
+  --space-18: 72px;
+  --space-19: 76px;
+  --space-20: 80px;
+  --space-21: 84px;
+  --space-22: 8rem;
+  --space-23: 9rem;
+  --space-24: 96px;
+  --space-25: 11rem;
+  --space-26: 12rem;
+  --space-27: 13rem;
+  --space-28: 14rem;
+  --space-29: 15rem;
+  --space-30: 16rem;
+  --space-31: 18rem;
+  --space-32: 20rem;
+  --space-33: 24rem;
+
+  /* Radius */
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   10px;
+  --radius-xl:   14px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:    0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.55);
+  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-xl:    0 16px 48px rgba(0, 0, 0, 0.7);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--primary-green) 32%, transparent);
+
+  /* Motion */
+  --duration-fast:   120ms;
+  --duration-normal: 200ms;
+  --duration-slow:   340ms;
+  --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --easing-out:    cubic-bezier(0, 0, 0.2, 1);
+
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+}
+
+.lc-root input,
+.lc-root textarea,
+.lc-root select {
+  color: var(--color-text-primary);
+  background: var(--color-surface-alt);
+  border-color: var(--color-border);
+}
+.lc-root input::placeholder,
+.lc-root textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.lc-root img { filter: none; }

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Invoice</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 42px;
+    color: #000;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+  }
+
+  .title {
+    font-size: 32px;
+    font-weight: bold;
+  }
+
+  .date {
+    font-size: 14px;
+  }
+
+  .info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+  }
+
+  .info-block {
+    width: 45%;
+  }
+
+  .label {
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+  }
+
+  th {
+    background: #000;
+    color: #fff;
+    text-align: left;
+    padding: 12px;
+  }
+
+  td {
+    padding: 12px;
+    border: 1px solid #ccc;
+  }
+
+  td.center {
+    text-align: center;
+  }
+
+  .total {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 40px;
+  }
+
+  .payment {
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <div class="title">INVOICE</div>
+      <div class="date">Date: 14 April 2026</div>
+    </div>
+
+    <div class="info">
+      <div class="info-block">
+        <div class="label">From</div>
+        <div>Nikola Dolovski</div>
+        <div>Nikodola</div>
+      </div>
+
+      <div class="info-block">
+        <div class="label">To</div>
+        <div>Davit Grant</div>
+        <div>Blackfin</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Hours</th>
+          <th>Rate</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Design (3 versions)</td>
+          <td class="center">3</td>
+          <td class="center">$20</td>
+          <td class="center">$60</td>
+        </tr>
+        <tr>
+          <td>Print-ready preparation</td>
+          <td class="center">1</td>
+          <td class="center">$20</td>
+          <td class="center">$20</td>
+        </tr>
+        <tr>
+          <td>Variation (free)</td>
+          <td class="center">-</td>
+          <td class="center">-</td>
+          <td class="center">$0</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="total">
+      Total: $80
+    </div>
+
+    <div class="payment">
+      <div><strong>Payment Link</strong></div>
+      <div>https://buy.stripe.com/aEUdTU28eg8eghO4go</div>
+    </div>
+
+  </div>
+</body>
+</html>

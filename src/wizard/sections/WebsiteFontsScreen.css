@@ -1,0 +1,19 @@
+/* ─── Header ────────────────────────────────────────────────── */
+.wf__header {
+  margin-bottom: var(--space-8);
+}
+
+.wf__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--space-3);
+}
+
+.wf__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}

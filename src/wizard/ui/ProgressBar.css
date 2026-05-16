@@ -1,0 +1,141 @@
+/* ============================================================
+   ProgressBar
+   ============================================================ */
+
+/* --- Wrapper --- */
+
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* Mobile: all steps in a row, only active label shown */
+.progress-bar--mobile {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Reserve space under each circle so active label doesn't shift layout */
+.progress-step__label-row--mobile {
+  height: 16px;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+/* --- Step item --- */
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: default;
+}
+
+.progress-step--clickable {
+  cursor: pointer;
+}
+
+/* --- Circle --- */
+
+.progress-step__circle {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-alt);
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-normal) var(--easing-smooth);
+  transform: scale(1);
+  box-shadow: none;
+}
+
+.progress-step__circle--done {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.progress-step__circle--active {
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+}
+
+.progress-step__circle--hovered {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+/* --- Circle number label --- */
+
+.progress-step__number {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.progress-step__number--done {
+  color: var(--color-text-inverse);
+}
+
+.progress-step__number--active {
+  color: var(--color-accent);
+}
+
+/* --- Label row (checkmark icon + text) --- */
+
+.progress-step__label-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.progress-step__check {
+  flex-shrink: 0;
+}
+
+.progress-step__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color var(--duration-normal) var(--easing-smooth);
+}
+
+.progress-step__label--active {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.progress-step__label--done {
+  color: var(--color-accent);
+}
+
+/* --- Connector line between steps --- */
+
+.progress-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  border-radius: 1px;
+  /* Aligned to the circle centre (circle is 28px tall, 2px line → offset 13px) */
+  margin-top: 13px;
+  transition: background var(--duration-slow) var(--easing-smooth);
+}
+
+/* Desktop variant shifts the connector down to align with the circle mid-point
+   after accounting for the label below the circle (~18 px). */
+.progress-connector--desktop {
+  margin-bottom: 18px;
+  margin-top: 0;
+}
+
+.progress-connector--done {
+  background: var(--color-accent);
+}
+

@@ -1,0 +1,245 @@
+/* ─── Header ────────────────────────────────────────────────── */
+.wst__header {
+  margin-bottom: var(--space-8);
+}
+
+.wst__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--space-3);
+}
+
+.wst__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* ─── Section label ─────────────────────────────────────────── */
+.wst__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  letter-spacing: var(--letter-spacing-wider);
+  text-transform: uppercase;
+  margin-bottom: var(--space-4);
+}
+
+.wst__optional {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ─── Links list ─────────────────────────────────────────────── */
+.wst__links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.wst__link-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.wst__link-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.wst__link-text {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  word-break: break-all;
+  min-width: 0;
+}
+
+.wst__link-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.12s, background 0.12s;
+}
+
+.wst__link-remove:hover {
+  color: var(--color-error);
+  background: rgba(192, 57, 43, 0.06);
+}
+
+/* ─── Images label spacing ───────────────────────────────────── */
+.wst__label--images {
+  margin-top: var(--space-8);
+}
+
+/* ─── Add row ────────────────────────────────────────────────── */
+.wst__add-row {
+  display: flex;
+  gap: var(--space-3);
+  max-width: 480px;
+  padding-bottom: var(--space-10);
+}
+
+.wst__input {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.wst__input:focus {
+  border-color: var(--color-accent);
+}
+
+.wst__input--error {
+  border-color: var(--color-error) !important;
+}
+
+.wst__input-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+}
+
+.wst__input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.wst__add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.wst__add-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* ─── Thumbnails ─────────────────────────────────────────────── */
+.wst__thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.wst__thumb {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-md);
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.wst__thumb-img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+  display: block;
+}
+
+.wst__thumb-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-text-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s;
+  z-index: 1;
+}
+
+.wst__thumb-remove:hover {
+  background: var(--color-error);
+}
+
+/* ─── Drop zone ──────────────────────────────────────────────── */
+.wst__drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-6);
+  max-width: 480px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  margin-bottom: var(--space-10);
+}
+
+.wst__drop-zone:hover,
+.wst__drop-zone--dragging {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.wst__drop-icon {
+  opacity: 0.6;
+}
+
+.wst__drop-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.wst__drop-formats {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}

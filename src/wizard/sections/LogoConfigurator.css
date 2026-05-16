@@ -1,0 +1,161 @@
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.screen-enter {
+  animation: fadeSlideIn 0.36s cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1c1c1c 25%, #2a2a2a 50%, #1c1c1c 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+
+/* Reset heading styles inside the wizard */
+.lc-root h1,
+.lc-root h2,
+.lc-root h3,
+.lc-root h4,
+.lc-root h5 {
+  font-family: Inter, system-ui, sans-serif;
+  letter-spacing: normal;
+  line-height: normal;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.lc-root p,
+.lc-root li {
+  font-size: unset;
+  line-height: unset;
+}
+
+.lc-root * {
+  box-sizing: border-box;
+}
+
+.lc-root ::-webkit-scrollbar { width: 6px; }
+.lc-root ::-webkit-scrollbar-track { background: transparent; }
+.lc-root ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+/* ============================================================
+   LogoConfigurator layout
+   ============================================================ */
+
+/* --- Root shell --- */
+
+.lc-root {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-sans);
+}
+
+/* --- Main content area --- */
+
+.lc-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: calc(var(--space-12) + 60px) var(--space-6) var(--space-24);
+}
+
+@media (max-width: 1000px) {
+  .lc-main {
+    padding-top: calc(var(--space-12) + 60px);
+    padding-bottom: 140px;
+  }
+}
+
+.lc-main__inner {
+  width: 100%;
+  max-width: 880px;
+}
+
+/* --- Sticky footer --- */
+
+.lc-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-8);
+}
+
+.lc-footer--mobile {
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Desktop footer: single row — progress | price | button */
+.lc-footer__desktop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.lc-footer__progress-wrap {
+  flex: 1;
+}
+
+/* Mobile footer: progress stacked above price + button row */
+.lc-footer__mobile-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lc-footer__actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* --- Estimate price block (shared desktop + mobile) --- */
+
+.lc-price {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.lc-price__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.lc-price__amount {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.lc-price__extras {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
+  display: none;
+}
+
+/* Desktop extras badge has slightly more padding */
+.lc-price__extras--desktop {
+  padding: 2px var(--space-3);
+}

@@ -1,0 +1,159 @@
+/* ─── Header ────────────────────────────────────────────────── */
+.we__header {
+  margin-bottom: var(--space-8);
+}
+
+.we__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+  line-height: var(--line-height-tight);
+  margin-bottom: var(--space-3);
+}
+
+.we__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* ─── Sections ───────────────────────────────────────────────── */
+.we__section {
+  margin-bottom: var(--space-8);
+}
+
+.we__section-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  letter-spacing: var(--letter-spacing-wider);
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+/* ─── Option cards ───────────────────────────────────────────── */
+.we__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-bottom: var(--space-2);
+  transition: border-color 0.15s, background 0.15s;
+  max-width: 560px;
+}
+
+.we__option:last-child {
+  margin-bottom: 0;
+}
+
+.we__option:hover {
+  border-color: var(--color-accent-muted);
+}
+
+.we__option--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+/* ─── Radio dot ──────────────────────────────────────────────── */
+.we__radio {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.we__radio--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.we__radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* ─── Option body ────────────────────────────────────────────── */
+.we__option-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.we__option-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
+}
+
+.we__option-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.we__option--active .we__option-title {
+  color: var(--color-accent);
+}
+
+.we__option-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-normal);
+  margin-top: var(--space-1);
+}
+
+/* ─── Price badge ────────────────────────────────────────────── */
+.we__price-badge {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border: 1px solid var(--color-accent-muted);
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-3);
+  white-space: nowrap;
+}
+
+/* ─── Sub-input (domain / provider) ─────────────────────────── */
+.we__sub-input {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  background: var(--color-bg, #fff);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+  max-width: 320px;
+}
+
+.we__sub-input:focus {
+  border-color: var(--color-accent);
+}
+
+.we__sub-input::placeholder {
+  color: var(--color-text-muted);
+}
