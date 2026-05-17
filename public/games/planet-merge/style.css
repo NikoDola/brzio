@@ -1,0 +1,360 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body {
+    background: #0d1117;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 24px 16px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100vw;
+}
+
+#game-stage {
+    display: grid;
+    /* Desktop: SCORE | CANVAS | NEXT — side panels sit beside the playfield. */
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "score canvas next";
+    align-items: start;
+    width: 100%;
+    gap: 12px;
+}
+
+#game-stage > #score-panel   { grid-area: score; }
+#game-stage > #canvas-wrapper { grid-area: canvas; }
+#game-stage > #next-panel    { grid-area: next; }
+
+.panel {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.panel-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.45;
+    font-weight: 600;
+}
+
+#score {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+#next-canvas { display: block; }
+
+.next-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.next-arrow {
+    display: none;
+    background: rgba(125, 223, 255, 0.16);
+    border: 1px solid rgba(125, 223, 255, 0.5);
+    color: #e3f5ff;
+    width: 22px;
+    height: 56px;
+    border-radius: 6px;
+    font-size: 18px;
+    font-family: inherit;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.next-arrow:hover  { background: rgba(125, 223, 255, 0.3); }
+.next-arrow:active { transform: scale(0.92); }
+
+#next-panel.power-active {
+    border-color: rgba(125, 223, 255, 0.55);
+    animation: heartbeat-glow 1.1s ease-in-out infinite;
+}
+
+#next-panel.power-active .next-arrow { display: block; }
+
+#next-panel.power-active .panel-label {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    opacity: 0.85;
+    color: #7ddfff;
+    text-align: center;
+    text-transform: none;
+    max-width: 300px;
+    line-height: 1.25;
+}
+
+@keyframes heartbeat-glow {
+    0%, 100% {
+        box-shadow: 0 0 3px 0 rgba(125, 223, 255, 0.45),
+                    inset 0 0 6px rgba(125, 223, 255, 0.12);
+    }
+    50% {
+        box-shadow: 0 0 11px 2px rgba(125, 223, 255, 0.95),
+                    inset 0 0 9px rgba(125, 223, 255, 0.28);
+    }
+}
+
+#canvas-wrapper {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 64px rgba(0,0,0,0.7);
+    width: 100%;
+    aspect-ratio: 840 / 927;        /* matches canvas internal resolution */
+}
+
+#game-canvas {
+    display: block;
+    cursor: crosshair;
+    border-radius: 14px;
+    width: 100%;                    /* CSS scales display; internal pixels stay 840×927 */
+    height: 100%;
+    touch-action: none;             /* prevent page scroll while dragging on canvas */
+}
+
+#game-canvas.destroy-armed {
+    cursor: cell;                   /* signals "pick a target" mode */
+}
+
+#game-over-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(5,10,20,0.88);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+}
+
+#game-over-overlay.visible { display: flex; }
+
+#game-over-overlay h2 {
+    font-size: 38px;
+    color: #FF6B6B;
+    letter-spacing: 2px;
+}
+
+.final-line {
+    font-size: 18px;
+    opacity: 0.65;
+}
+
+.final-line span {
+    font-size: 26px;
+    font-weight: 700;
+    color: #FECA57;
+    opacity: 1;
+}
+
+#restart-btn {
+    background: linear-gradient(135deg, #FF6B6B, #FF9F43);
+    color: #fff;
+    border: none;
+    padding: 13px 44px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.1s, opacity 0.15s;
+}
+
+#restart-btn:hover  { opacity: 0.88; transform: scale(1.03); }
+#restart-btn:active { transform: scale(0.96); }
+
+/* ── DEV PANEL ─────────────────────────────────────────────────────────── */
+/* Hidden by default. The parent page adds ?dev=1 for authenticated admins,
+   which sets html.dev-mode and reveals the panel. */
+#dev-panel {
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+}
+
+html.dev-mode #dev-panel {
+    display: flex;
+}
+
+/* ── MOBILE TWEAKS ─────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+    body { padding: 12px 8px; }
+    #score { font-size: 22px; }
+    .panel { padding: 6px 10px; }
+
+    /* Two-row stack: SCORE | NEXT on top, canvas spans both columns below. */
+    #game-stage {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+            "score next"
+            "canvas canvas";
+    }
+}
+
+/* ── DESKTOP: panels sit beside the canvas (not overlaid) ─────────────── */
+@media (min-width: 701px) {
+    /* Tighter cap so the canvas isn't huge — base styles handle centering */
+    #game-container {
+        max-width: 700px;
+    }
+
+    /* Fixed-width side panels — prevents canvas from resizing as score grows */
+    #score-panel {
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        width: 90px;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    #next-panel {
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        width: 100px;
+        flex-shrink: 0;
+    }
+
+    #dev-panel { padding: 12px 14px; }
+}
+
+#dev-toggle {
+    align-self: flex-end;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.38);
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+#dev-toggle:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.7); }
+#dev-toggle.open  { color: #FECA57; border-color: rgba(254,202,87,0.35); }
+
+#dev-body {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+#dev-body.open { display: flex; }
+
+.dev-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dev-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    opacity: 0.45;
+    font-weight: 600;
+    width: 68px;
+    flex-shrink: 0;
+}
+
+.dev-pill {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    border-radius: 20px;
+    padding: 4px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    min-width: 60px;
+}
+
+.dev-pill.active {
+    background: rgba(29,209,161,0.18);
+    border-color: #1DD1A1;
+    color: #1DD1A1;
+}
+
+#auto-speed, #auto-x {
+    flex: 1;
+    accent-color: #FECA57;
+    cursor: pointer;
+}
+
+#drop-mode {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+#drop-mode option { background: #16213e; color: #fff; }
+
+#auto-speed-val, #auto-x-val {
+    font-size: 11px;
+    opacity: 0.55;
+    width: 52px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.dev-stats {
+    display: flex;
+    gap: 18px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.dev-stats b {
+    color: #FECA57;
+    opacity: 1;
+    font-size: 13px;
+}

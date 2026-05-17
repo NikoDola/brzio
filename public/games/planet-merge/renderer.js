@@ -1,0 +1,256 @@
+/* ════════════════════════════════════════════════════════════════════════
+   renderer.js  —  all canvas drawing
+   Pure functions: take data in, draw to a canvas context, return nothing.
+   ════════════════════════════════════════════════════════════════════════ */
+
+import { SHAPES, r, polyCorr } from './config.js';
+
+
+/* ── ASSET IMAGES ────────────────────────────────────────────────────────
+   Each SHAPES entry can declare an `asset` filename in assets/images/.
+   Requires a local HTTP server (file:// blocks image loading).
+   If an asset is missing or fails to load, drawProcedural is used.        */
+const _assetLoadCbs = [];
+/** Register a callback fired each time a planet SVG finishes loading.
+ *  Used so static previews (e.g. the NEXT thumbnail) can redraw once their
+ *  artwork is available — the main game loop redraws every frame anyway. */
+export function onAssetLoad(cb) { _assetLoadCbs.push(cb); }
+
+const assetImgs = SHAPES.map((s, i) => {
+    if (!s.asset) return null;
+    const img = new Image();
+    img.src = `assets/images/${s.asset}`;
+    img.onload  = () => _assetLoadCbs.forEach((cb) => cb(i));
+    img.onerror = () => console.warn(`[renderer] failed to load assets/images/${s.asset}`);
+    return img;
+});
+const hasImg = (lvl) => {
+    const img = assetImgs[lvl];
+    return img && img.complete && img.naturalWidth > 0;
+};
+
+
+/* ── COLOUR UTIL ─────────────────────────────────────────────────────── */
+function lighten(hex, amt) {
+    const ri = parseInt(hex.slice(1, 3), 16);
+    const gi = parseInt(hex.slice(3, 5), 16);
+    const bi = parseInt(hex.slice(5, 7), 16);
+    return `rgb(${Math.min(255,ri+amt)},${Math.min(255,gi+amt)},${Math.min(255,bi+amt)})`;
+}
+
+
+/* ── PROCEDURAL SHAPE ────────────────────────────────────────────────── */
+/**
+ * Draw one shape procedurally onto any canvas context.
+ * Works for both the drop preview and live physics bodies.
+ * Pass an explicit radius to override the default world-scale r(lvl).
+ */
+export function drawProcedural(c, lvl, cx, cy, angle, radOverride) {
+    const def = SHAPES[lvl];
+    const rad = radOverride ?? r(lvl);
+
+    c.save();
+    c.translate(cx, cy);
+    c.rotate(angle);
+
+    c.beginPath();
+    if (def.sides === 0) {
+        c.arc(0, 0, rad, 0, Math.PI * 2);
+    } else if (def.sides === 'plus') {
+        const arm = rad * 0.38;
+        c.moveTo(-arm, -rad); c.lineTo( arm, -rad);
+        c.lineTo( arm, -arm); c.lineTo( rad, -arm);
+        c.lineTo( rad,  arm); c.lineTo( arm,  arm);
+        c.lineTo( arm,  rad); c.lineTo(-arm,  rad);
+        c.lineTo(-arm,  arm); c.lineTo(-rad,  arm);
+        c.lineTo(-rad, -arm); c.lineTo(-arm, -arm);
+        c.closePath();
+    } else if (def.sides === 'star') {
+        const inner = rad * 0.42;
+        for (let i = 0; i < 10; i++) {
+            const a  = (Math.PI * i / 5) - Math.PI / 2;
+            const sr = i % 2 === 0 ? rad : inner;
+            const px = sr * Math.cos(a);
+            const py = sr * Math.sin(a);
+            i ? c.lineTo(px, py) : c.moveTo(px, py);
+        }
+        c.closePath();
+    } else if (def.sides === 'rect') {
+        c.rect(-rad, -rad * 0.425, rad * 2, rad * 0.85);
+    } else {
+        for (let i = 0; i < def.sides; i++) {
+            const a  = (2 * Math.PI * i / def.sides) - Math.PI / 2;
+            const px = rad * Math.cos(a);
+            const py = rad * Math.sin(a);
+            i ? c.lineTo(px, py) : c.moveTo(px, py);
+        }
+        c.closePath();
+    }
+
+    const gr = c.createRadialGradient(-rad * 0.32, -rad * 0.32, 0, 0, 0, rad * 1.05);
+    gr.addColorStop(0, lighten(def.color, 60));
+    gr.addColorStop(1, def.color);
+    c.fillStyle = gr;
+    c.fill();
+    c.strokeStyle = def.glow;
+    c.lineWidth = 2.5;
+    c.stroke();
+
+    const fs = Math.max(10, rad * 0.42);
+    c.font = `bold ${fs}px 'Segoe UI', Arial, sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.shadowColor = 'rgba(0,0,0,0.7)';
+    c.shadowBlur  = 5;
+    c.fillStyle   = '#fff';
+    c.fillText(lvl + 1, 0, 0);
+    c.shadowBlur  = 0;
+    c.restore();
+}
+
+
+/* ── PHYSICS BODY ────────────────────────────────────────────────────── */
+/** When true, draws the actual collision outline on top of every body. */
+export let DEBUG_COLLIDERS = false;
+export function setDebugColliders(v) { DEBUG_COLLIDERS = !!v; }
+
+/**
+ * Draw one live physics body.
+ * Uses the asset image if available, otherwise drawProcedural.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Matter.Body} body
+ * @param {Map} bodyLvl   bodyId → level index (from physics.js)
+ */
+export function drawBody(ctx, body, bodyLvl) {
+    const lvl = bodyLvl.get(body.id);
+    if (lvl === undefined) return;
+
+    // Convert physics angle back to visual angle (undoes the spawn correction)
+    const vAngle = body.angle + polyCorr(lvl);
+
+    if (hasImg(lvl)) {
+        const rad = r(lvl);
+        const ro  = body.renderOffset;        // set by physics.js for silhouette bodies
+        ctx.save();
+        ctx.translate(body.position.x, body.position.y);
+        ctx.rotate(vAngle);
+        if (ro) ctx.translate(ro.x, ro.y);    // align image w/ collider when silhouette is off-centre
+        ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        ctx.restore();
+    } else {
+        drawProcedural(ctx, lvl, body.position.x, body.position.y, vAngle);
+    }
+
+    if (DEBUG_COLLIDERS) drawColliderOverlay(ctx, body);
+}
+
+/**
+ * Visual debug: trace every part's actual collision vertices in lime green.
+ * Compound (decomposed) bodies live in body.parts[1..]; simple bodies in body itself.
+ */
+function drawColliderOverlay(ctx, body) {
+    const parts = body.parts.length > 1 ? body.parts.slice(1) : [body];
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,255,140,0.85)';
+    ctx.lineWidth = 1.8;
+    for (const part of parts) {
+        if (!part.vertices || part.vertices.length < 2) continue;
+        ctx.beginPath();
+        part.vertices.forEach((v, i) => {
+            i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y);
+        });
+        ctx.closePath();
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+
+/* ── ASSET-AWARE PREVIEW ─────────────────────────────────────────────── */
+/**
+ * Draw a planet at an arbitrary radius (used by the drop-preview at the
+ * top of the canvas and the NEXT thumbnail). Falls back to drawProcedural
+ * when the SVG asset hasn't loaded yet.
+ */
+export function drawPreview(ctx, lvl, cx, cy, angle, rad) {
+    if (hasImg(lvl)) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        ctx.restore();
+        return;
+    }
+    drawProcedural(ctx, lvl, cx, cy, angle, rad);
+}
+
+
+/* ── NEXT-SHAPE PREVIEW ──────────────────────────────────────────────── */
+export function drawNext(nxtCtx, nxtCanvas, nxtLvl) {
+    nxtCtx.clearRect(0, 0, nxtCanvas.width, nxtCanvas.height);
+    // Fit the planet inside the thumbnail with a bit of padding
+    const fitRad = Math.min(nxtCanvas.width, nxtCanvas.height) * 0.42;
+    drawPreview(nxtCtx, nxtLvl, nxtCanvas.width / 2, nxtCanvas.height / 2, 0, fitRad);
+}
+
+
+/* ── MERGE / VANISH FLASHES ──────────────────────────────────────────── */
+/**
+ * Draw and age all pending flash effects.
+ * Mutates the flashes array (removes expired entries).
+ */
+export function drawFlashes(ctx, flashes, totalMs) {
+    for (let i = flashes.length - 1; i >= 0; i--) {
+        const f   = flashes[i];
+        const dur = f.big ? 700 : 380;
+        const age = totalMs - f.t;
+        if (age > dur) { flashes.splice(i, 1); continue; }
+        const p = age / dur;
+
+        if (f.big) {
+            // Gold vanish: three concentric expanding rings
+            for (const [rScale, aScale] of [[1, 0.55], [0.65, 0.35], [0.35, 0.20]]) {
+                ctx.beginPath();
+                ctx.arc(f.x, f.y, p * 140 * rScale, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255,215,0,${(1 - p) * aScale})`;
+                ctx.fill();
+            }
+        } else {
+            // Normal merge: single white ring
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, p * 72, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,255,215,${(1 - p) * 0.42})`;
+            ctx.fill();
+        }
+    }
+}
+
+
+/* ── SCORE POPUPS ────────────────────────────────────────────────────── */
+/**
+ * Draw and age all pending score popup effects.
+ * Mutates the popups array (removes expired entries).
+ */
+export function drawPopups(ctx, popups, totalMs) {
+    for (let i = popups.length - 1; i >= 0; i--) {
+        const p   = popups[i];
+        const dur = p.big ? 1200 : 850;
+        const age = totalMs - p.t;
+        if (age > dur) { popups.splice(i, 1); continue; }
+
+        const alpha = 1 - age / dur;
+        const yOff  = -(age / dur) * (p.big ? 80 : 52);
+
+        const fontSize = p.fontSize ?? (p.big ? 28 : 16);
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font        = `bold ${fontSize}px "Segoe UI", Arial, sans-serif`;
+        ctx.fillStyle   = p.color || (p.big ? '#FFD700' : '#FECA57');
+        ctx.textAlign   = 'center';
+        ctx.shadowColor = p.shadowColor || (p.big ? 'rgba(200,100,0,0.8)' : 'rgba(0,0,0,0.6)');
+        ctx.shadowBlur  = p.big ? 10 : 4;
+        ctx.fillText(p.text, p.x, p.y + yOff);
+        ctx.restore();
+    }
+}
