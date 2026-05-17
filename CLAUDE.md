@@ -39,7 +39,6 @@ src/
       login/page.tsx                  ← Google sign-in
       posts/page.tsx, new, [id], PostForm, PostsList, BlockBuilder, DeletePostBtn
       seo/page.tsx, SeoForm.tsx
-    (note: no under-construction route, site is live)
     api/
       admin-auth/route.ts             ← Login: verifies Firebase ID token, sets JWT cookie
       admin-check/route.ts            ← Cookie check for NavBar admin link
