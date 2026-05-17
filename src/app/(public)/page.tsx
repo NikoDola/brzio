@@ -1,4 +1,4 @@
-import UnderConstruction from "@/components/sections/UnderConstruction";
+import HomePage from "@/featured/HomePage";
 import { metadataForRoute } from "@/lib/seo";
 
 export async function generateMetadata() {
@@ -6,5 +6,5 @@ export async function generateMetadata() {
 }
 
 export default function Home() {
-  return <UnderConstruction />;
+  return <HomePage />;
 }

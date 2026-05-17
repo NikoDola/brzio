@@ -1,17 +1,26 @@
 import Link from "next/link";
-import { getTeam } from "@/lib/content";
+import { listGameFolders } from "@/lib/content";
 import PostForm from "../PostForm";
 
-export default async function NewPostPage() {
-  const team = await getTeam();
+export default async function NewPostPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const { type } = await searchParams;
+  const initialType = type === "game" ? "game" : "blog";
+  const gameFolders = await listGameFolders();
+
   return (
     <div className="admin-content">
-      <Link href="/admin/posts" className="admin-back-link">← Blog & Portfolio</Link>
+      <Link href="/admin/posts" className="admin-back-link">← Posts & Games</Link>
       <div className="admin-section-header">
-        <h1 className="admin-section-title">New Post</h1>
+        <h1 className="admin-section-title">
+          New {initialType === "game" ? "Game" : "Blog Post"}
+        </h1>
       </div>
       <div className="admin-card">
-        <PostForm team={team.map((m) => ({ id: m.id, name: m.name, slug: m.slug }))} />
+        <PostForm initialType={initialType} gameFolders={gameFolders} />
       </div>
     </div>
   );

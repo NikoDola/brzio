@@ -12,15 +12,21 @@ const LOCAL_ONLY_PREFIXES = [
   "/api/admin-auth",
   "/api/admin-check",
   "/api/posts",
-  "/api/team",
-  "/api/partners",
   "/api/seo",
   "/api/upload",
 ];
 
 export async function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, hostname } = req.nextUrl;
   const isProd = process.env.NODE_ENV === "production";
+  const isLocalhost =
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+
+  // Site-wide under-construction gate: any request that isn't from localhost
+  // gets rewritten to /under-construction, regardless of the path requested.
+  if (!isLocalhost && pathname !== "/under-construction") {
+    return NextResponse.rewrite(new URL("/under-construction", req.url));
+  }
 
   if (isProd && LOCAL_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.rewrite(new URL("/404", req.url));
@@ -47,14 +53,7 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/admin",
-    "/admin/:path*",
-    "/api/admin-auth",
-    "/api/admin-check",
-    "/api/posts/:path*",
-    "/api/team/:path*",
-    "/api/partners/:path*",
-    "/api/seo",
-    "/api/upload",
+    // Match everything except Next.js internals, the Stripe webhook, and static assets.
+    "/((?!_next/static|_next/image|favicon|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|mp4|webm|ico|woff|woff2|ttf|eot|css|js|map|txt|xml|html)$).*)",
   ],
 };

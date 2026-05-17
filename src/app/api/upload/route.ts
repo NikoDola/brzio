@@ -4,7 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 
-const ALLOWED_FOLDERS = new Set(["blog", "portfolio", "team", "uploads", "partners", "reviews", "seo"]);
+const ALLOWED_FOLDERS = new Set(["blog", "games", "uploads", "seo"]);
 
 const IMAGE_MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -53,10 +53,6 @@ export async function POST(req: NextRequest) {
       { error: `Unsupported file type: ${mime || "unknown"}. Allowed: jpg, png, webp, gif, mp4, webm, mov.` },
       { status: 400 },
     );
-  }
-
-  if ((folder === "team" || folder === "partners" || folder === "reviews") && isVideo) {
-    return NextResponse.json({ error: `Videos are not allowed in the ${folder} folder.` }, { status: 400 });
   }
 
   const cap = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;

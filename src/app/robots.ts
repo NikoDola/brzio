@@ -1,15 +1,14 @@
 import { MetadataRoute } from "next";
-
-const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://digitalnectar.space";
+import { SITE_URL } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/services/success", "/services/cancel", "/admin", "/api/"],
+      disallow: ["/admin", "/api/"],
     },
-    sitemap: `${BASE}/sitemap.xml`,
-    host: BASE,
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

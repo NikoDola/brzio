@@ -1,116 +1,75 @@
 import Image from "next/image";
-import Hero from "@/components/sections/Hero";
-import Stats from "@/components/sections/Stats";
-import PortfolioGrid from "@/components/sections/PortfolioGrid";
-import ClientLogos from "@/components/sections/ClientLogos";
-import Testimonials from "@/components/sections/Testimonials";
-import Button from "@/components/ui/Button";
-import SectionHeading from "@/components/ui/SectionHeading";
+import Link from "next/link";
+import { getPosts } from "@/lib/content";
 import "./HomePage.css";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const games = await getPosts({ type: "game", publishedOnly: true });
+
   return (
-    <>
-      <Hero
-        title={
-          <>
-            Learn <span className="hero-accent--green">Better.</span>
+    <div className="home">
+      <section className="home-hero">
+        <div className="home-hero-inner">
+          <p className="home-eyebrow">Free Browser Mini-Games</p>
+          <h1 className="home-hero-title">
+            Play <span className="home-hero-accent">instantly.</span>
             <br />
-            Build <span className="hero-accent--rose">Better.</span>
-          </>
-        }
-        primaryCta={{ label: "Start a Project", href: "/services" }}
-        secondaryCta={{ label: "Our Work", href: "/our-work" }}
-      />
-
-      <Stats />
-
-      <ClientLogos />
-
-      {/* About mini section */}
-      <section className="home-about">
-        <div className="home-about-inner">
-          <div>
-            <SectionHeading
-              eyebrow="Who We Are"
-              title={
-                <>
-                  More than an agency.
-                  <br />An <em>ecosystem.</em>
-                </>
-              }
-            />
-            <p className="home-about-text">
-              We connect clients with the best creative and technical talent on
-              the internet. Graphic designers, UI/UX designers, software
-              engineers, and branding specialists. Every professional in our
-              network has at least 5 years of real, in-field experience.
-            </p>
-            <p className="home-about-text">
-              We also educate. Clients learn what they are paying for, in plain
-              language. Workers learn what the industry actually needs. Both
-              sides build better projects.
-            </p>
-
-            <div className="home-about-features">
-              <div className="home-about-feature">
-                <div className="home-feature-icon">◈</div>
-                <div className="home-feature-content">
-                  <h3>15+ Years of Real Experience</h3>
-                  <p>Not trend chasers. We write about tools we use and work we have actually shipped.</p>
-                </div>
-              </div>
-              <div className="home-about-feature">
-                <div className="home-feature-icon">◎</div>
-                <div className="home-feature-content">
-                  <h3>Project-Based, No Retainers</h3>
-                  <p>A project has a beginning, a scope, and an end. You know what you are getting before you commit.</p>
-                </div>
-              </div>
-              <div className="home-about-feature">
-                <div className="home-feature-icon">◇</div>
-                <div className="home-feature-content">
-                  <h3>Honest Pricing</h3>
-                  <p>
-                    The price is calculated before checkout. No surprise
-                    invoices, no vague estimates.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="home-about-image-outer">
-            <div className="home-about-image-wrap">
-              <Image
-                src="/images/home-web.jpg"
-                alt="Digital Nectar studio workspace"
-                fill
-                sizes="(max-width: 900px) 100vw, 50vw"
-                style={{ objectFit: "cover" }}
-              />
-            </div>
-            <div className="home-about-image-accent" />
-          </div>
+            No download. No sign-up.
+          </h1>
+          <p className="home-hero-sub">
+            A small collection of hand-built browser games.
+            Pick one and start playing.
+          </p>
         </div>
       </section>
 
-      {/* Portfolio - uses shared data (same source as /our-work) */}
-      <PortfolioGrid limit={6} />
-
-      <Testimonials />
-
-      {/* CTA banner */}
-      <section className="home-cta-banner">
-        <SectionHeading
-          title="Ready to build something real?"
-          description="Whether it is a logo, a website, or a full brand identity, we give you a clear price and professionals who know the work."
-          align="center"
-        />
-        <Button href="/services" variant="primary" size="lg">
-          Start a Project
-        </Button>
+      <section className="home-games">
+        <div className="home-games-inner">
+          {games.length === 0 ? (
+            <div className="home-games-empty">
+              <p>No games published yet. Check back soon.</p>
+            </div>
+          ) : (
+            <div className="home-games-grid">
+              {games.map((game) => (
+                <Link key={game.id} href={`/games/${game.slug}`} className="home-game-card">
+                  <div className="home-game-card-image">
+                    {game.thumbnail ? (
+                      <Image
+                        src={game.thumbnail}
+                        alt={game.title}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        style={{ objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div className="home-game-card-placeholder">
+                        <span>{game.title.charAt(0)}</span>
+                      </div>
+                    )}
+                    <div className="home-game-card-play">
+                      <span>▶ Play</span>
+                    </div>
+                  </div>
+                  <div className="home-game-card-body">
+                    <h2 className="home-game-card-title">{game.title}</h2>
+                    {game.excerpt && (
+                      <p className="home-game-card-excerpt">{game.excerpt}</p>
+                    )}
+                    {game.tags.length > 0 && (
+                      <div className="home-game-card-tags">
+                        {game.tags.slice(0, 3).map((t) => (
+                          <span key={t} className="home-game-tag">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
-    </>
+    </div>
   );
 }

@@ -20,10 +20,10 @@ export default async function BlogPage() {
     <div className="blog-page">
       <section className="blog-hero">
         <div className="blog-hero-inner">
-          <p className="blog-eyebrow">Insights & Resources</p>
-          <h1 className="blog-hero-title">The Digital Nectar Blog</h1>
+          <p className="blog-eyebrow">Devlogs & Updates</p>
+          <h1 className="blog-hero-title">The Brzio Blog</h1>
           <p className="blog-hero-sub">
-            Design tips, branding strategy, and behind-the-scenes from our studio.
+            Behind-the-scenes notes from building free browser mini-games.
           </p>
         </div>
       </section>

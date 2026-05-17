@@ -1,18 +1,17 @@
 .brand-logo {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.28em;
   font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
-  font-size: 19px;
-  font-weight: 300;
-  letter-spacing: 0.06em;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
-.brand-logo__digital {
+.brand-logo__brz {
   color: var(--text);
 }
 
-.brand-logo__nectar {
+.brand-logo__io {
   color: var(--primary-green);
 }

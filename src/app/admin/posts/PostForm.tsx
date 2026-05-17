@@ -3,10 +3,9 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import type { ContentBlock } from "@/lib/content";
+import type { ContentBlock, PostType } from "@/lib/content";
 import BlockBuilder from "./BlockBuilder";
 
-interface TeamMember { id: string; name: string; slug: string; }
 interface PostData {
   id?: string;
   title?: string;
@@ -16,94 +15,10 @@ interface PostData {
   blocks?: ContentBlock[];
   thumbnail?: string;
   gallery?: string[];
-  type?: "blog" | "portfolio";
-  teamMember?: string | null;
+  type?: PostType;
   tags?: string[];
   published?: boolean;
-}
-
-function parseHtmlToBlocks(html: string): ContentBlock[] {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
-  const root = doc.querySelector("div")!;
-  const blocks: ContentBlock[] = [];
-
-  function extractCards(grid: Element): ContentBlock {
-    const cards = Array.from(grid.querySelectorAll(".bp-card")).map((card) => {
-      const img = card.querySelector("img");
-      const heading = card.querySelector("h3")?.textContent?.trim() ?? "";
-      const body = Array.from(card.querySelectorAll(".bp-card-body p"))
-        .map((p) => p.textContent?.trim() ?? "").filter(Boolean).join("\n\n");
-      return { src: img?.getAttribute("src") ?? undefined, heading, body };
-    });
-    return { type: "card-grid", cards };
-  }
-
-  function processEl(el: Element) {
-    const tag = el.tagName;
-    const cls = el.getAttribute("class") ?? "";
-
-    if (tag === "SECTION" && cls.includes("bp-section")) {
-      const heading = el.querySelector(":scope > h2")?.textContent?.trim() ?? "";
-      const body = Array.from(el.querySelectorAll(":scope > p"))
-        .map((p) => p.textContent?.trim() ?? "").filter(Boolean).join("\n\n");
-      if (heading || body) blocks.push({ type: "section", heading: heading || undefined, body });
-      const nestedGrid = el.querySelector(":scope > .bp-grid");
-      if (nestedGrid) blocks.push(extractCards(nestedGrid));
-      return;
-    }
-
-    if (tag === "DIV" && cls.includes("bp-banner")) {
-      const img = el.querySelector("img");
-      if (img) blocks.push({ type: "banner", src: img.getAttribute("src") ?? "", alt: img.getAttribute("alt") ?? undefined });
-      return;
-    }
-
-    if (tag === "DIV" && cls.includes("bp-split")) {
-      const layout: "left" | "right" = cls.includes("bp-split--reverse") ? "right" : "left";
-      const img = el.querySelector(".bp-split-image img");
-      const heading = el.querySelector(".bp-split-text h3")?.textContent?.trim() ?? "";
-      const body = Array.from(el.querySelectorAll(".bp-split-text p"))
-        .map((p) => p.textContent?.trim() ?? "").filter(Boolean).join("\n\n");
-      blocks.push({ type: "split", layout, src: img?.getAttribute("src") ?? "", alt: img?.getAttribute("alt") ?? undefined, heading: heading || undefined, body });
-      return;
-    }
-
-    if (tag === "DIV" && cls.includes("bp-grid") && !cls.includes("bp-split")) {
-      blocks.push(extractCards(el));
-      return;
-    }
-
-    if (tag === "DIV" && cls.includes("bp-highlight")) {
-      const variant = cls.includes("bp-highlight--rose") ? "rose" as const : "green" as const;
-      const heading = el.querySelector("h2")?.textContent?.trim() ?? "";
-      const body = Array.from(el.querySelectorAll("p"))
-        .map((p) => p.textContent?.trim() ?? "").filter(Boolean).join("\n\n");
-      blocks.push({ type: "highlight", variant, heading, body });
-      return;
-    }
-
-    if (tag === "BLOCKQUOTE" && cls.includes("bp-quote")) {
-      blocks.push({ type: "quote", text: el.textContent?.trim() ?? "" });
-      return;
-    }
-
-    if (tag === "DIV" && el.hasAttribute("data-compare")) {
-      blocks.push({
-        type: "compare",
-        before: el.getAttribute("data-before") ?? "",
-        after: el.getAttribute("data-after") ?? "",
-        beforeLabel: el.getAttribute("data-before-label") ?? undefined,
-        afterLabel: el.getAttribute("data-after-label") ?? undefined,
-        beforeAlt: el.getAttribute("data-before-alt") ?? undefined,
-        afterAlt: el.getAttribute("data-after-alt") ?? undefined,
-      });
-      return;
-    }
-  }
-
-  for (const el of Array.from(root.children)) processEl(el);
-  return blocks;
+  gameSlug?: string;
 }
 
 async function uploadFile(file: File, folder: string): Promise<string> {
@@ -115,20 +30,26 @@ async function uploadFile(file: File, folder: string): Promise<string> {
   return data.path as string;
 }
 
-export default function PostForm({ initial, team }: { initial?: PostData; team: TeamMember[] }) {
+interface PostFormProps {
+  initial?: PostData;
+  initialType?: PostType;
+  gameFolders: string[];
+}
+
+export default function PostForm({ initial, initialType, gameFolders }: PostFormProps) {
   const router = useRouter();
   const [form, setForm] = useState({
     title: initial?.title ?? "",
     slug: initial?.slug ?? "",
     excerpt: initial?.excerpt ?? "",
     content: initial?.content ?? "",
-    blocks: initial?.blocks ?? [] as ContentBlock[],
+    blocks: initial?.blocks ?? ([] as ContentBlock[]),
     thumbnail: initial?.thumbnail ?? "",
-    gallery: initial?.gallery ?? [] as string[],
-    type: (initial?.type ?? "blog") as "blog" | "portfolio",
-    teamMember: initial?.teamMember ?? null as string | null,
+    gallery: initial?.gallery ?? ([] as string[]),
+    type: (initial?.type ?? initialType ?? "blog") as PostType,
     tags: initial?.tags?.join(", ") ?? "",
     published: initial?.published ?? false,
+    gameSlug: initial?.gameSlug ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -143,7 +64,8 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
     return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   }
 
-  const uploadFolder = form.type === "portfolio" ? "portfolio" : "blog";
+  const uploadFolder = form.type === "game" ? "games" : "blog";
+  const isGame = form.type === "game";
 
   async function handleThumbUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -174,6 +96,7 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
       const payload = {
         ...form,
         tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        gameSlug: isGame ? (form.gameSlug || form.slug) : undefined,
       };
       const url = initial?.id ? `/api/posts/${initial.id}` : "/api/posts";
       const method = initial?.id ? "PUT" : "POST";
@@ -207,36 +130,14 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
           <button type="button" className={`admin-toggle-option${form.type === "blog" ? " selected" : ""}`} onClick={() => set("type", "blog")}>
             Blog Post
           </button>
-          <button type="button" className={`admin-toggle-option${form.type === "portfolio" ? " selected" : ""}`} onClick={() => set("type", "portfolio")}>
-            Portfolio Item
+          <button type="button" className={`admin-toggle-option${form.type === "game" ? " selected" : ""}`} onClick={() => set("type", "game")}>
+            Game
           </button>
         </div>
         <span className="admin-hint">
-          {form.type === "blog"
-            ? "Appears on /blog"
-            : "Appears in the portfolio grid and on the assigned team member's profile page"}
-        </span>
-      </div>
-
-      <div className="admin-field">
-        <label className="admin-label">
-          Team Member {form.type === "portfolio" ? "*" : <span className="admin-hint">(optional)</span>}
-        </label>
-        <select
-          className="admin-select"
-          required={form.type === "portfolio"}
-          value={form.teamMember ?? ""}
-          onChange={(e) => set("teamMember", e.target.value || null)}
-        >
-          <option value="">— None —</option>
-          {team.map((m) => (
-            <option key={m.id} value={m.slug}>{m.name}</option>
-          ))}
-        </select>
-        <span className="admin-hint">
-          {form.type === "portfolio"
-            ? "Required. This item will appear on the selected team member's profile page."
-            : "Optional — used to attribute the post to a team member."}
+          {isGame
+            ? "Appears on the home page game grid and at /games/<slug>"
+            : "Appears on /blog"}
         </span>
       </div>
 
@@ -256,14 +157,44 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
           <label className="admin-label">URL Slug *</label>
           <input className="admin-input" required value={form.slug} onChange={(e) => set("slug", e.target.value)} />
           <span className="admin-hint">
-            {form.type === "blog" ? `/blog/${form.slug || "..."}` : `/portfolio/${form.slug || "..."}`}
+            {isGame ? `/games/${form.slug || "..."}` : `/blog/${form.slug || "..."}`}
           </span>
         </div>
       </div>
 
+      {isGame && (
+        <div className="admin-field">
+          <label className="admin-label">Game Folder *</label>
+          {gameFolders.length > 0 ? (
+            <select
+              className="admin-select"
+              required
+              value={form.gameSlug || form.slug}
+              onChange={(e) => set("gameSlug", e.target.value)}
+            >
+              <option value="">— Select a game folder —</option>
+              {gameFolders.map((folder) => (
+                <option key={folder} value={folder}>{folder}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="admin-input"
+              required
+              value={form.gameSlug}
+              onChange={(e) => set("gameSlug", e.target.value)}
+              placeholder="planet-merge"
+            />
+          )}
+          <span className="admin-hint">
+            Folder inside <code>/public/games/</code> containing the game&apos;s <code>index.html</code>.
+          </span>
+        </div>
+      )}
+
       <div className="admin-field">
         <label className="admin-label">Tags (comma separated)</label>
-        <input className="admin-input" value={form.tags} onChange={(e) => set("tags", e.target.value)} placeholder="e.g. Logo Design, Branding, Typography" />
+        <input className="admin-input" value={form.tags} onChange={(e) => set("tags", e.target.value)} placeholder={isGame ? "e.g. Puzzle, Casual, Merge" : "e.g. Devlog, Update"} />
       </div>
 
       <div className="admin-field">
@@ -303,27 +234,14 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
       </div>
 
       <div className="admin-field">
-        <label className="admin-label">Content Blocks</label>
+        <label className="admin-label">
+          {isGame ? "Description Blocks" : "Content Blocks"}
+        </label>
         <span className="admin-hint" style={{ display: "block", marginBottom: 12 }}>
-          Build your article layout by adding and arranging blocks below.
+          {isGame
+            ? "Optional. Shown below the game (e.g. how-to-play, story, credits)."
+            : "Build your article layout by adding and arranging blocks below."}
         </span>
-        {form.content && form.blocks.length === 0 && (
-          <div className="admin-legacy-notice">
-            <span>This post was created with legacy HTML. Convert it to blocks to edit it visually.</span>
-            <button
-              type="button"
-              className="admin-btn admin-btn-outline admin-btn-sm"
-              onClick={() => {
-                const converted = parseHtmlToBlocks(form.content);
-                if (converted.length > 0) {
-                  set("blocks", converted);
-                }
-              }}
-            >
-              Convert to Blocks
-            </button>
-          </div>
-        )}
         <BlockBuilder
           blocks={form.blocks}
           onChange={(b) => set("blocks", b)}
@@ -331,28 +249,30 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
         />
       </div>
 
-      <div className="admin-field">
-        <label className="admin-label">Gallery <span className="admin-hint">(optional — extra images / videos)</span></label>
-        <div className="admin-upload-zone" onClick={() => galleryRef.current?.click()}>
-          <div className="admin-upload-zone-icon">📂</div>
-          <div className="admin-upload-zone-text">Click to <span>add gallery files</span> (images or video)</div>
-        </div>
-        <input ref={galleryRef} type="file" accept="image/*,video/*" multiple className="admin-file-hidden" onChange={handleGalleryUpload} />
-        {form.gallery.length > 0 && (
-          <div className="admin-thumb-list">
-            {form.gallery.map((src, i) => (
-              <div key={i} className="admin-thumb">
-                {isVideo(src) ? (
-                  <video src={src} muted />
-                ) : (
-                  <Image src={src} alt="" fill style={{ objectFit: "cover" }} unoptimized />
-                )}
-                <button type="button" className="admin-thumb-remove" onClick={() => removeGalleryItem(i)}>×</button>
-              </div>
-            ))}
+      {!isGame && (
+        <div className="admin-field">
+          <label className="admin-label">Gallery <span className="admin-hint">(optional — extra images / videos)</span></label>
+          <div className="admin-upload-zone" onClick={() => galleryRef.current?.click()}>
+            <div className="admin-upload-zone-icon">📂</div>
+            <div className="admin-upload-zone-text">Click to <span>add gallery files</span> (images or video)</div>
           </div>
-        )}
-      </div>
+          <input ref={galleryRef} type="file" accept="image/*,video/*" multiple className="admin-file-hidden" onChange={handleGalleryUpload} />
+          {form.gallery.length > 0 && (
+            <div className="admin-thumb-list">
+              {form.gallery.map((src, i) => (
+                <div key={i} className="admin-thumb">
+                  {isVideo(src) ? (
+                    <video src={src} muted />
+                  ) : (
+                    <Image src={src} alt="" fill style={{ objectFit: "cover" }} unoptimized />
+                  )}
+                  <button type="button" className="admin-thumb-remove" onClick={() => removeGalleryItem(i)}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="admin-field">
         <label className="admin-label">Visibility</label>
@@ -370,7 +290,7 @@ export default function PostForm({ initial, team }: { initial?: PostData; team: 
 
       <div className="admin-actions-row">
         <button type="submit" disabled={saving} className="admin-btn admin-btn-primary">
-          {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create Post"}
+          {saving ? "Saving…" : initial?.id ? "Save Changes" : "Create"}
         </button>
         <button type="button" onClick={() => router.back()} className="admin-btn admin-btn-outline">Cancel</button>
       </div>

@@ -1,7 +1,7 @@
 import "./admin.css";
 import AdminSidebar from "./AdminSidebar";
 
-export const metadata = { title: "Admin — Digital Nectar", robots: { index: false, follow: false } };
+export const metadata = { title: "Admin — Brzio", robots: { index: false, follow: false } };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const isDev = process.env.NODE_ENV !== "production";

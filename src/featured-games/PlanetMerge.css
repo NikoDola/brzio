@@ -1,0 +1,102 @@
+.planet-merge {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.planet-merge-frame {
+  width: 100%;
+}
+
+/* ---- Meta (collapsible) ---- */
+.planet-merge-meta {
+  width: 100%;
+  max-width: 800px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.planet-merge-meta > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  user-select: none;
+}
+
+.planet-merge-meta > summary::-webkit-details-marker {
+  display: none;
+}
+
+.planet-merge-meta > summary::after {
+  content: "+";
+  color: var(--primary-green);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-left: 12px;
+  transition: transform 0.2s ease;
+}
+
+.planet-merge-meta[open] > summary::after {
+  content: "−";
+}
+
+.planet-merge-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+.planet-merge-meta-block {
+  background: var(--surface);
+  padding: 18px 20px 22px;
+}
+
+.planet-merge-meta-block h3 {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--primary-green);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.planet-merge-meta-block p,
+.planet-merge-meta-block li {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 0.93rem;
+}
+
+.planet-merge-meta-block ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.planet-merge-meta-block strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Desktop: full section width. Panels are absolutely positioned over the
+   canvas inside the game, so the iframe height equals the canvas height
+   exactly (no extra dark body below the game). Aspect ratio matches the
+   canvas's internal resolution (840 × 927). */
+@media (min-width: 720px) {
+  .planet-merge-frame .game-embed {
+    --game-aspect-ratio: 840 / 927;
+    max-width: none;
+  }
+}

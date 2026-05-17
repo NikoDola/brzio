@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { getSeo } from "./content";
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://digitalnectar.space";
-export const SITE_NAME = "Digital Nectar";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://brzio.com";
+export const SITE_NAME = "Brzio";
 
-const FALLBACK_TITLE = "Digital Nectar | Creative & Tech Studio";
+const FALLBACK_TITLE = "Brzio | Mini Games";
 const FALLBACK_DESCRIPTION =
-  "Digital Nectar is a creative and technology studio specialising in brand identity, logo design, UI/UX, and software engineering.";
+  "Brzio is a collection of free browser mini-games. Quick, casual, and playable straight from your browser — no download, no sign-up.";
 
 function absoluteUrl(routePath: string): string {
   if (routePath === "/") return SITE_URL;
@@ -54,17 +54,9 @@ export function organizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: SITE_NAME,
-    alternateName: "The Logo Professionals",
     url: SITE_URL,
     logo: `${SITE_URL}/logo.svg`,
-    foundingDate: "2026",
     description: FALLBACK_DESCRIPTION,
-    contactPoint: {
-      "@type": "ContactPoint",
-      contactType: "customer support",
-      url: `${SITE_URL}/contact-us`,
-      availableLanguage: ["English"],
-    },
   };
 }
 
@@ -101,7 +93,6 @@ interface ArticleInput {
   image: string | null;
   createdAt: string | null;
   updatedAt: string | null;
-  authorName?: string | null;
 }
 
 export function articleJsonLd(a: ArticleInput) {
@@ -117,7 +108,7 @@ export function articleJsonLd(a: ArticleInput) {
     datePublished: a.createdAt ?? undefined,
     dateModified: a.updatedAt ?? a.createdAt ?? undefined,
     image: imageAbs ? [imageAbs] : undefined,
-    author: a.authorName ? { "@type": "Person", name: a.authorName } : { "@type": "Organization", name: SITE_NAME },
+    author: { "@type": "Organization", name: SITE_NAME },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
@@ -126,52 +117,25 @@ export function articleJsonLd(a: ArticleInput) {
   };
 }
 
-interface PersonInput {
-  name: string;
-  slug: string;
-  role: string;
-  image: string | null;
-  bio: string;
-  sameAs?: string[];
-}
-
-export function personJsonLd(p: PersonInput) {
-  const url = absoluteUrl(`/about-us/${p.slug}`);
-  const imageAbs = p.image ? ogImageAbsolute(p.image) : null;
-  return {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: p.name,
-    url,
-    jobTitle: p.role,
-    image: imageAbs ?? undefined,
-    description: p.bio,
-    sameAs: p.sameAs?.filter(Boolean),
-    worksFor: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
-  };
-}
-
-interface CreativeWorkInput {
+interface GameInput {
   title: string;
   slug: string;
   description: string;
   image: string | null;
-  authorName?: string | null;
-  createdAt: string | null;
 }
 
-export function creativeWorkJsonLd(w: CreativeWorkInput) {
-  const url = absoluteUrl(`/portfolio/${w.slug}`);
-  const imageAbs = w.image ? ogImageAbsolute(w.image) : null;
+export function gameJsonLd(g: GameInput) {
+  const url = absoluteUrl(`/games/${g.slug}`);
+  const imageAbs = g.image ? ogImageAbsolute(g.image) : null;
   return {
     "@context": "https://schema.org",
-    "@type": "CreativeWork",
-    name: w.title,
+    "@type": "VideoGame",
+    name: g.title,
     url,
-    description: w.description,
+    description: g.description,
     image: imageAbs ?? undefined,
-    dateCreated: w.createdAt ?? undefined,
-    creator: w.authorName ? { "@type": "Person", name: w.authorName } : { "@type": "Organization", name: SITE_NAME },
+    applicationCategory: "GameApplication",
+    operatingSystem: "Web Browser",
     publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
   };
 }

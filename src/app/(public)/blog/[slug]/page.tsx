@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPost, getTeam } from "@/lib/content";
-import ViewTracker from "@/components/ui/ViewTracker";
+import { getPost } from "@/lib/content";
 import BlogPostBody from "@/components/ui/BlogPostBody";
 import BlogPostHero from "@/components/ui/BlogPostHero";
 import { SITE_URL, SITE_NAME, articleJsonLd, breadcrumbJsonLd, jsonLdScript } from "@/lib/seo";
@@ -54,9 +53,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const post = await getPost(slug, "blog");
   if (!post || !post.published) notFound();
 
-  const team = post.teamMember ? await getTeam() : [];
-  const author = team.find((m) => m.slug === post.teamMember) ?? null;
-
   const isVideo = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
 
   const article = articleJsonLd({
@@ -66,7 +62,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     image: post.thumbnail || null,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
-    authorName: author?.name ?? null,
   });
 
   const breadcrumb = breadcrumbJsonLd([
@@ -79,7 +74,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <div className="blog-post-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(article) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }} />
-      <ViewTracker type="blog" slug={post.slug} />
       {post.thumbnail ? (
         <BlogPostHero
           src={post.thumbnail}

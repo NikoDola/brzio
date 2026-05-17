@@ -10,7 +10,6 @@ const BLOCK_LABELS: Record<ContentBlock["type"], string> = {
   "card-grid": "Card Grid",
   highlight: "Highlight Block",
   quote: "Pull Quote",
-  compare: "Compare Slider",
 };
 
 const BLOCK_DEFAULTS: { [K in ContentBlock["type"]]: Extract<ContentBlock, { type: K }> } = {
@@ -20,7 +19,6 @@ const BLOCK_DEFAULTS: { [K in ContentBlock["type"]]: Extract<ContentBlock, { typ
   "card-grid": { type: "card-grid", cards: [{ src: "", heading: "", body: "" }] },
   highlight: { type: "highlight", variant: "green", heading: "", body: "" },
   quote: { type: "quote", text: "" },
-  compare: { type: "compare", before: "", after: "", beforeLabel: "Before", afterLabel: "After" },
 };
 
 interface BlockBuilderProps {
@@ -298,32 +296,6 @@ function BlockEditor({
               value={block.text}
               onChange={(e) => patch({ text: e.target.value })}
               placeholder="The pull quote text…"
-            />
-          </div>
-        </div>
-      );
-
-    case "compare":
-      return (
-        <div className="admin-block-fields">
-          <ImageUploadField value={block.before} onChange={(v) => patch({ before: v })} onUpload={onUpload} label="Before Image *" />
-          <div className="admin-field">
-            <label className="admin-label">Before Label <span className="admin-hint">(optional)</span></label>
-            <input
-              className="admin-input"
-              value={block.beforeLabel ?? ""}
-              onChange={(e) => patch({ beforeLabel: e.target.value })}
-              placeholder="Before"
-            />
-          </div>
-          <ImageUploadField value={block.after} onChange={(v) => patch({ after: v })} onUpload={onUpload} label="After Image *" />
-          <div className="admin-field">
-            <label className="admin-label">After Label <span className="admin-hint">(optional)</span></label>
-            <input
-              className="admin-input"
-              value={block.afterLabel ?? ""}
-              onChange={(e) => patch({ afterLabel: e.target.value })}
-              placeholder="After"
             />
           </div>
         </div>

@@ -1,0 +1,75 @@
+.game-page {
+  padding: 90px 24px 80px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.game-back-link {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.game-back-link:hover {
+  color: var(--primary-green);
+}
+
+.game-page-header {
+  margin-top: 48px;
+}
+
+.game-page-heading {
+  max-width: 800px;
+  margin-bottom: 36px;
+}
+
+.game-page-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.game-tag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.game-page-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 600;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.game-page-excerpt {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.game-page-frame {
+  margin-bottom: 0;
+}
+
+.game-page-body {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .game-page {
+    padding: 80px 16px 60px;
+  }
+}

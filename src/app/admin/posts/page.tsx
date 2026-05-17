@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { getPosts } from "@/lib/content";
-import { getViewsByType } from "@/lib/views";
 import PostsList from "./PostsList";
 
 export default async function AdminPostsPage() {
-  const [posts, blogViews, portfolioViews] = await Promise.all([
-    getPosts(),
-    getViewsByType("blog"),
-    getViewsByType("portfolio"),
-  ]);
+  const posts = await getPosts();
 
   const rows = posts.map((p) => ({
     id: p.id,
@@ -16,22 +11,24 @@ export default async function AdminPostsPage() {
     title: p.title,
     slug: p.slug,
     thumbnail: p.thumbnail,
-    teamMember: p.teamMember,
     published: p.published,
     createdAt: p.createdAt,
-    views: (p.type === "blog" ? blogViews[p.slug] : portfolioViews[p.slug]) ?? 0,
+    gameSlug: p.gameSlug ?? null,
   }));
 
   return (
     <div className="admin-content">
       <div className="admin-section-header">
-        <h1 className="admin-section-title">Blog & Portfolio</h1>
-        <Link href="/admin/posts/new" className="admin-btn admin-btn-primary">+ New Post</Link>
+        <h1 className="admin-section-title">Posts & Games</h1>
+        <div className="admin-actions-row">
+          <Link href="/admin/posts/new?type=game" className="admin-btn admin-btn-primary">+ New Game</Link>
+          <Link href="/admin/posts/new?type=blog" className="admin-btn admin-btn-outline">+ New Blog Post</Link>
+        </div>
       </div>
 
       {posts.length === 0 ? (
         <div className="admin-empty">
-          <div className="admin-empty-icon">📝</div>
+          <div className="admin-empty-icon">🎮</div>
           <div className="admin-empty-text">No posts yet. Create your first one.</div>
         </div>
       ) : (

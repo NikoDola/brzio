@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import CompareSlider from "./CompareSlider";
 import type { ContentBlock } from "@/lib/content";
 
 function splitParagraphs(text: string) {
@@ -77,20 +74,6 @@ function BlockRenderer({ blocks }: { blocks: ContentBlock[] }) {
               </blockquote>
             );
 
-          case "compare":
-            return (
-              <div key={i} className="bp-compare">
-                <CompareSlider
-                  before={block.before}
-                  after={block.after}
-                  beforeAlt={block.beforeAlt}
-                  afterAlt={block.afterAlt}
-                  beforeLabel={block.beforeLabel}
-                  afterLabel={block.afterLabel}
-                />
-              </div>
-            );
-
           default:
             return null;
         }
@@ -105,48 +88,6 @@ interface Props {
 }
 
 export default function BlogPostBody({ html, blocks }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (blocks?.length) return;
-    const root = ref.current;
-    if (!root) return;
-
-    const markers = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-compare]"),
-    );
-    const roots: Root[] = [];
-
-    markers.forEach((marker) => {
-      const before = marker.getAttribute("data-before");
-      const after = marker.getAttribute("data-after");
-      if (!before || !after) return;
-
-      const beforeAlt = marker.getAttribute("data-before-alt") || undefined;
-      const afterAlt = marker.getAttribute("data-after-alt") || undefined;
-      const beforeLabel = marker.getAttribute("data-before-label") || undefined;
-      const afterLabel = marker.getAttribute("data-after-label") || undefined;
-
-      marker.innerHTML = "";
-      const r = createRoot(marker);
-      r.render(
-        <CompareSlider
-          before={before}
-          after={after}
-          beforeAlt={beforeAlt}
-          afterAlt={afterAlt}
-          beforeLabel={beforeLabel}
-          afterLabel={afterLabel}
-        />,
-      );
-      roots.push(r);
-    });
-
-    return () => {
-      roots.forEach((r) => r.unmount());
-    };
-  }, [html, blocks]);
-
   if (blocks?.length) {
     return <BlockRenderer blocks={blocks} />;
   }
@@ -155,7 +96,6 @@ export default function BlogPostBody({ html, blocks }: Props) {
 
   return (
     <div
-      ref={ref}
       className="blog-post-content"
       dangerouslySetInnerHTML={{ __html: html }}
     />

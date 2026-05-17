@@ -13,11 +13,11 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} | Creative & Tech Studio`,
+    default: `${SITE_NAME} | Free Browser Mini-Games`,
     template: `%s | ${SITE_NAME}`,
   },
   description:
-    "Digital Nectar is a creative and technology studio specialising in brand identity, logo design, UI/UX, and software engineering. Built by freelance veterans with 15+ years of experience.",
+    "Brzio is a free collection of browser mini-games. Quick, casual, and playable straight from your browser — no download, no sign-up.",
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
