@@ -145,6 +145,45 @@ body {
     cursor: cell;                   /* signals "pick a target" mode */
 }
 
+/* Destroy-power overlay: prompt and skip button */
+#destroy-overlay {
+    position: absolute;
+    left: 50%;
+    top: 6%; /* default near top where drop preview sits */
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none; /* allow clicks to fall through except button */
+}
+
+#destroy-overlay #destroy-text {
+    background: rgba(255, 105, 180, 0.12);
+    color: #ff66b2;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+    text-align: center;
+}
+
+#destroy-overlay #destroy-skip {
+    pointer-events: auto; /* button must be clickable */
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+#destroy-overlay[style*="display:none"] {
+    display: none;
+}
+
 #game-over-overlay {
     display: none;
     position: absolute;

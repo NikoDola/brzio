@@ -97,6 +97,9 @@ const nextPanel = document.getElementById('next-panel');
 const nextLabel = document.getElementById('next-label');
 const nextPrev  = document.getElementById('next-prev');
 const nextNext  = document.getElementById('next-next');
+const destroyOverlay = document.getElementById('destroy-overlay');
+const destroyTextEl = document.getElementById('destroy-text');
+const destroySkipBtn = document.getElementById('destroy-skip');
 
 /* dev panel elements */
 const devToggleEl   = document.getElementById('dev-toggle');
@@ -296,14 +299,23 @@ nextNext.addEventListener('click', () => cycleNext(+1));
 
 function updateDestroyUI() {
     canvas.classList.toggle('destroy-armed', destroyCharges > 0);
+    if (!destroyOverlay) return;
+    if (destroyCharges > 0) {
+        destroyOverlay.style.display = 'flex';
+        // position near the drop preview crosshair
+        destroyOverlay.style.left = (dropX / W * 100) + '%';
+        destroyOverlay.style.top  = (DROP_Y / H * 100) + '%';
+    } else {
+        destroyOverlay.style.display = 'none';
+    }
 }
 
 /** Pulsing red crosshair overlay on every shape body — called from frame(). */
 function drawDestroyTargets() {
     const pulse = 0.55 + 0.45 * Math.sin(totalMs * 0.008);
     ctx.save();
-    ctx.strokeStyle = `rgba(255, 60, 60, ${pulse})`;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(255, 105, 180, ${pulse})`; // pink
+    ctx.lineWidth = 9; // three times thicker
     for (const body of Composite.allBodies(world)) {
         if (body.label !== 'shape') continue;
         const lvl = bodyLvl.get(body.id);
@@ -534,6 +546,12 @@ function frame(ts) {
     if (destroyCharges > 0) drawDestroyTargets();
     drawPopups(ctx, popups, totalMs);
 
+    // Keep the DOM overlay positioned over the drop preview while armed
+    if (destroyOverlay && destroyCharges > 0) {
+        destroyOverlay.style.left = (dropX / W * 100) + '%';
+        destroyOverlay.style.top  = (DROP_Y / H * 100) + '%';
+    }
+
     /* Drop guide + shape waiting to fall (hidden while aiming the destroy power) */
     if (canDrop && !gameOver && destroyCharges === 0) {
         const rad  = r(curLvl);
@@ -591,6 +609,13 @@ canvas.addEventListener('touchend', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); drop(); }
 });
+
+if (destroySkipBtn) {
+    destroySkipBtn.addEventListener('click', () => {
+        destroyCharges = 0;
+        updateDestroyUI();
+    });
+}
 
 
 /* ── RESTART ─────────────────────────────────────────────────────────── */
