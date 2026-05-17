@@ -153,21 +153,9 @@
   font-size: 18px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 40px;
   border-left: 3px solid var(--primary-green); padding-left: 20px;
 }
-.blog-post-content {
-  font-size: 16px; color: var(--text-secondary); line-height: 1.8;
-}
-.blog-post-content h2 { color: var(--text); font-size: 24px; margin: 40px 0 12px; }
-.blog-post-content h3 { color: var(--text); font-size: 19px; margin: 28px 0 8px; }
-.blog-post-content p { margin: 0 0 18px; }
-.blog-post-content ul, .blog-post-content ol { padding-left: 22px; margin: 0 0 18px; }
-.blog-post-content li { margin-bottom: 6px; }
-.blog-post-content strong { color: var(--text); }
-.blog-post-content a { color: var(--primary-green); }
-.blog-post-content img { max-width: 100%; margin: 24px 0; }
-.blog-post-content blockquote {
-  border-left: 3px solid var(--primary-green); padding: 12px 20px; margin: 24px 0;
-  background: var(--surface); color: var(--text-secondary);
-}
+/* .blog-post-content base typography + .bp-* block styles live in
+   src/components/ui/BlogPostBody.css so they load wherever the
+   component renders (blog pages AND under games). */
 
 .blog-post-gallery { margin-top: 48px; }
 .blog-post-gallery h3 { color: var(--text); font-size: 18px; margin-bottom: 16px; }
@@ -182,167 +170,6 @@
   font-size: 14px; text-decoration: none; margin-bottom: 32px; transition: color 0.2s;
 }
 .blog-back-link:hover { color: var(--primary-green); }
-
-/* ════════════════════════════════════════════════════════════════
-   Rich blog content sections (bp-*)
-   ════════════════════════════════════════════════════════════════ */
-
-/* ── Plain section (h2 + paragraphs) ──────────────────────────── */
-.blog-post-content .bp-section {
-  margin: 56px 0;
-}
-.blog-post-content .bp-section h2 {
-  font-size: clamp(24px, 3vw, 32px);
-  margin: 0 0 18px;
-}
-.blog-post-content .bp-section p {
-  margin: 0 0 16px;
-}
-
-/* ── Full-width banner image ──────────────────────────────────── */
-.blog-post-content .bp-banner {
-  margin: 56px auto;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-.blog-post-content .bp-banner img {
-  width: 100%;
-  max-height: 500px;
-  object-fit: cover;
-  display: block;
-  margin: 0;
-}
-
-/* ── Card grid ────────────────────────────────────────────────── */
-.blog-post-content .bp-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 2px;
-  margin: 32px auto 56px;
-}
-.blog-post-content .bp-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  overflow: hidden;
-  transition: border-color 0.25s ease;
-}
-.blog-post-content .bp-card:hover {
-  border-color: var(--primary-green-dim);
-}
-.blog-post-content .bp-card img {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  display: block;
-  margin: 0;
-}
-.blog-post-content .bp-card-body {
-  padding: 22px 24px;
-}
-.blog-post-content .bp-card h3 {
-  font-size: 17px;
-  margin: 0 0 8px;
-  color: var(--text);
-}
-.blog-post-content .bp-card p {
-  font-size: 14px;
-  line-height: 1.65;
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-/* ── Highlight (dark accent block) ────────────────────────────── */
-.blog-post-content .bp-highlight {
-  background: var(--card);
-  border-left: 4px solid var(--primary-green);
-  padding: 40px clamp(28px, 4vw, 48px);
-  margin: 56px auto;
-  position: relative;
-  overflow: hidden;
-}
-.blog-post-content .bp-highlight::before {
-  content: '';
-  position: absolute;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--primary-green) 8%, transparent);
-  top: -140px;
-  right: -120px;
-  pointer-events: none;
-}
-.blog-post-content .bp-highlight h2 {
-  color: var(--text);
-  font-size: clamp(22px, 2.6vw, 28px);
-  margin: 0 0 14px;
-  position: relative;
-  z-index: 1;
-}
-.blog-post-content .bp-highlight p {
-  color: var(--text-secondary);
-  margin: 0 0 12px;
-  position: relative;
-  z-index: 1;
-}
-.blog-post-content .bp-highlight p:last-child { margin-bottom: 0; }
-
-/* Rose variant */
-.blog-post-content .bp-highlight.bp-highlight--rose {
-  border-left-color: var(--primary-rose);
-}
-.blog-post-content .bp-highlight.bp-highlight--rose::before {
-  background: color-mix(in srgb, var(--primary-rose) 8%, transparent);
-}
-
-/* ── Pull quote ───────────────────────────────────────────────── */
-.blog-post-content .bp-quote {
-  text-align: center;
-  font-size: clamp(18px, 2.4vw, 22px);
-  font-weight: 600;
-  font-style: normal;
-  color: var(--text);
-  line-height: 1.45;
-  padding: 36px clamp(24px, 4vw, 48px);
-  margin: 56px 0;
-  background: var(--surface);
-  border-left: 4px solid var(--primary-green);
-}
-.blog-post-content .bp-quote::before { content: none; }
-
-/* ── Split: image one side, text the other ────────────────────── */
-.blog-post-content .bp-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  align-items: center;
-  margin: 56px auto;
-}
-.blog-post-content .bp-split-image {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  aspect-ratio: 4 / 3;
-}
-.blog-post-content .bp-split-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  margin: 0;
-}
-.blog-post-content .bp-split-text h3 {
-  font-size: clamp(20px, 2.4vw, 26px);
-  margin: 0 0 14px;
-  color: var(--text);
-}
-.blog-post-content .bp-split-text p {
-  margin: 0 0 12px;
-}
-.blog-post-content .bp-split-text p:last-child { margin-bottom: 0; }
-
-/* Reverse → image on right */
-.blog-post-content .bp-split.bp-split--reverse .bp-split-image {
-  order: 2;
-}
 
 /* ── Before/after compare slider ──────────────────────────────── */
 .blog-post-content .bp-compare {
@@ -421,19 +248,6 @@
 
 /* ── Mobile adjustments ───────────────────────────────────────── */
 @media (max-width: 760px) {
-  .blog-post-content .bp-split {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-  .blog-post-content .bp-split.bp-split--reverse .bp-split-image {
-    order: 0;
-  }
-  .blog-post-content .bp-grid {
-    grid-template-columns: 1fr;
-  }
-  .blog-post-content .bp-highlight {
-    padding: 28px 22px;
-  }
   .compare-slider { aspect-ratio: 4 / 3; }
   .compare-slider-grip { width: 36px; height: 36px; }
 }

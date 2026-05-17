@@ -1,6 +1,7 @@
 "use client";
 
 import type { ContentBlock } from "@/lib/content";
+import "./BlogPostBody.css";
 
 function splitParagraphs(text: string) {
   return text.split(/\n\n+/).filter(Boolean);
@@ -43,7 +44,7 @@ function BlockRenderer({ blocks }: { blocks: ContentBlock[] }) {
 
           case "card-grid":
             return (
-              <div key={i} className="bp-grid">
+              <div key={i} className={`bp-grid${block.variant === "icon" ? " bp-grid--icon" : ""}`}>
                 {block.cards.map((card, j) => (
                   <div key={j} className="bp-card">
                     {card.src && (

@@ -90,13 +90,14 @@
   font-weight: 600;
 }
 
-/* Desktop: full section width. Panels are absolutely positioned over the
-   canvas inside the game, so the iframe height equals the canvas height
-   exactly (no extra dark body below the game). Aspect ratio matches the
-   canvas's internal resolution (840 × 927). */
+/* Desktop: iframe spans the full page width. The game inside still caps
+   #game-container at 700px, so the game stays centered with dark
+   background filling the sides. Fixed height prevents the iframe from
+   blowing up vertically on wide screens. */
 @media (min-width: 720px) {
   .planet-merge-frame .game-embed {
-    --game-aspect-ratio: 840 / 927;
     max-width: none;
+    height: 600px;
+    aspect-ratio: auto;
   }
 }

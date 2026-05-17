@@ -17,16 +17,8 @@ const LOCAL_ONLY_PREFIXES = [
 ];
 
 export async function proxy(req: NextRequest) {
-  const { pathname, hostname } = req.nextUrl;
+  const { pathname } = req.nextUrl;
   const isProd = process.env.NODE_ENV === "production";
-  const isLocalhost =
-    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
-
-  // Site-wide under-construction gate: any request that isn't from localhost
-  // gets rewritten to /under-construction, regardless of the path requested.
-  if (!isLocalhost && pathname !== "/under-construction") {
-    return NextResponse.rewrite(new URL("/under-construction", req.url));
-  }
 
   if (isProd && LOCAL_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.rewrite(new URL("/404", req.url));

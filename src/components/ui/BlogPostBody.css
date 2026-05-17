@@ -1,0 +1,244 @@
+/* ════════════════════════════════════════════════════════════════
+   BlogPostBody — styles for the .blog-post-content wrapper and
+   every .bp-* block type. Imported by BlogPostBody.tsx so the
+   styles travel with the component (used on blog pages AND under
+   games on /games/<slug>).
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Base typography for the wrapper ──────────────────────────── */
+.blog-post-content {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+.blog-post-content h2 { color: var(--text); font-size: 24px; margin: 40px 0 12px; }
+.blog-post-content h3 { color: var(--text); font-size: 19px; margin: 28px 0 8px; }
+.blog-post-content p { margin: 0 0 18px; }
+.blog-post-content ul, .blog-post-content ol { padding-left: 22px; margin: 0 0 18px; }
+.blog-post-content li { margin-bottom: 6px; }
+.blog-post-content strong { color: var(--text); }
+.blog-post-content a { color: var(--primary-green); }
+.blog-post-content img { max-width: 100%; margin: 24px 0; }
+.blog-post-content blockquote {
+  border-left: 3px solid var(--primary-green); padding: 12px 20px; margin: 24px 0;
+  background: var(--surface); color: var(--text-secondary);
+}
+
+/* ── Plain section (h2 + paragraphs) ──────────────────────────── */
+.blog-post-content .bp-section {
+  margin: 40px 0;
+}
+.blog-post-content .bp-section h2 {
+  font-size: clamp(22px, 2.6vw, 28px);
+  margin: 0 0 14px;
+}
+.blog-post-content .bp-section p {
+  margin: 0 0 14px;
+}
+.blog-post-content .bp-section p:last-child { margin-bottom: 0; }
+
+/* ── Full-width banner image ──────────────────────────────────── */
+.blog-post-content .bp-banner {
+  margin: 40px auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.blog-post-content .bp-banner img {
+  width: 100%;
+  max-height: 500px;
+  object-fit: cover;
+  display: block;
+  margin: 0;
+}
+
+/* ── Card grid (default: image cards) ─────────────────────────── */
+.blog-post-content .bp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2px;
+  margin: 28px auto 40px;
+}
+.blog-post-content .bp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.25s ease;
+}
+.blog-post-content .bp-card:hover {
+  border-color: var(--primary-green-dim);
+}
+.blog-post-content .bp-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  margin: 0;
+}
+.blog-post-content .bp-card-body {
+  padding: 22px 24px;
+}
+.blog-post-content .bp-card h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+.blog-post-content .bp-card p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* ── Card grid (icon variant: small icons in fixed 3-up row) ───
+   Used for planet roster, logo lists, badge grids. Stays 3-up at
+   every width so the icons read as a compact row, not a tower. */
+.blog-post-content .bp-grid--icon {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 20px auto 32px;
+}
+.blog-post-content .bp-grid--icon .bp-card img {
+  height: 88px;
+  object-fit: contain;
+  padding: 12px;
+  background: var(--bg);
+}
+.blog-post-content .bp-grid--icon .bp-card-body {
+  padding: 12px 14px 16px;
+}
+.blog-post-content .bp-grid--icon .bp-card h3 {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+.blog-post-content .bp-grid--icon .bp-card p {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* ── Highlight (dark accent block) ────────────────────────────── */
+.blog-post-content .bp-highlight {
+  background: var(--card);
+  border-left: 4px solid var(--primary-green);
+  padding: 32px clamp(24px, 4vw, 40px);
+  margin: 40px auto;
+  position: relative;
+  overflow: hidden;
+}
+.blog-post-content .bp-highlight::before {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary-green) 8%, transparent);
+  top: -140px;
+  right: -120px;
+  pointer-events: none;
+}
+.blog-post-content .bp-highlight h2 {
+  color: var(--text);
+  font-size: clamp(20px, 2.4vw, 26px);
+  margin: 0 0 12px;
+  position: relative;
+  z-index: 1;
+}
+.blog-post-content .bp-highlight p {
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+  position: relative;
+  z-index: 1;
+}
+.blog-post-content .bp-highlight p:last-child { margin-bottom: 0; }
+
+/* Rose variant */
+.blog-post-content .bp-highlight.bp-highlight--rose {
+  border-left-color: var(--primary-rose);
+}
+.blog-post-content .bp-highlight.bp-highlight--rose::before {
+  background: color-mix(in srgb, var(--primary-rose) 8%, transparent);
+}
+
+/* ── Pull quote ───────────────────────────────────────────────── */
+.blog-post-content .bp-quote {
+  text-align: center;
+  font-size: clamp(18px, 2.4vw, 22px);
+  font-weight: 600;
+  font-style: normal;
+  color: var(--text);
+  line-height: 1.45;
+  padding: 32px clamp(20px, 4vw, 40px);
+  margin: 40px 0;
+  background: var(--surface);
+  border-left: 4px solid var(--primary-green);
+}
+.blog-post-content .bp-quote::before { content: none; }
+
+/* ── Split: image one side, text the other ────────────────────── */
+.blog-post-content .bp-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+  margin: 40px auto;
+}
+.blog-post-content .bp-split-image {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  aspect-ratio: 4 / 3;
+}
+.blog-post-content .bp-split-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  margin: 0;
+}
+.blog-post-content .bp-split-text h3 {
+  font-size: clamp(20px, 2.4vw, 26px);
+  margin: 0 0 14px;
+  color: var(--text);
+}
+.blog-post-content .bp-split-text p {
+  margin: 0 0 12px;
+}
+.blog-post-content .bp-split-text p:last-child { margin-bottom: 0; }
+
+/* Reverse layout, image on right */
+.blog-post-content .bp-split.bp-split--reverse .bp-split-image {
+  order: 2;
+}
+
+/* ── Mobile adjustments ───────────────────────────────────────── */
+@media (max-width: 760px) {
+  .blog-post-content .bp-split {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .blog-post-content .bp-split.bp-split--reverse .bp-split-image {
+    order: 0;
+  }
+  /* Default image cards collapse to one column on phones. */
+  .blog-post-content .bp-grid {
+    grid-template-columns: 1fr;
+  }
+  /* But icon cards stay 3-up always, that's the whole point of the variant. */
+  .blog-post-content .bp-grid--icon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .blog-post-content .bp-grid--icon .bp-card img {
+    height: 64px;
+    padding: 8px;
+  }
+  .blog-post-content .bp-grid--icon .bp-card-body {
+    padding: 8px 10px 12px;
+  }
+  .blog-post-content .bp-grid--icon .bp-card h3 {
+    font-size: 12px;
+  }
+  .blog-post-content .bp-grid--icon .bp-card p {
+    font-size: 11.5px;
+  }
+  .blog-post-content .bp-highlight {
+    padding: 24px 20px;
+  }
+}

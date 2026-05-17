@@ -4,15 +4,119 @@
     "type": "game",
     "title": "Planet Merge",
     "slug": "planet-merge",
-    "excerpt": "Drag, drop, merge — combine matching planets to discover the biggest body in the system.",
+    "excerpt": "Drag, drop, merge. Combine matching planets to discover the biggest body in the system.",
     "content": "",
-    "blocks": [],
+    "blocks": [
+      {
+        "type": "section",
+        "heading": "How to play",
+        "body": "Move your cursor across the top of the playfield to aim. Click (or tap, on mobile) to drop the waiting planet. When two of the same planet touch, they merge into the next size up.\n\nThe planet you're holding is shown by the crosshair at the top. The planet coming after it lives in the NEXT panel on the side. Drop the wrong one in the wrong spot and the stack creeps upward. If any planet settles above the red danger line for more than a moment, the run ends.\n\nThere's no timer and no level. The whole game is one long balancing act between dropping aggressively for chain reactions and dropping carefully so your stack doesn't drift skyward."
+      },
+      {
+        "type": "highlight",
+        "variant": "green",
+        "heading": "Chains and superpowers",
+        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Next\". Arrows appear on the NEXT panel so you can cycle which planet drops next instead of taking what the game gives you.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero."
+      },
+      {
+        "type": "section",
+        "heading": "The droppables",
+        "body": "Only the five smallest bodies fall from the top. Anything larger is born from a merge."
+      },
+      {
+        "type": "card-grid",
+        "variant": "icon",
+        "cards": [
+          {
+            "src": "/games/planet-merge/assets/images/planet_star.svg",
+            "heading": "1. Stars",
+            "body": "Tiny twinklers. Drop the most often. Two stars merge into a Moon."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_moon.svg",
+            "heading": "2. Moon",
+            "body": "Crescent-shaped, with a physics collider that follows the actual silhouette, so it nestles into gaps differently than a round body. Two moons make a Pluto."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_pluto.svg",
+            "heading": "3. Pluto",
+            "body": "The dwarf planet, small but round. Two Plutos make a Mercury."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_mercury.svg",
+            "heading": "4. Mercury",
+            "body": "Cratered rock. Two Mercuries become a Mars."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_mars.svg",
+            "heading": "5. Mars",
+            "body": "The red wanderer, last of the droppables. Two Mars planets fuse into a Venus."
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "heading": "Forged by merging",
+        "body": "Everything from here on only exists if you make it. Each step up doubles roughly in mass and gets harder to set up."
+      },
+      {
+        "type": "card-grid",
+        "variant": "icon",
+        "cards": [
+          {
+            "src": "/games/planet-merge/assets/images/planet_venus.svg",
+            "heading": "6. Venus",
+            "body": "Earth's twin in size. Two Venuses merge into Earth."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_earth.svg",
+            "heading": "7. Earth",
+            "body": "Home, blue and bold. Two Earths fuse into Uranus."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_uranius.svg",
+            "heading": "8. Uranus",
+            "body": "Pale ice giant. Two Uranuses become Neptune."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_neptune.svg",
+            "heading": "9. Neptune",
+            "body": "Deep blue and stormy. Two Neptunes form Saturn."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_saturn.svg",
+            "heading": "10. Saturn",
+            "body": "Ringed beauty. The collider includes the rings as separate pieces, so they tangle with whatever's nearby. Two Saturns become Jupiter."
+          },
+          {
+            "src": "/games/planet-merge/assets/images/planet_jupiter.svg",
+            "heading": "11. Jupiter",
+            "body": "King of the gas giants. Two Jupiters fuse into the final body."
+          }
+        ]
+      },
+      {
+        "type": "highlight",
+        "variant": "rose",
+        "heading": "12. Sun: two of them and they're gone",
+        "body": "The Sun is the maximum-level body and the only one that doesn't merge upward. When two Suns touch they both vanish in a flash and award a big score bonus.\n\nGetting there means juggling Jupiter pairs. A board with even one Sun is already long-game territory."
+      },
+      {
+        "type": "section",
+        "heading": "The vibe",
+        "body": "Quiet space, soft glow, planets with faces. The whole game runs in a small dark window, with no chrome and no menus competing for attention. Score sits in the corner, the next planet hides in the side panel, and the playfield does all the talking.\n\nPhysics is deliberately a little arcadey. Heavy planets get a real shove when something light hits them, so chain reactions feel weighty even when the dropping planet is a tiny star. Sleeping bodies wake the instant anything below them merges, so a tower in the middle of a chain reaction collapses naturally instead of leaving floating planets in mid-air.\n\nNo timer pressure, no progression unlocks. Sit with one run, see how far you can take it, restart whenever."
+      },
+      {
+        "type": "quote",
+        "text": "Drop with intent. Chain with patience. Save the Destroy power for the moment the board needs rescuing, not the moment you earn it."
+      }
+    ],
     "thumbnail": "",
     "gallery": [],
     "tags": ["Puzzle", "Casual", "Merge"],
     "published": true,
     "gameSlug": "planet-merge",
     "createdAt": "2026-05-17T00:00:00.000Z",
-    "updatedAt": "2026-05-17T00:00:00.000Z"
+    "updatedAt": "2026-05-18T00:00:00.000Z"
   }
 ]
