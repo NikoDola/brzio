@@ -8,7 +8,7 @@ interface PlanetMergeProps {
 
 export default async function PlanetMerge({ gameSlug }: PlanetMergeProps) {
   const admin = await requireAdmin();
-  const src = `/games/${gameSlug}/index.html${admin ? "?dev=1" : ""}`;
+  const src = `/games/${gameSlug}/play.html${admin ? "?dev=1" : ""}`;
 
   return (
     <div className="planet-merge">

@@ -20,7 +20,7 @@ export function getGameComponent(slug: string): ComponentType<GameComponentProps
 function DefaultGame({ gameSlug }: GameComponentProps) {
   return (
     <GameEmbed
-      src={`/games/${gameSlug}/index.html`}
+      src={`/games/${gameSlug}/play.html`}
       title={gameSlug}
       aspectRatio="16 / 10"
     />

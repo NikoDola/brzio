@@ -12,12 +12,14 @@ Read this file when working in ANY game subfolder. For game-specific architectur
 public/games/
 ├── CLAUDE.md           ← you are here (global rules for all games)
 ├── <slug>/
-│   ├── index.html      ← entry point, must be named exactly this
+│   ├── play.html       ← entry point, must be named exactly this
 │   ├── CLAUDE.md       ← game-specific architecture + rules
 │   └── ... (game's own JS/CSS/assets)
 ```
 
 The folder name is the **game slug**. The brzio site references it via the `gameSlug` field on a `type: "game"` post in `src/content/posts.json`.
+
+**Why `play.html` and not `index.html`:** if the entry file were `index.html`, Vercel would serve it directly at `/games/<slug>` (treating the folder as a static directory). That bypasses the Next.js wrapper page entirely and breaks relative asset paths (no trailing slash means `style.css` resolves to `/games/style.css`, not `/games/<slug>/style.css`). Naming the entry `play.html` keeps the `/games/<slug>` route owned by Next.js, and the iframe inside it loads `/games/<slug>/play.html`.
 
 ---
 
@@ -26,7 +28,7 @@ The folder name is the **game slug**. The brzio site references it via the `game
 1. User visits `/games/<post-slug>` on the brzio site.
 2. Next.js renders [src/app/(public)/games/[slug]/page.tsx](../../src/app/(public)/games/[slug]/page.tsx).
 3. The page looks up a custom wrapper in [src/featured-games/registry.tsx](../../src/featured-games/registry.tsx) keyed by post slug. If none, it falls back to the generic `<GameEmbed>`.
-4. The wrapper iframes `/games/<gameSlug>/index.html` (path is relative to `/public`).
+4. The wrapper iframes `/games/<gameSlug>/play.html` (path is relative to `/public`).
 5. Authenticated admins get `?dev=1` appended to the iframe `src`.
 
 **The game has NO knowledge of the parent brzio site.** It runs sandboxed in an iframe.
@@ -35,7 +37,7 @@ The folder name is the **game slug**. The brzio site references it via the `game
 
 ## Dev mode (`?dev=1`)
 
-Each game's `index.html` should include:
+Each game's `play.html` should include:
 
 ```html
 <script>
@@ -73,7 +75,7 @@ body {
 }
 ```
 
-And every game's `index.html` must include this in the head script:
+And every game's `play.html` must include this in the head script:
 
 ```js
 window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
@@ -97,7 +99,7 @@ The iframe's `max-width` and `height` are controlled by the **brzio-side wrapper
 
 ## Adding a new game
 
-1. Drop the game folder into `public/games/<slug>/` with `index.html`.
+1. Drop the game folder into `public/games/<slug>/` with `play.html`.
 2. Add a `CLAUDE.md` to the new folder documenting its architecture.
 3. (Optional) Create `src/featured-games/<Name>.tsx` for a custom wrapper; register in `registry.tsx`.
 4. In dev (`npm run dev`), sign in at `/admin/login`, create a `type: "game"` post pointing at the folder.

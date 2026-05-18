@@ -33,7 +33,7 @@ Rule: if you change a mechanic in code, update the matching block in `posts.json
 | [physics.js](physics.js) | Matter.js engine setup, walls, body tracking maps, SVG silhouette collider loading, body spawn/despawn, `wakeAllShapes`, `separateOverlapping`. |
 | [renderer.js](renderer.js) | All canvas drawing. Procedural shapes, asset bitmaps, flash/popup effects, next-canvas preview. |
 | [game.js](game.js) | Game loop, input, merge/vanish queues, chain counter, superpower logic, restart, dev panel wiring. Module entry point. |
-| [index.html](index.html) | DOM scaffold: game canvas, score/next panels, dev panel, game-over overlay. Loads Matter.js + poly-decomp from CDN globals before importing `game.js`. |
+| [play.html](play.html) | DOM scaffold: game canvas, score/next panels, dev panel, game-over overlay. Loads Matter.js + poly-decomp from CDN globals before importing `game.js`. |
 | [style.css](style.css) | All styling. See [`../CLAUDE.md`](../CLAUDE.md) for required iframe/scroll rules. |
 
 ---
