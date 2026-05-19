@@ -6,41 +6,67 @@
 /* ── Design tokens ─────────────────────────────────────────────── */
 /* (no Tailwind — vanilla CSS only) */
 :root {
-  /* Surfaces */
-  --bg: #151717;
-  --surface: #1a1d1c;
-  --card: #242b2c;
-  --border: #0a0b0b;
+  /* Surfaces (Crayon Pop on warm craft-paper, kid-friendly, ages 5-14) */
+  --bg: #F4E9D2;
+  --surface: #FBF6E5;
+  --card: #FFFFFF;
+  --border: #E6D8B8;
 
-  /* Brand — primary green (teal) */
-  --primary-green: #58B9A5;
-  --primary-green-light: #7ECABB;
-  --primary-green-dim: #3D9B88;
+  /* Brand, primary green (grass) */
+  --primary-green: #34C77B;
+  --primary-green-light: #5EDB97;
+  --primary-green-dim: #22A862;
 
-  /* Brand — primary rose (pastel pink) */
-  --primary-rose: #E3688B;
-  --primary-rose-light: #EA8BA5;
-  --primary-rose-dim: #C4506F;
+  /* Brand, primary rose (strawberry) */
+  --primary-rose: #FF5C8A;
+  --primary-rose-light: #FF87A8;
+  --primary-rose-dim: #E03468;
 
-  /* Text */
-  --text: #ffffff;
-  --text-secondary: #dadada;
-  --text-muted: #8f8f8f;
+  /* Accents (new, kid-friendly pops) */
+  --primary-yellow: #FFD23F;
+  --primary-yellow-light: #FFE176;
+  --primary-yellow-dim: #E8B81F;
+
+  --primary-blue: #3DA9FC;
+  --primary-blue-light: #6FC0FD;
+  --primary-blue-dim: #1E8AE0;
+
+  --primary-purple: #8C5BFF;
+  --primary-purple-light: #A984FF;
+  --primary-purple-dim: #6B3FE0;
+
+  /* Text (dark on light) */
+  --text: #1B2440;
+  --text-secondary: #4A5377;
+  --text-muted: #7C84A3;
 
   /* Status */
-  --success: #58B9A5;
-  --error: #e05c5c;
-  --warning: #d4a04a;
-  --info: #60a5fa;
+  --success: #34C77B;
+  --error: #E5484D;
+  --warning: #F5A524;
+  --info: #3DA9FC;
 
-  /* Opacity */
-    --primary-green-light-opacity: rgb(88, 185, 165, 0.3);
-  /* Subtle dividers / hairlines (overlay-on-dark) */
+  /* Opacity (matches new --primary-green) */
+  --primary-green-light-opacity: rgba(52, 199, 123, 0.3);
+
+  /* Subtle dividers / hairlines (overlay-on-light) */
   --line: color-mix(in srgb, var(--text) 8%, transparent);
   --line-strong: color-mix(in srgb, var(--text) 14%, transparent);
 
   /* Even quieter text than text-muted */
   --text-faint: color-mix(in srgb, var(--text) 28%, transparent);
+
+  /* Text for placement on dark overlays / scrims (NOT for colored buttons,
+     where dark --text on bright accent reads better and meets contrast) */
+  --text-inverse: #FFFFFF;
+
+  /* Overlays / scrims (deep-navy tinted, softer than pure black) */
+  --overlay: rgba(15, 23, 42, 0.55);
+  --overlay-strong: rgba(15, 23, 42, 0.7);
+
+  /* Shadows tuned for white bg */
+  --shadow-soft: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 18px 40px rgba(15, 23, 42, 0.12);
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */
@@ -53,7 +79,12 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: url('/images/general/bg.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -178,7 +209,7 @@ bottom: 0;
   --color-bg:              var(--bg);
   --color-surface:         var(--surface);
   --color-surface-alt:     var(--card);
-  --color-overlay:         rgba(0, 0, 0, 0.6);
+  --color-overlay:         var(--overlay-strong);
   --color-border:          var(--border);
   --color-border-focus:    var(--primary-green);
   --color-text-primary:    var(--text);
@@ -268,11 +299,11 @@ bottom: 0;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-sm:    0 2px 6px rgba(0, 0, 0, 0.5);
-  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.55);
-  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-xl:    0 16px 48px rgba(0, 0, 0, 0.7);
+  --shadow-xs:    0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-sm:    0 2px 6px rgba(15, 23, 42, 0.08);
+  --shadow-md:    0 4px 16px rgba(15, 23, 42, 0.10);
+  --shadow-lg:    0 8px 32px rgba(15, 23, 42, 0.14);
+  --shadow-xl:    0 16px 48px rgba(15, 23, 42, 0.18);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--primary-green) 32%, transparent);
 
   /* Motion */

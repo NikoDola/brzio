@@ -2,52 +2,9 @@
   min-height: 100vh;
 }
 
-/* ---------- Hero ---------- */
-.home-hero {
-  padding: 140px 24px 60px;
-  text-align: center;
-}
-
-.home-hero-inner {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.home-eyebrow {
-  color: var(--primary-green);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  margin: 0 0 20px;
-  font-weight: 500;
-}
-
-.home-hero-title {
-  font-size: clamp(2.4rem, 6vw, 4rem);
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  margin: 0 0 24px;
-  color: var(--text);
-}
-
-.home-hero-accent {
-  color: var(--primary-green);
-  font-style: italic;
-  font-weight: 500;
-}
-
-.home-hero-sub {
-  color: var(--text-secondary);
-  font-size: 1.15rem;
-  line-height: 1.55;
-  margin: 0 auto;
-  max-width: 560px;
-}
-
-/* ---------- Game grid ---------- */
+/* ───────── Game grid ───────── */
 .home-games {
-  padding: 40px 24px 100px;
+  padding: 110px 24px 100px;
 }
 
 .home-games-inner {
@@ -64,33 +21,37 @@
 
 .home-games-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 36px 28px;
+  padding: 12px 0;
 }
 
+/* ───────── Card, sticker style ───────── */
 .home-game-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  background: var(--card);
+  border-radius: 22px;
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.05),
+    0 12px 28px rgba(15, 23, 42, 0.08);
+  transition: box-shadow 0.3s ease;
 }
 
 .home-game-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--primary-green-dim);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 6px 14px rgba(15, 23, 42, 0.10),
+    0 28px 56px rgba(15, 23, 42, 0.18);
 }
 
 .home-game-card-image {
   position: relative;
   aspect-ratio: 16 / 10;
-  background: var(--card);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -100,57 +61,57 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--card), var(--surface));
+  background: linear-gradient(135deg, var(--primary-yellow-light), var(--primary-rose-light));
 }
 
 .home-game-card-placeholder span {
-  font-size: 4rem;
-  font-weight: 700;
-  color: var(--primary-green-dim);
-  opacity: 0.5;
+  font-size: 4.5rem;
+  font-weight: 800;
+  color: var(--text);
 }
 
+/* Play badge, always visible, no hover motion */
 .home-game-card-play {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  bottom: 14px;
+  right: 14px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  background: var(--primary-yellow);
+  color: var(--text);
+  border-radius: 999px;
+  box-shadow:
+    0 3px 0 rgba(15, 23, 42, 0.12),
+    0 8px 18px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
 }
 
 .home-game-card-play span {
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  padding: 12px 28px;
-  background: var(--primary-green);
-  border-radius: 999px;
-  color: #0f1411;
-}
-
-.home-game-card:hover .home-game-card-play {
-  opacity: 1;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateX(1px);
 }
 
 .home-game-card-body {
-  padding: 18px 20px 22px;
+  padding: 20px 22px 24px;
 }
 
 .home-game-card-title {
   margin: 0 0 8px;
-  font-size: 1.15rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .home-game-card-excerpt {
-  margin: 0 0 12px;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  line-height: 1.55;
   color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -165,24 +126,22 @@
 }
 
 .home-game-tag {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  background: var(--card);
-  border: 1px solid var(--border);
-  padding: 3px 9px;
+  letter-spacing: 0.05em;
+  padding: 4px 11px;
   border-radius: 999px;
+  color: var(--text);
+  background: var(--primary-yellow-light);
 }
+.home-game-card-tags > :nth-child(2) { background: var(--primary-blue-light); }
+.home-game-card-tags > :nth-child(3) { background: var(--primary-rose-light); }
 
 @media (max-width: 640px) {
-  .home-hero {
-    padding: 110px 16px 40px;
-  }
-  .home-games {
-    padding: 30px 16px 80px;
-  }
+  .home-games { padding: 96px 16px 80px; }
   .home-games-grid {
     grid-template-columns: 1fr;
+    gap: 28px;
   }
 }

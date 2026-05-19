@@ -8,21 +8,6 @@ export default async function HomePage() {
 
   return (
     <div className="home">
-      <section className="home-hero">
-        <div className="home-hero-inner">
-          <p className="home-eyebrow">Free Browser Mini-Games</p>
-          <h1 className="home-hero-title">
-            Play <span className="home-hero-accent">instantly.</span>
-            <br />
-            No download. No sign-up.
-          </h1>
-          <p className="home-hero-sub">
-            A small collection of hand-built browser games.
-            Pick one and start playing.
-          </p>
-        </div>
-      </section>
-
       <section className="home-games">
         <div className="home-games-inner">
           {games.length === 0 ? (
@@ -47,8 +32,8 @@ export default async function HomePage() {
                         <span>{game.title.charAt(0)}</span>
                       </div>
                     )}
-                    <div className="home-game-card-play">
-                      <span>▶ Play</span>
+                    <div className="home-game-card-play" aria-hidden="true">
+                      <span>▶</span>
                     </div>
                   </div>
                   <div className="home-game-card-body">

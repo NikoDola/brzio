@@ -187,7 +187,7 @@ export default function PostForm({ initial, initialType, gameFolders }: PostForm
             />
           )}
           <span className="admin-hint">
-            Folder inside <code>/public/games/</code> containing the game&apos;s <code>index.html</code>.
+            Folder inside <code>/public/games/</code> containing the game&apos;s <code>play.html</code>.
           </span>
         </div>
       )}

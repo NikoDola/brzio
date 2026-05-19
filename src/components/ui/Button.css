@@ -17,7 +17,7 @@
 
 .btn-primary {
   background: var(--primary-green);
-  color: var(--bg);
+  color: var(--text);
   padding: 16px 36px;
 }
 .btn-primary:hover {
@@ -32,7 +32,7 @@
 }
 .btn-outline:hover {
   background: var(--primary-green);
-  color: var(--bg);
+  color: var(--text);
 }
 
 .btn-ghost {

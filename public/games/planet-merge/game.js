@@ -100,6 +100,12 @@ let autoDropOn = false;
 let autoDropX = 0.5; // 0-1 fraction of playfield width
 let simSpeed = 1; // physics time multiplier (1× = normal, 10× = turbo)
 
+// Dev "always armed" toggles. When on, the corresponding power re-arms
+// itself after every consumption so the UI stays in its active state and
+// can be visually tweaked without grinding chains.
+let forceChoose = false;
+let forceDestroy = false;
+
 let devDrops = 0;
 let devGames = 0;
 const devScores = [];
@@ -127,6 +133,8 @@ const autoXEl = document.getElementById("auto-x");
 const autoXVal = document.getElementById("auto-x-val");
 const dropModeEl = document.getElementById("drop-mode");
 const colliderBtn = document.getElementById("collider-btn");
+const forceChooseBtn = document.getElementById("force-choose-btn");
+const forceDestroyBtn = document.getElementById("force-destroy-btn");
 const statDropsEl = document.getElementById("stat-drops");
 const statGamesEl = document.getElementById("stat-games");
 const statAvgEl = document.getElementById("stat-avg");
@@ -408,6 +416,10 @@ function useDestroyPower(clientX, clientY) {
   wakeAllShapes();
   destroyCharges = 0;
   updateDestroyUI();
+  if (forceDestroy) {
+    destroyCharges = 1;
+    updateDestroyUI();
+  }
   return true;
 }
 
@@ -488,6 +500,10 @@ function drop() {
     powerCharges--;
     if (powerCharges === 0) updatePowerUI();
   }
+  if (forceChoose && powerCharges === 0) {
+    powerCharges = 1;
+    updatePowerUI();
+  }
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
 }
 
@@ -552,7 +568,7 @@ function frame(ts) {
   }
 
   /* Background */
-  ctx.fillStyle = "#16213e";
+  ctx.fillStyle = "rgb(34, 34, 34, 0.8)";
   ctx.fillRect(0, 0, W, H);
 
   /* Walls */
@@ -667,6 +683,10 @@ if (destroySkipBtn) {
   destroySkipBtn.addEventListener("click", () => {
     destroyCharges = 0;
     updateDestroyUI();
+    if (forceDestroy) {
+      destroyCharges = 1;
+      updateDestroyUI();
+    }
   });
 }
 
@@ -698,8 +718,8 @@ restartEl.addEventListener("click", () => {
   statDropsEl.textContent = "0";
 
   resetChain();
-  powerCharges = 0;
-  destroyCharges = 0;
+  powerCharges = forceChoose ? 1 : 0;
+  destroyCharges = forceDestroy ? 1 : 0;
   updatePowerUI();
   updateDestroyUI();
 

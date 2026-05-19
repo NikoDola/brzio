@@ -18,7 +18,7 @@ Free browser mini-games site. Built on the bones of a previous marketing site, s
 - **Fonts:** DM Sans (UI) via `next/font/google`
 - **Content storage:** JSON files in `src/content/` (posts + seo) committed to git
 - **Auth:** Firebase Auth (Google sign-in) issues a JWT cookie (`jose`). Admin only.
-- **Games:** Static HTML/JS in `/public/games/<slug>/`. Each game ships its own `index.html`.
+- **Games:** Static HTML/JS in `/public/games/<slug>/`. Each game ships its own `play.html` (not `index.html`, which would conflict with the Next.js `/games/[slug]` route and bypass the wrapper page).
 - **Package manager:** npm
 
 ## Folder Structure
@@ -96,7 +96,7 @@ Player-facing rules for each game live in that game's post `blocks`. The game-fo
 
 ## Adding a New Game
 
-1. Drop the game's self-contained HTML/CSS/JS into `/public/games/<folder>/` with an `index.html` entry point.
+1. Drop the game's self-contained HTML/CSS/JS into `/public/games/<folder>/` with a `play.html` entry point.
 2. `npm run dev`, sign in at `/admin/login`, go to `/admin/posts/new?type=game`.
 3. Pick the folder from the "Game Folder" dropdown, set a title/slug/excerpt/thumbnail, publish.
 4. (Optional) For a custom layout, wrap the iframe in a new `featured-games/<Name>.tsx` and add `slug → Component` in `registry.tsx`.

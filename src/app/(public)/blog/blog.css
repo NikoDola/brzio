@@ -1,4 +1,4 @@
-.blog-page { min-height: 100vh; background: var(--bg); }
+.blog-page { min-height: 100vh; }
 
 .blog-hero {
   padding: 140px 24px 80px;
@@ -77,7 +77,7 @@
 }
 
 /* Single post */
-.blog-post-page { min-height: 100vh; background: var(--bg); }
+.blog-post-page { min-height: 100vh; }
 
 .blog-post-hero {
   position: relative;
@@ -223,10 +223,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #000;
+  color: var(--text);
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-soft);
   pointer-events: none;
 }
 .compare-slider-label {
@@ -236,8 +236,8 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
+  color: var(--text-inverse);
+  background: var(--overlay);
   padding: 6px 12px;
   border-radius: 999px;
   pointer-events: none;
