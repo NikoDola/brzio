@@ -40,13 +40,21 @@ export const active   = new Set();   // bodyIds currently in world
 /* ── SVG SILHOUETTE COLLISION ─────────────────────────────────────────────
    For planets flagged `outline:true`, the SVG must contain one or more
    <path id="silhouette*"> elements (Adobe Illustrator appends a random
-   suffix to the id, so we match by prefix). Each silhouette path becomes
-   one vertex set; together they're built into a compound body.
+   suffix to the id, so we match by prefix). Each silhouette path is then
+   split on `M`/`m` so every SVG subpath becomes its own vertex set; the
+   sets are combined into a single compound body.
+
+   The split matters: Illustrator routinely packs the main outline plus
+   small decorative interior shapes into one <path>. Sampling that path
+   as a single polyline produced phantom-bridge vertices linking the
+   outline to the artifacts, which broke poly-decomp and warped the
+   collider. Per-subpath sampling + an area-based artifact filter keeps
+   only the real silhouette pieces (e.g. body + rings).
 
    Vertices are normalised relative to the *SVG viewBox centre*, not the
-   silhouette's own bbox — that way the collider and the rendered image
-   share exactly the same coordinate frame, so the image always sits on
-   top of its collider regardless of how off-centre the silhouette is.    */
+   silhouette's own bbox, so the collider and the rendered image share
+   exactly the same coordinate frame and the image always sits on top of
+   its collider regardless of how off-centre the silhouette is.          */
 const outlineUnitVerts = new Map();   // lvl → [ [{x,y}...], ... ] sets in unit space (1 = viewBox half-span)
 
 /**
@@ -86,9 +94,13 @@ async function loadOutlineFor(assetFile) {
     const cy = vbY + vbH / 2;
     const halfSpan = Math.max(vbW, vbH) / 2;
 
-    // Match by id prefix — Illustrator mangles ids like silhouette_0000…_
+    // Match by id prefix. Illustrator mangles ids like silhouette_0000…_
     const rawPaths = [...doc.querySelectorAll('path[id^="silhouette"]')];
     if (rawPaths.length === 0) throw new Error('no <path id="silhouette*"> in SVG');
+
+    // Flatten every <path id="silhouette*"> into one entry per subpath. See
+    // the block comment above for why this matters.
+    const subpathDs = rawPaths.flatMap(p => splitSubpaths(p.getAttribute('d') || ''));
 
     // getTotalLength / getPointAtLength need elements attached to the live DOM
     const NS = 'http://www.w3.org/2000/svg';
@@ -97,22 +109,56 @@ async function loadOutlineFor(assetFile) {
     document.body.appendChild(host);
 
     try {
-        const pathEls = rawPaths.map(p => {
-            const el = document.createElementNS(NS, 'path');
-            el.setAttribute('d', p.getAttribute('d') || '');
-            host.appendChild(el);
-            return el;
-        });
-
-        return pathEls
-            .map(el => samplePath(el, 12).map(v => ({
-                x: (v.x - cx) / halfSpan,
-                y: (v.y - cy) / halfSpan,
-            })))
+        const sampled = subpathDs
+            .map(d => {
+                const el = document.createElementNS(NS, 'path');
+                el.setAttribute('d', d);
+                host.appendChild(el);
+                return samplePath(el, 12).map(v => ({
+                    x: (v.x - cx) / halfSpan,
+                    y: (v.y - cy) / halfSpan,
+                }));
+            })
             .filter(set => set.length >= 3);
+
+        // Reject tiny subpaths whose bbox area is below ARTIFACT_THRESHOLD of
+        // the largest. Filters out interior detail shapes that Illustrator
+        // sometimes lumps into the silhouette path (small highlights, holes)
+        // while keeping real secondary pieces like rings.
+        const ARTIFACT_THRESHOLD = 0.05;
+        const maxA = Math.max(0, ...sampled.map(bboxArea));
+        const kept = maxA > 0
+            ? sampled.filter(set => bboxArea(set) >= maxA * ARTIFACT_THRESHOLD)
+            : sampled;
+        if (kept.length < sampled.length) {
+            console.info(`[physics] ${assetFile}: dropped ${sampled.length - kept.length} artifact subpath(s) below ${ARTIFACT_THRESHOLD * 100}% of largest`);
+        }
+        return kept;
     } finally {
         document.body.removeChild(host);
     }
+}
+
+/** Split an SVG `d` attribute into one string per subpath. In SVG path data,
+ *  every `M` or `m` command starts a fresh subpath; everything between two
+ *  M/m commands belongs to the first one. A leading `m` is interpreted as
+ *  absolute by the SVG renderer (per spec), so each chunk can stand alone. */
+function splitSubpaths(d) {
+    return (d.match(/[Mm][^Mm]*/g) || []).map(s => s.trim()).filter(Boolean);
+}
+
+/** Axis-aligned bounding-box area of a vertex array, used to size-filter
+ *  collider pieces. Cheap proxy for "is this subpath substantial". */
+function bboxArea(verts) {
+    if (verts.length === 0) return 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const v of verts) {
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+    }
+    return (maxX - minX) * (maxY - minY);
 }
 
 /** Walk an SVG <path> at `sampleLength` pixel intervals → [{x,y}, ...].
