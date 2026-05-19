@@ -10,7 +10,7 @@
 export const LAYOUT = {
     W:            840,    // canvas width  (px)  — 2× original
     H:            927,    // canvas height (px)  — +30% from original, then +15%
-    WALL:         34,     // wall thickness (px) — +40%
+    WALL:         20,     // wall thickness (px) — +40%
     DROP_Y:       81,     // y-centre of the shape sitting at the top, ready to drop (+40%)
     DANGER_Y:     133,    // red line — any settled shape above this ends the game (+40%)
     BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180
@@ -131,7 +131,7 @@ export const SHAPES = [
         pts:       36,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_uranius.svg',
+        asset:     'planet_uranus.svg',
     },
 
     {   /* ── 9  Neptune ───────────────────────────────────────────────── */

@@ -568,7 +568,7 @@ function frame(ts) {
   }
 
   /* Background */
-  ctx.fillStyle = "rgb(34, 34, 34, 0.8)";
+  ctx.fillStyle = "#1F2F3D";
   ctx.fillRect(0, 0, W, H);
 
   /* Walls */
@@ -577,10 +577,7 @@ function frame(ts) {
   ctx.fillRect(W - WALL, 0, WALL, H);
   ctx.fillRect(0, H - WALL, W, WALL);
 
-  /* Wall edge highlights */
-  ctx.fillStyle = "rgba(255,255,255,0.04)";
-  ctx.fillRect(WALL - 2, 0, 2, H - WALL);
-  ctx.fillRect(W - WALL, 0, 2, H - WALL);
+
 
   /* Danger line */
   ctx.save();
