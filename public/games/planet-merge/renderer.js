@@ -97,7 +97,7 @@ export function drawProcedural(c, lvl, cx, cy, angle, radOverride) {
     c.stroke();
 
     const fs = Math.max(10, rad * 0.42);
-    c.font = `bold ${fs}px 'Segoe UI', Arial, sans-serif`;
+    c.font = `bold ${fs}px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.shadowColor = 'rgba(0,0,0,0.7)';
@@ -245,7 +245,7 @@ export function drawPopups(ctx, popups, totalMs) {
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.font        = `bold ${fontSize}px "Segoe UI", Arial, sans-serif`;
+        ctx.font        = `bold ${fontSize}px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
         ctx.fillStyle   = p.color || (p.big ? '#FFD700' : '#FECA57');
         ctx.textAlign   = 'center';
         ctx.shadowColor = p.shadowColor || (p.big ? 'rgba(200,100,0,0.8)' : 'rgba(0,0,0,0.6)');

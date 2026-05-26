@@ -434,6 +434,13 @@ function registerChain(x, y) {
   }
   if (powersEnabled && chainCount === DESTROY_UNLOCK) {
     destroyCharges = 1;
+    // Destroy supersedes Choose Planet — having both armed at once is
+    // confusing (arrows pulse below the line while the destroy prompt also
+    // sits there). Drop any pending choose charge when destroy unlocks.
+    if (powerCharges > 0) {
+      powerCharges = 0;
+      updatePowerUI();
+    }
     updateDestroyUI();
     playTargetLock();
   }
@@ -468,26 +475,24 @@ currentNext.addEventListener("click", () => cycleCurrent(+1));
 function updateDestroyUI() {
   canvas.classList.toggle("destroy-armed", destroyCharges > 0);
   if (!destroyOverlay) return;
-  if (destroyCharges > 0) {
-    destroyOverlay.style.display = "flex";
-    // position near the drop preview crosshair
-    destroyOverlay.style.left = (dropX / W) * 100 + "%";
-    destroyOverlay.style.top = (DROP_Y / H) * 100 + "%";
-  } else {
-    destroyOverlay.style.display = "none";
-  }
+  // Position is fully CSS-driven (static, just below the danger line) so the
+  // prompt stays put while the player moves their cursor over the board.
+  destroyOverlay.style.display = destroyCharges > 0 ? "flex" : "none";
 }
 
-/** Pulsing red crosshair overlay on every shape body — called from frame(). */
+/** Pulsing red crosshair overlay on every destroyable body. Mirrors the
+ *  filter in useDestroyPower so the highlighted set matches what's actually
+ *  hittable: untargetable big planets get no crosshair. */
 function drawDestroyTargets() {
   const pulse = 0.55 + 0.45 * Math.sin(totalMs * 0.008);
   ctx.save();
   ctx.strokeStyle = `rgba(255, 105, 180, ${pulse})`; // pink
-  ctx.lineWidth = 9; // three times thicker
+  ctx.lineWidth = 9;
   for (const body of Composite.allBodies(world)) {
     if (body.label !== "shape") continue;
     const lvl = bodyLvl.get(body.id);
     if (lvl === undefined) continue;
+    if (!droppableLvls.includes(lvl)) continue;
     const rad = r(lvl);
     const x = body.position.x;
     const y = body.position.y;
@@ -539,6 +544,11 @@ function useDestroyPower(clientX, clientY) {
   if (!target) return false;
 
   const lvl = bodyLvl.get(target.id);
+  // Destroy only works on the same set the player can drop from the top
+  // (Stars through Mars on normal/hard; same plus Venus on easy). Bigger
+  // planets are merge-only rewards and shouldn't be wipeable.
+  if (!droppableLvls.includes(lvl)) return false;
+
   // Snapshot the body list because despawn() mutates `active` during the loop.
   const victims = Composite.allBodies(world).filter(
     (b) => b.label === "shape" && bodyLvl.get(b.id) === lvl,
@@ -736,12 +746,6 @@ function frame(ts) {
   if (destroyCharges > 0) drawDestroyTargets();
   drawPopups(ctx, popups, totalMs);
 
-  // Keep the DOM overlay positioned over the drop preview while armed
-  if (destroyOverlay && destroyCharges > 0) {
-    destroyOverlay.style.left = (dropX / W) * 100 + "%";
-    destroyOverlay.style.top = (DROP_Y / H) * 100 + "%";
-  }
-
   /* Drop guide + shape waiting to fall (hidden while aiming the destroy power) */
   if (canDrop && !gameOver && destroyCharges === 0) {
     const rad = r(curLvl);
@@ -911,7 +915,12 @@ restartEl.addEventListener("click", () => {
 changeDifficultyEl.addEventListener("click", showDifficultyPicker);
 
 document.querySelectorAll(".diff-btn").forEach((btn) => {
+  // Hover plays the planet-hit thud, click plays the merge pop. First hover
+  // before any user gesture may be silently blocked by the browser's
+  // autoplay policy; subsequent hovers (and the click itself) always play.
+  btn.addEventListener("mouseenter", () => playPlanetHit());
   btn.addEventListener("click", () => {
+    playPop();
     const d = btn.dataset.diff;
     if (d === "easy" || d === "normal" || d === "hard") startGame(d);
   });

@@ -7,13 +7,13 @@ html {
 
 body {
     background: #0d1117;
-   
+
     display: flex;
     justify-content: center;
     align-items: flex-start;
     min-height: 100vh;
     padding: 24px 16px;
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: 'Fredoka', 'Segoe UI', Arial, sans-serif;
     color: #fff;
     user-select: none;
     -webkit-user-select: none;
@@ -100,8 +100,8 @@ body {
     transition: background 0.15s, transform 0.1s;
 }
 
-#current-prev { right: calc(50% + 10px); }
-#current-next { left: calc(50% + 10px); }
+#current-prev { right: calc(50% + 90px); }
+#current-next { left: calc(50% + 90px); }
 
 .current-arrow:hover  { background: rgba(125, 223, 255, 0.32); }
 .current-arrow:active { transform: scale(0.9); }
@@ -110,6 +110,30 @@ body {
     display: block;
     animation: heartbeat-glow 1.1s ease-in-out infinite;
 }
+
+/* Label between the two choose-arrows. Same Fredoka face as the difficulty
+   picker so the choose-power UI feels visually consistent. Anchored to the
+   same y-band as the arrows so the trio reads as one widget. */
+#choose-label {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 56px; /* matches .current-arrow height for vertical alignment */
+    display: none;
+    align-items: center;
+    color: #e3f5ff;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), 0 0 14px rgba(125, 223, 255, 0.35);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 5;
+}
+
+#canvas-wrapper.power-active #choose-label { display: flex; }
 
 /* ── FULLSCREEN TOGGLE ─────────────────────────────────────────────────
    Small icon-only button in the canvas's bottom-right. Swaps between an
@@ -206,12 +230,14 @@ body.fullscreen #dev-panel { display: none; }
     cursor: cell;                   /* signals "pick a target" mode */
 }
 
-/* Destroy-power overlay: prompt and skip button */
+/* Destroy-power overlay: prompt + skip button, pinned just below the red
+   danger line so the prompt stays in one predictable spot while the player
+   moves their cursor over the board to pick a target. */
 #destroy-overlay {
     position: absolute;
     left: 50%;
-    top: 6%; /* default near top where drop preview sits */
-    transform: translate(-50%, -50%);
+    top: 16%; /* DANGER_Y (133/927 ≈ 14.3%) plus a small gap */
+    transform: translateX(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -220,14 +246,16 @@ body.fullscreen #dev-panel { display: none; }
 }
 
 #destroy-overlay #destroy-text {
-    background: rgba(255, 105, 180, 0.12);
+    background: rgba(255, 105, 180, 0.14);
     color: #ff66b2;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
+    padding: 8px 18px;
+    border-radius: 12px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     pointer-events: none;
     text-align: center;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 #destroy-overlay #destroy-skip {
