@@ -263,13 +263,21 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
  * Wake every sleeping shape in the world. Matter.js doesn't propagate wake
  * events up through chains, so a body 3 layers up a stack stays frozen when
  * the bottom merges. With ~30 bodies max in this game, scanning them all is
- * trivial — anything truly settled falls right back asleep next frame.
+ * trivial. Anything truly settled falls right back asleep within a few ticks.
+ *
+ * Why the negative sleepCounter: a freshly-woken body has zero velocity, and
+ * gravity only adds ~0.014 px/tick of velocity, so motion (velocity squared)
+ * stays well below Matter's sleep threshold. Default sleepThreshold is 60
+ * ticks, so the body re-sleeps in ~0.5s before gravity has visibly moved it.
+ * Pushing sleepCounter into negative territory buys ~3 seconds of guaranteed
+ * wake time, long enough for any unsupported body to actually start falling.
  */
+const WAKE_WINDOW_TICKS = -180; // ~1.4s extra on top of the default 60-tick threshold
 export function wakeAllShapes() {
     for (const body of world.bodies) {
-        if (body.label === 'shape' && body.isSleeping) {
-            Sleeping.set(body, false);
-        }
+        if (body.label !== 'shape') continue;
+        if (body.isSleeping) Sleeping.set(body, false);
+        body.sleepCounter = WAKE_WINDOW_TICKS;
     }
 }
 

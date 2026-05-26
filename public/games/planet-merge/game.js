@@ -3,7 +3,7 @@
    Entry point: loaded as <script type="module"> in play.html
    ════════════════════════════════════════════════════════════════════════ */
 
-import { LAYOUT, SHAPES, r, rndLvl } from "./config.js";
+import { LAYOUT, SHAPES, r } from "./config.js";
 import {
   engine,
   world,
@@ -95,22 +95,73 @@ const flashes = []; // visual fx: { x, y, t, big }
 const popups = []; // score fx:  { x, y, t, text, big }
 
 /* Drop mode for dev panel:
- *   'weighted'  → default rndLvl() (droppables only, weighted)
+ *   'weighted'  → weighted random across the current difficulty's droppables
  *   'random'    → uniform random across ALL 12 planets
  *   <number>    → specific level index, always drops that planet
  */
 let dropMode = "weighted";
+
+/* ── DIFFICULTY ──────────────────────────────────────────────────────────
+   Three modes picked from a startup overlay:
+     - easy:   Stars excluded, Venus added to the drop pool.
+     - normal: default mix from config.js.
+     - hard:   default mix, but the chain-based superpowers never grant.
+   `difficulty === null` keeps physics paused so nothing happens behind the
+   picker. */
+let difficulty = null;
+let droppableLvls = [];
+let dropTable = [];
+let dropTotal = 0;
+
+function rebuildDropTable() {
+  dropTable.length = 0;
+  dropTotal = 0;
+  if (difficulty === "easy") {
+    // Moon, Pluto, Mercury, Mars, Venus. Venus is the new top droppable on
+    // easy so chains can build into Earth/Uranus territory without grinding
+    // through a Star floor.
+    droppableLvls = [1, 2, 3, 4, 5];
+    dropTable.push(
+      { lvl: 1, w: 4 },
+      { lvl: 2, w: 3 },
+      { lvl: 3, w: 2 },
+      { lvl: 4, w: 3 },
+      { lvl: 5, w: 2 },
+    );
+  } else {
+    droppableLvls = SHAPES.map((s, i) => (s.droppable ? i : -1)).filter(
+      (i) => i >= 0,
+    );
+    SHAPES.forEach((s, i) => {
+      if (s.droppable && s.dropRate > 0) {
+        dropTable.push({ lvl: i, w: s.dropRate });
+      }
+    });
+  }
+  for (const e of dropTable) dropTotal += e.w;
+}
+rebuildDropTable();
+
 function pickLvl() {
-  if (dropMode === "weighted") return rndLvl();
+  if (dropMode === "weighted") {
+    let rand = Math.random() * dropTotal;
+    for (const e of dropTable) {
+      rand -= e.w;
+      if (rand <= 0) return e.lvl;
+    }
+    return dropTable[dropTable.length - 1].lvl;
+  }
   if (dropMode === "random") return Math.floor(Math.random() * SHAPES.length);
   return dropMode;
 }
 
-// First drop of each game is always a Star or Moon — eases the player in
-// instead of opening with a Mercury that's hard to merge from cold.
-// Honour the dev-panel drop-mode override when it's set to a specific planet.
-const firstDrop = () =>
-  dropMode === "weighted" ? (Math.random() < 0.5 ? 0 : 1) : pickLvl();
+// First drop of each game opens with the two smallest droppables, so the
+// player isn't handed a Mercury (or a Mars on easy) from cold.
+function firstDrop() {
+  if (dropMode !== "weighted") return pickLvl();
+  if (difficulty === "easy") return Math.random() < 0.5 ? 1 : 2; // Moon or Pluto
+  return Math.random() < 0.5 ? 0 : 1; // Star or Moon
+}
 
 let score = 0;
 let curLvl = firstDrop(); // shape currently waiting to drop
@@ -134,9 +185,6 @@ let chainCount = 0;
 let powerCharges = 0;
 let destroyCharges = 0;
 
-const droppableLvls = SHAPES.map((s, i) => (s.droppable ? i : -1)).filter(
-  (i) => i >= 0,
-);
 let cooldown = 0; // ms remaining before next drop is allowed
 let totalMs = 0; // total elapsed ms (frozen when game is over)
 let gameOver = false;
@@ -350,13 +398,15 @@ function registerChain(x, y) {
   if (chainCount < 2) return;
 
   // Unlock messages fire exactly when their threshold is crossed; otherwise
-  // just show the running chain number scaled up.
+  // just show the running chain number scaled up. Hard mode disables powers
+  // entirely, so its popups stay as plain chain counts.
+  const powersEnabled = difficulty !== "hard";
   let text, fontSize, color;
-  if (chainCount === DESTROY_UNLOCK) {
+  if (powersEnabled && chainCount === DESTROY_UNLOCK) {
     text = "Destroy Power Unlocked!";
     fontSize = 30;
     color = "#ff6e6e";
-  } else if (chainCount === CHOOSE_UNLOCK) {
+  } else if (powersEnabled && chainCount === CHOOSE_UNLOCK) {
     text = "Choose Planet Unlocked!";
     fontSize = 28;
     color = "#7ddfff";
@@ -377,12 +427,12 @@ function registerChain(x, y) {
     big: false,
   });
 
-  if (chainCount === CHOOSE_UNLOCK) {
+  if (powersEnabled && chainCount === CHOOSE_UNLOCK) {
     powerCharges = 1;
     updatePowerUI();
     playSelect();
   }
-  if (chainCount === DESTROY_UNLOCK) {
+  if (powersEnabled && chainCount === DESTROY_UNLOCK) {
     destroyCharges = 1;
     updateDestroyUI();
     playTargetLock();
@@ -627,7 +677,7 @@ function frame(ts) {
   const dt = Math.min(ts - lastTs, 32);
   lastTs = ts;
 
-  if (!gameOver) {
+  if (!gameOver && difficulty !== null) {
     // 2 physics substeps per game tick (8ms each) instead of 1×16ms.
     // The smaller dt keeps fast-moving small bodies (e.g. a falling Star)
     // from tunneling through concave polygon planets (e.g. the Moon).
@@ -774,8 +824,15 @@ if (destroySkipBtn) {
   });
 }
 
-/* ── RESTART ─────────────────────────────────────────────────────────── */
-restartEl.addEventListener("click", () => {
+/* ── DIFFICULTY / RESTART ───────────────────────────────────────────────
+   `resetGameState` is shared between Play Again (same difficulty) and the
+   first start after a difficulty pick. `startGame(diff)` sets difficulty,
+   rebuilds the drop table, then resets state. `showDifficultyPicker` wipes
+   the board and reopens the overlay so the player can change modes. */
+const difficultyOverlayEl = document.getElementById("difficulty-overlay");
+const changeDifficultyEl = document.getElementById("change-difficulty-btn");
+
+function resetGameState() {
   Composite.allBodies(world)
     .filter((b) => b.label === "shape")
     .forEach((b) => World.remove(world, b));
@@ -802,13 +859,62 @@ restartEl.addEventListener("click", () => {
   statDropsEl.textContent = "0";
 
   resetChain();
-  powerCharges = forceChoose ? 1 : 0;
-  destroyCharges = forceDestroy ? 1 : 0;
+  // Hard disables powers entirely. Other modes honour the dev-panel force-on
+  // toggles so testers can keep a charge primed.
+  const allowPowers = difficulty !== "hard";
+  powerCharges = allowPowers && forceChoose ? 1 : 0;
+  destroyCharges = allowPowers && forceDestroy ? 1 : 0;
   updatePowerUI();
   updateDestroyUI();
 
   overlayEl.classList.remove("visible");
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
+}
+
+function startGame(diff) {
+  difficulty = diff;
+  rebuildDropTable();
+  resetGameState();
+  difficultyOverlayEl.classList.remove("visible");
+}
+
+function showDifficultyPicker() {
+  // Wipe the board so nothing animates behind the overlay between rounds.
+  Composite.allBodies(world)
+    .filter((b) => b.label === "shape")
+    .forEach((b) => World.remove(world, b));
+  bodyLvl.clear();
+  bodyBorn.clear();
+  active.clear();
+  mergeQ.length = 0;
+  vanishQ.length = 0;
+  mergeSeen.clear();
+  flashes.length = 0;
+  popups.length = 0;
+
+  difficulty = null;
+  gameOver = false;
+  overlayEl.classList.remove("visible");
+  difficultyOverlayEl.classList.add("visible");
+}
+
+restartEl.addEventListener("click", () => {
+  if (difficulty === null) {
+    // Edge case: clicking Play Again before ever picking a mode just reopens
+    // the picker rather than starting an undefined-difficulty round.
+    showDifficultyPicker();
+    return;
+  }
+  resetGameState();
+});
+
+changeDifficultyEl.addEventListener("click", showDifficultyPicker);
+
+document.querySelectorAll(".diff-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const d = btn.dataset.diff;
+    if (d === "easy" || d === "normal" || d === "hard") startGame(d);
+  });
 });
 
 /* ── DEV PANEL CONTROLS ──────────────────────────────────────────────── */

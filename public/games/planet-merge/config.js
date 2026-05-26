@@ -136,7 +136,7 @@ export const SHAPES = [
 
     {   /* ── 9  Neptune ───────────────────────────────────────────────── */
         name:      'Neptune',
-        size:      53,
+        size:      50,
         sides:     0,
         color:     '#3a64a8',
         glow:      '#1c3a73',
@@ -148,7 +148,7 @@ export const SHAPES = [
 
     {   /* ── 10  Saturn ───────────────────────────────────────────────── */
         name:      'Saturn',
-        size:      60,
+        size:      72,
         sides:     0,
         color:     '#d4b676',
         glow:      '#8a7038',

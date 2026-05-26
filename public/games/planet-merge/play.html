@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shape Merge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
     <link rel="stylesheet" href="style.css">
     <script>
       // Dev panel is hidden by default. Reveal it when the URL includes ?dev=1
@@ -34,12 +37,42 @@
                     <h2>Game Over</h2>
                     <div class="final-line">Score: <span id="final-score">0</span></div>
                     <button id="restart-btn">Play Again</button>
+                    <button id="change-difficulty-btn" type="button">Change Mode</button>
                 </div>
             </div>
             <div class="panel" id="next-panel">
                 <div class="panel-label" id="next-label">NEXT</div>
                 <div class="next-row">
                     <canvas id="next-canvas" width="70" height="70"></canvas>
+                </div>
+            </div>
+            <div id="difficulty-overlay" class="visible">
+                <div class="difficulty-inner">
+                    <h1 class="difficulty-title">Planet Merge</h1>
+                    <p class="difficulty-sub">Choose your adventure!</p>
+                    <div class="difficulty-buttons">
+                        <button class="diff-btn diff-easy" type="button" data-diff="easy">
+                            <img class="diff-icon" src="assets/images/planet_moon.svg" alt="">
+                            <div class="diff-text">
+                                <div class="diff-label">Easy</div>
+                                <div class="diff-blurb">No tiny stars. Venus drops too!</div>
+                            </div>
+                        </button>
+                        <button class="diff-btn diff-normal" type="button" data-diff="normal">
+                            <img class="diff-icon" src="assets/images/planet_mars.svg" alt="">
+                            <div class="diff-text">
+                                <div class="diff-label">Normal</div>
+                                <div class="diff-blurb">The classic planet mix</div>
+                            </div>
+                        </button>
+                        <button class="diff-btn diff-hard" type="button" data-diff="hard">
+                            <img class="diff-icon" src="assets/images/planet_sun.svg" alt="">
+                            <div class="diff-text">
+                                <div class="diff-label">Hard</div>
+                                <div class="diff-blurb">No superpowers. Just skill!</div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
