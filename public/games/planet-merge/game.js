@@ -39,6 +39,53 @@ const ctx = canvas.getContext("2d");
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
 
+/* ── AUDIO ───────────────────────────────────────────────────────────────
+   Small pool of Audio clones for the pop so cascading merges can overlap
+   without each new pop cutting off the previous one (single Audio.play()
+   restarts mid-clip). Laser and target-lock fire one at a time, so a
+   single Audio instance each is enough. */
+const SOUNDS_DIR = "assets/sounds";
+
+function makePool(file, size, volume) {
+  const pool = Array.from({ length: size }, () => {
+    const a = new Audio(`${SOUNDS_DIR}/${file}`);
+    a.preload = "auto";
+    a.volume = volume;
+    return a;
+  });
+  let idx = 0;
+  return () => {
+    const a = pool[idx];
+    idx = (idx + 1) % size;
+    try {
+      a.currentTime = 0;
+      a.play().catch(() => {});
+    } catch {}
+  };
+}
+const playPop = makePool("pop-effect.mp3", 6, 0.55);
+const playGroundHit = makePool("ground-hit.mp3", 3, 0.45);
+const playPlanetHit = makePool("planet-hit.mp3", 4, 0.35);
+
+function makeSfx(file, volume) {
+  const a = new Audio(`${SOUNDS_DIR}/${file}`);
+  a.preload = "auto";
+  a.volume = volume;
+  return a;
+}
+const laserSfx = makeSfx("laser.mp3", 0.55);
+const targetLockSfx = makeSfx("target-lock.mp3", 0.6);
+const selectSfx = makeSfx("select-sound.mp3", 0.6);
+function playOnce(sfx) {
+  try {
+    sfx.currentTime = 0;
+    sfx.play().catch(() => {});
+  } catch {}
+}
+const playLaser = () => playOnce(laserSfx);
+const playTargetLock = () => playOnce(targetLockSfx);
+const playSelect = () => playOnce(selectSfx);
+
 /* ── GAME STATE ──────────────────────────────────────────────────────── */
 const mergeQ = []; // { a, b, level } — bodies queued to merge
 const vanishQ = []; // { a, b }        — max-level bodies queued to vanish
@@ -117,8 +164,9 @@ const overlayEl = document.getElementById("game-over-overlay");
 const restartEl = document.getElementById("restart-btn");
 const nextPanel = document.getElementById("next-panel");
 const nextLabel = document.getElementById("next-label");
-const nextPrev = document.getElementById("next-prev");
-const nextNext = document.getElementById("next-next");
+const canvasWrapper = document.getElementById("canvas-wrapper");
+const currentPrev = document.getElementById("current-prev");
+const currentNext = document.getElementById("current-next");
 const destroyOverlay = document.getElementById("destroy-overlay");
 const destroyTextEl = document.getElementById("destroy-text");
 const destroySkipBtn = document.getElementById("destroy-skip");
@@ -149,12 +197,22 @@ const IMPACT_KICK_STRENGTH = 1; // 0 = vanilla physics, 1.0 = very arcadey
 const IMPACT_KICK_MIN_SPEED = 4; // px/tick — ignore gentle resting contacts
 const IMPACT_KICK_SPEED_CAP = 20; // px/tick — clamp so terminal-velocity drops don't explode the stack
 
+// Velocity thresholds for impact SFX. Resting contacts and tiny jitters
+// would otherwise spam noise. Tuned by feel against the existing kick min.
+const GROUND_HIT_MIN_SPEED = 5;
+const PLANET_HIT_MIN_SPEED = IMPACT_KICK_MIN_SPEED;
+
 Events.on(engine, "collisionStart", ({ pairs }) => {
   // Compound concave planets (Moon, Saturn, Sun) decompose into many convex
   // sub-parts; each sub-part registers its own pair, so the same logical
   // planet-vs-planet collision fires N times in one tick. Track which
   // parent-pairs we've already kicked this event to apply the impulse once.
   const kickedThisTick = new Set();
+  // Cap impact SFX at one per kind per physics tick; a destroy-power wipe or
+  // a big cascade fires many collisionStart pairs at once and stacking N
+  // copies of the same clip is just noise.
+  let playedGroundThisTick = false;
+  let playedPlanetThisTick = false;
 
   for (const pair of pairs) {
     // Compound bodies (from Bodies.fromVertices with concave decomp) report
@@ -162,6 +220,22 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
     // bodyLvl lookup hits, otherwise concave planets never merge.
     const bodyA = pair.bodyA.parent;
     const bodyB = pair.bodyB.parent;
+
+    /* --- ground hit: planet first-contacting the floor at speed --- */
+    if (!playedGroundThisTick) {
+      const aIsFloor = bodyA.label === "floor";
+      const bIsFloor = bodyB.label === "floor";
+      if (aIsFloor !== bIsFloor) {
+        const planet = aIsFloor ? bodyB : bodyA;
+        if (
+          bodyLvl.has(planet.id) &&
+          Math.abs(planet.velocity.y) > GROUND_HIT_MIN_SPEED
+        ) {
+          playGroundHit();
+          playedGroundThisTick = true;
+        }
+      }
+    }
 
     /* --- impact kick (planet-on-planet only, once per parent-pair) --- */
     const pairKey =
@@ -179,6 +253,17 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
       const rvx = bodyB.velocity.x - bodyA.velocity.x;
       const rvy = bodyB.velocity.y - bodyA.velocity.y;
       const speed = Math.hypot(rvx, rvy);
+      // Non-merging planet impact: different sizes touching with real speed.
+      // Same-size pairs are filtered out because they'll fire the pop instead
+      // via flushMerges (or vanish for max level).
+      if (
+        !playedPlanetThisTick &&
+        speed > PLANET_HIT_MIN_SPEED &&
+        bodyLvl.get(bodyA.id) !== bodyLvl.get(bodyB.id)
+      ) {
+        playPlanetHit();
+        playedPlanetThisTick = true;
+      }
       if (speed > IMPACT_KICK_MIN_SPEED) {
         const n = pair.collision.normal; // points from B → A
         const k = Math.min(speed, IMPACT_KICK_SPEED_CAP) * IMPACT_KICK_STRENGTH;
@@ -272,7 +357,7 @@ function registerChain(x, y) {
     fontSize = 30;
     color = "#ff6e6e";
   } else if (chainCount === CHOOSE_UNLOCK) {
-    text = "Choose Next Unlocked!";
+    text = "Choose Planet Unlocked!";
     fontSize = 28;
     color = "#7ddfff";
   } else {
@@ -295,10 +380,12 @@ function registerChain(x, y) {
   if (chainCount === CHOOSE_UNLOCK) {
     powerCharges = 1;
     updatePowerUI();
+    playSelect();
   }
   if (chainCount === DESTROY_UNLOCK) {
     destroyCharges = 1;
     updateDestroyUI();
+    playTargetLock();
   }
 }
 
@@ -308,22 +395,20 @@ function resetChain() {
 
 function updatePowerUI() {
   const active = powerCharges > 0;
-  nextPanel.classList.toggle("power-active", active);
-  nextLabel.textContent = active
-    ? "Choose which one you like to be next"
-    : "NEXT";
+  canvasWrapper.classList.toggle("power-active", active);
 }
 
-function cycleNext(dir) {
+// Cycles the planet currently waiting to drop. Drawn by the per-frame
+// render loop, so no manual redraw needed here.
+function cycleCurrent(dir) {
   if (powerCharges <= 0) return;
-  const i = droppableLvls.indexOf(nxtLvl);
+  const i = droppableLvls.indexOf(curLvl);
   const j = i < 0 ? 0 : (i + dir + droppableLvls.length) % droppableLvls.length;
-  nxtLvl = droppableLvls[j];
-  drawNext(nxtCtx, nxtCanvas, nxtLvl);
+  curLvl = droppableLvls[j];
 }
 
-nextPrev.addEventListener("click", () => cycleNext(-1));
-nextNext.addEventListener("click", () => cycleNext(+1));
+currentPrev.addEventListener("click", () => cycleCurrent(-1));
+currentNext.addEventListener("click", () => cycleCurrent(+1));
 
 /* ── DESTROY POWER ──────────────────────────────────────────────────────
    Unlocked at DESTROY_UNLOCK merges in a streak. Paints a pulsing red
@@ -408,6 +493,7 @@ function useDestroyPower(clientX, clientY) {
   const victims = Composite.allBodies(world).filter(
     (b) => b.label === "shape" && bodyLvl.get(b.id) === lvl,
   );
+  playLaser();
   for (const b of victims) {
     flashes.push({ x: b.position.x, y: b.position.y, t: totalMs, big: false });
     despawn(b);
@@ -446,6 +532,7 @@ function flushMerges() {
     separateOverlapping(merged);
     score += SHAPES[newLvl].pts;
     scoreEl.textContent = score;
+    playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: false });
     popups.push({
       x: mx,

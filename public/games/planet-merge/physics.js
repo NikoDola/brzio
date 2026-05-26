@@ -23,7 +23,7 @@ export const world  = engine.world;
 
 const wallOpts = { isStatic: true, label: 'wall', friction: 0.6, restitution: 0.1 };
 World.add(world, [
-    Bodies.rectangle(W / 2,      H - WALL / 2, W,    WALL, wallOpts),  // floor
+    Bodies.rectangle(W / 2,      H - WALL / 2, W,    WALL, { ...wallOpts, label: 'floor' }),  // floor
     Bodies.rectangle(WALL / 2,   H / 2,        WALL, H,    wallOpts),  // left
     Bodies.rectangle(W - WALL/2, H / 2,        WALL, H,    wallOpts),  // right
 ]);

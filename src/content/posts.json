@@ -16,7 +16,7 @@
         "type": "highlight",
         "variant": "green",
         "heading": "Chains and superpowers",
-        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Next\". Arrows appear on the NEXT panel so you can cycle which planet drops next instead of taking what the game gives you.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero."
+        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Planet\". A pair of arrows appears below the danger line so you can swap the planet you're holding for any droppable before letting it fall.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero."
       },
       {
         "type": "section",
