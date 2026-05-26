@@ -917,6 +917,39 @@ document.querySelectorAll(".diff-btn").forEach((btn) => {
   });
 });
 
+/* ── FULLSCREEN ─────────────────────────────────────────────────────────
+   Requests fullscreen on the documentElement so the entire game body goes
+   edge-to-edge (canvas + side panels). The host iframe is allowed
+   fullscreen via GameEmbed.tsx's `allow="fullscreen"`. The fullscreenchange
+   listener keeps the button icon and body class in sync even when the
+   user exits via Escape rather than the button. */
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+fullscreenBtn.addEventListener("click", () => {
+  if (isFullscreen()) {
+    (document.exitFullscreen?.() ?? document.webkitExitFullscreen?.())?.catch?.(
+      () => {},
+    );
+  } else {
+    const el = document.documentElement;
+    (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.())?.catch?.(
+      () => {},
+    );
+  }
+});
+
+function syncFullscreenState() {
+  const fs = isFullscreen();
+  fullscreenBtn.classList.toggle("is-fullscreen", fs);
+  document.body.classList.toggle("fullscreen", fs);
+}
+document.addEventListener("fullscreenchange", syncFullscreenState);
+document.addEventListener("webkitfullscreenchange", syncFullscreenState);
+
 /* ── DEV PANEL CONTROLS ──────────────────────────────────────────────── */
 devToggleEl.addEventListener("click", () => {
   const open = devBodyEl.classList.toggle("open");

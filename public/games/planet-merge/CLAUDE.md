@@ -118,6 +118,14 @@ If poly-decomp is missing or the silhouette is malformed, `Bodies.fromVertices` 
 
 ## Dev panel (admin only, `?dev=1`)
 
+**Local dev URL (skips the brzio wrapper, loads the game raw with the dev panel unlocked):**
+
+```
+http://localhost:3000/games/planet-merge/play.html?dev=1
+```
+
+Start the brzio app with `npm run dev` first. Production (`brzio.com`) does not expose the dev panel: the iframe wrapper only appends `?dev=1` for authenticated admins in `npm run dev`, and writing the query string by hand in prod just toggles a CSS class with nothing privileged behind it.
+
 | Control | Effect |
 |---|---|
 | **Auto-Drop** | Auto-drops at fixed x (auto-x slider) for stress-testing |
