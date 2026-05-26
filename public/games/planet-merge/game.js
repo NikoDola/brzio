@@ -30,6 +30,102 @@ import {
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
 const { W, H, WALL, DROP_Y, DANGER_Y } = LAYOUT;
 
+/* Body star objects live outside the canvas. Four timing groups make the
+   surrounding page keep repopulating instead of blinking in one fixed place:
+   30 stars refresh every blink, 30 every two, 30 every three, and 10 every
+   five. */
+let bodyStarConfig = {
+  baseBlinkMs: 2600,
+  groups: [
+    { label: "1 blink", blinks: 1, count: 30 },
+    { label: "2 blinks", blinks: 2, count: 30 },
+    { label: "3 blinks", blinks: 3, count: 30 },
+    { label: "5 blinks", blinks: 5, count: 10 },
+  ],
+  starSize: { min: 2, max: 4 },
+  colors: ["#ffffff", "#7ddfff", "#feca57"],
+};
+
+function placeBodyStar(el) {
+  el.style.setProperty("--star-x", `${Math.round(Math.random() * 10000) / 100}vw`);
+  el.style.setProperty("--star-y", `${Math.round(Math.random() * 10000) / 100}vh`);
+}
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function normalizeBodyStarConfig(config) {
+  const current = bodyStarConfig;
+  const incomingGroups = Array.isArray(config?.groups) ? config.groups : [];
+  const groups = [1, 2, 3, 5].map((blinks, i) => {
+    const match = incomingGroups.find((g) => Number(g?.blinks) === blinks) || incomingGroups[i] || {};
+    return {
+      label: `${blinks} ${blinks === 1 ? "blink" : "blinks"}`,
+      blinks,
+      count: Math.round(clampNumber(match.count, 0, 180, current.groups[i]?.count ?? 0)),
+    };
+  });
+  const min = Math.round(clampNumber(config?.starSize?.min, 1, 12, current.starSize.min));
+  const max = Math.round(clampNumber(config?.starSize?.max, 1, 12, current.starSize.max));
+  const colors = Array.isArray(config?.colors) && config.colors.length
+    ? config.colors.slice(0, 3)
+    : current.colors;
+
+  return {
+    baseBlinkMs: Math.round(clampNumber(config?.baseBlinkMs, 1000, 8000, current.baseBlinkMs)),
+    groups,
+    starSize: { min: Math.min(min, max), max: Math.max(min, max) },
+    colors,
+  };
+}
+
+function pickBodyStarSize() {
+  const { min, max } = bodyStarConfig.starSize;
+  return Math.round(min + Math.random() * (max - min));
+}
+
+function bodyStarConfigJson() {
+  return JSON.stringify(bodyStarConfig, null, 2);
+}
+
+function initBodyStarfield() {
+  const host = document.getElementById("body-starfield");
+  if (!host) return;
+  host.replaceChildren();
+
+  let index = 0;
+  for (const group of bodyStarConfig.groups) {
+    for (let i = 0; i < group.count; i += 1) {
+      const star = document.createElement("span");
+      const size = pickBodyStarSize();
+      const color = bodyStarConfig.colors[index % bodyStarConfig.colors.length];
+
+      star.className = "body-star";
+      star.style.setProperty("--star-size", `${size}px`);
+      star.style.setProperty("--star-color", color);
+      star.style.setProperty("--star-speed", `${(bodyStarConfig.baseBlinkMs * group.blinks) / 1000}s`);
+      star.style.setProperty(
+        "--star-delay",
+        `${-Math.random() * (bodyStarConfig.baseBlinkMs * group.blinks) / 1000}s`,
+      );
+      placeBodyStar(star);
+      star.addEventListener("animationiteration", () => placeBodyStar(star));
+      host.appendChild(star);
+      index += 1;
+    }
+  }
+}
+
+function applyBodyStarConfig(config) {
+  bodyStarConfig = normalizeBodyStarConfig(config);
+  initBodyStarfield();
+}
+
+initBodyStarfield();
+
 /* ── CANVAS ──────────────────────────────────────────────────────────── */
 const canvas = document.getElementById("game-canvas");
 canvas.width = W;
@@ -38,6 +134,35 @@ const ctx = canvas.getContext("2d");
 
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
+
+// Cached playfield background gradient. Same radial palette as the
+// difficulty picker (style.css #difficulty-overlay) so the canvas reads as
+// the same space as the picker, just with the planets dropped in.
+const playfieldGradient = ctx.createRadialGradient(
+  W / 2,
+  H * 0.35,
+  0,
+  W / 2,
+  H * 0.35,
+  Math.max(W, H),
+);
+playfieldGradient.addColorStop(0, "#3a5680");
+playfieldGradient.addColorStop(0.65, "#1a2540");
+playfieldGradient.addColorStop(1, "#0a1020");
+
+// Pre-generated starfield drawn behind everything. Each star has its own
+// position, peak brightness, twinkle speed and phase, so the field reads
+// as a parallax sky rather than a synchronised flicker. Generated once;
+// stars don't move, only their alpha breathes.
+const STAR_COUNT = 70;
+const stars = Array.from({ length: STAR_COUNT }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  size: 0.6 + Math.random() * 1.4,
+  baseAlpha: 0.25 + Math.random() * 0.55,
+  speed: 0.0008 + Math.random() * 0.0035,
+  phase: Math.random() * Math.PI * 2,
+}));
 
 /* ── AUDIO ───────────────────────────────────────────────────────────────
    Small pool of Audio clones for the pop so cascading merges can overlap
@@ -220,6 +345,7 @@ const destroyTextEl = document.getElementById("destroy-text");
 const destroySkipBtn = document.getElementById("destroy-skip");
 
 /* dev panel elements */
+const devPanelEl = document.getElementById("dev-panel");
 const devToggleEl = document.getElementById("dev-toggle");
 const devBodyEl = document.getElementById("dev-body");
 const autoDropBtn = document.getElementById("auto-drop-btn");
@@ -234,6 +360,20 @@ const forceDestroyBtn = document.getElementById("force-destroy-btn");
 const statDropsEl = document.getElementById("stat-drops");
 const statGamesEl = document.getElementById("stat-games");
 const statAvgEl = document.getElementById("stat-avg");
+const starBaseSpeedEl = document.getElementById("star-base-speed");
+const starBaseSpeedVal = document.getElementById("star-base-speed-val");
+const starCount1El = document.getElementById("star-count-1");
+const starCount2El = document.getElementById("star-count-2");
+const starCount3El = document.getElementById("star-count-3");
+const starCount5El = document.getElementById("star-count-5");
+const starMinSizeEl = document.getElementById("star-min-size");
+const starMaxSizeEl = document.getElementById("star-max-size");
+const starColor1El = document.getElementById("star-color-1");
+const starColor2El = document.getElementById("star-color-2");
+const starColor3El = document.getElementById("star-color-3");
+const starRandomizeBtn = document.getElementById("star-randomize-btn");
+const starApplyJsonBtn = document.getElementById("star-apply-json-btn");
+const starConfigJsonEl = document.getElementById("star-config-json");
 
 /* ── COLLISION → MERGE / VANISH ──────────────────────────────────────── */
 /* IMPACT_KICK shoves both bodies a bit harder along the contact normal when
@@ -715,8 +855,21 @@ function frame(ts) {
   }
 
   /* Background */
-  ctx.fillStyle = "#1F2F3D";
+  ctx.fillStyle = playfieldGradient;
   ctx.fillRect(0, 0, W, H);
+
+  /* Twinkling stars (behind everything else, in front of the gradient) */
+  ctx.fillStyle = "#fff6d6";
+  for (const s of stars) {
+    // sin -> [-1, 1] mapped to a soft [0.25, 1] multiplier so stars never
+    // fully disappear; the floor keeps the field feeling steady, not strobe-y.
+    const tw = 0.25 + 0.75 * (Math.sin(totalMs * s.speed + s.phase) * 0.5 + 0.5);
+    ctx.globalAlpha = s.baseAlpha * tw;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   /* Walls */
   ctx.fillStyle = "#1a2a4a";
@@ -960,9 +1113,66 @@ document.addEventListener("fullscreenchange", syncFullscreenState);
 document.addEventListener("webkitfullscreenchange", syncFullscreenState);
 
 /* ── DEV PANEL CONTROLS ──────────────────────────────────────────────── */
-devToggleEl.addEventListener("click", () => {
+let suppressDevToggleClick = false;
+
+devToggleEl.addEventListener("click", (e) => {
+  if (suppressDevToggleClick) {
+    e.preventDefault();
+    suppressDevToggleClick = false;
+    return;
+  }
   const open = devBodyEl.classList.toggle("open");
   devToggleEl.classList.toggle("open", open);
+});
+
+let devDrag = null;
+
+function clampDevPanelPosition(x, y) {
+  const rect = devPanelEl.getBoundingClientRect();
+  return {
+    x: Math.min(window.innerWidth - rect.width - 8, Math.max(8, x)),
+    y: Math.min(window.innerHeight - rect.height - 8, Math.max(8, y)),
+  };
+}
+
+function setDevPanelPosition(x, y) {
+  const pos = clampDevPanelPosition(x, y);
+  devPanelEl.style.left = `${pos.x}px`;
+  devPanelEl.style.top = `${pos.y}px`;
+  devPanelEl.style.right = "auto";
+  devPanelEl.style.bottom = "auto";
+}
+
+devToggleEl.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  const rect = devPanelEl.getBoundingClientRect();
+  devDrag = {
+    pointerId: e.pointerId,
+    dx: e.clientX - rect.left,
+    dy: e.clientY - rect.top,
+    moved: false,
+  };
+  devToggleEl.setPointerCapture(e.pointerId);
+});
+
+devToggleEl.addEventListener("pointermove", (e) => {
+  if (!devDrag || devDrag.pointerId !== e.pointerId) return;
+  devDrag.moved = true;
+  setDevPanelPosition(e.clientX - devDrag.dx, e.clientY - devDrag.dy);
+});
+
+devToggleEl.addEventListener("pointerup", (e) => {
+  if (!devDrag || devDrag.pointerId !== e.pointerId) return;
+  if (devDrag.moved) {
+    e.preventDefault();
+    suppressDevToggleClick = true;
+  }
+  devDrag = null;
+});
+
+window.addEventListener("resize", () => {
+  const rect = devPanelEl.getBoundingClientRect();
+  setDevPanelPosition(rect.left, rect.top);
 });
 
 autoDropBtn.addEventListener("click", () => {
@@ -982,6 +1192,74 @@ autoXEl.addEventListener("input", () => {
   const pct = Number(autoXEl.value);
   autoXVal.textContent = pct === 50 ? "center" : pct + "%";
 });
+
+function readStarEditorConfig() {
+  return {
+    baseBlinkMs: Number(starBaseSpeedEl.value),
+    groups: [
+      { label: "1 blink", blinks: 1, count: Number(starCount1El.value) },
+      { label: "2 blinks", blinks: 2, count: Number(starCount2El.value) },
+      { label: "3 blinks", blinks: 3, count: Number(starCount3El.value) },
+      { label: "5 blinks", blinks: 5, count: Number(starCount5El.value) },
+    ],
+    starSize: {
+      min: Number(starMinSizeEl.value),
+      max: Number(starMaxSizeEl.value),
+    },
+    colors: [starColor1El.value, starColor2El.value, starColor3El.value],
+  };
+}
+
+function syncStarEditor() {
+  const groupsByBlink = new Map(bodyStarConfig.groups.map((g) => [g.blinks, g]));
+  starBaseSpeedEl.value = String(bodyStarConfig.baseBlinkMs);
+  starBaseSpeedVal.textContent = `${(bodyStarConfig.baseBlinkMs / 1000).toFixed(1)}s`;
+  starCount1El.value = String(groupsByBlink.get(1)?.count ?? 0);
+  starCount2El.value = String(groupsByBlink.get(2)?.count ?? 0);
+  starCount3El.value = String(groupsByBlink.get(3)?.count ?? 0);
+  starCount5El.value = String(groupsByBlink.get(5)?.count ?? 0);
+  starMinSizeEl.value = String(bodyStarConfig.starSize.min);
+  starMaxSizeEl.value = String(bodyStarConfig.starSize.max);
+  starColor1El.value = bodyStarConfig.colors[0] || "#ffffff";
+  starColor2El.value = bodyStarConfig.colors[1] || "#7ddfff";
+  starColor3El.value = bodyStarConfig.colors[2] || "#feca57";
+  starConfigJsonEl.value = bodyStarConfigJson();
+}
+
+function applyStarEditor() {
+  applyBodyStarConfig(readStarEditorConfig());
+  syncStarEditor();
+}
+
+[
+  starBaseSpeedEl,
+  starCount1El,
+  starCount2El,
+  starCount3El,
+  starCount5El,
+  starMinSizeEl,
+  starMaxSizeEl,
+  starColor1El,
+  starColor2El,
+  starColor3El,
+].forEach((el) => el.addEventListener("input", applyStarEditor));
+
+starRandomizeBtn.addEventListener("click", () => {
+  initBodyStarfield();
+  starConfigJsonEl.value = bodyStarConfigJson();
+});
+
+starApplyJsonBtn.addEventListener("click", () => {
+  try {
+    applyBodyStarConfig(JSON.parse(starConfigJsonEl.value));
+    syncStarEditor();
+    starConfigJsonEl.classList.remove("is-error");
+  } catch {
+    starConfigJsonEl.classList.add("is-error");
+  }
+});
+
+syncStarEditor();
 
 /* Populate Drop selector with all 12 planets */
 SHAPES.forEach((s, i) => {

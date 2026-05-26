@@ -6,6 +6,7 @@ html {
 }
 
 body {
+    position: relative;
     background: #0d1117;
 
     display: flex;
@@ -20,7 +21,43 @@ body {
     overflow: hidden;
 }
 
+#body-starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.body-star {
+    position: absolute;
+    left: var(--star-x);
+    top: var(--star-y);
+    width: var(--star-size);
+    height: var(--star-size);
+    border-radius: 50%;
+    background: var(--star-color);
+    box-shadow: 0 0 calc(var(--star-size) * 2.8) var(--star-color);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+    animation: body-star-object-blink var(--star-speed) ease-in-out infinite;
+    animation-delay: var(--star-delay);
+}
+
+@keyframes body-star-object-blink {
+    0%, 100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.45);
+    }
+    28%, 64% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
 #game-container {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -195,7 +232,7 @@ body.fullscreen #canvas-wrapper {
     aspect-ratio: 840 / 927;
 }
 
-body.fullscreen #dev-panel { display: none; }
+body.fullscreen #dev-panel { display: flex; }
 
 @keyframes heartbeat-glow {
     0%, 100% {
@@ -458,10 +495,15 @@ body.fullscreen #dev-panel { display: none; }
 /* Hidden by default. The parent page adds ?dev=1 for authenticated admins,
    which sets html.dev-mode and reveals the panel. */
 #dev-panel {
-    width: 100%;
+    position: fixed;
+    right: 24px;
+    bottom: 74px;
+    z-index: 40;
+    width: min(360px, calc(100vw - 24px));
     display: none;
     flex-direction: column;
     gap: 0;
+    touch-action: none;
 }
 
 html.dev-mode #dev-panel {
@@ -508,7 +550,7 @@ html.dev-mode #dev-panel {
         flex-shrink: 0;
     }
 
-    #dev-panel { padding: 12px 14px; }
+    #dev-panel { padding: 0; }
 }
 
 #dev-toggle {
@@ -523,6 +565,7 @@ html.dev-mode #dev-panel {
     letter-spacing: 1.5px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
+    touch-action: none;
 }
 
 #dev-toggle:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.7); }
@@ -537,6 +580,9 @@ html.dev-mode #dev-panel {
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 12px;
     padding: 14px 16px;
+    max-height: min(72vh, 640px);
+    overflow-y: auto;
+    touch-action: auto;
 }
 
 #dev-body.open { display: flex; }
@@ -606,10 +652,14 @@ html.dev-mode #dev-panel {
 
 .dev-stats {
     display: flex;
+    flex-wrap: wrap;
     gap: 18px;
     padding-top: 6px;
     border-top: 1px solid rgba(255,255,255,0.07);
     font-size: 11px;
+}
+
+.dev-stats > span {
     opacity: 0.5;
 }
 
@@ -617,4 +667,81 @@ html.dev-mode #dev-panel {
     color: #FECA57;
     opacity: 1;
     font-size: 13px;
+}
+
+.dev-star-editor {
+    order: 2;
+    flex: 1 0 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    opacity: 1;
+}
+
+.dev-section-title {
+    color: #FECA57;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+}
+
+.dev-hint {
+    font-size: 11px;
+    opacity: 0.55;
+}
+
+.dev-star-editor input[type="range"] {
+    flex: 1;
+    accent-color: #FECA57;
+}
+
+.dev-star-editor input[type="number"] {
+    width: 72px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.dev-star-editor input[type="color"] {
+    width: 34px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#star-base-speed-val {
+    width: 52px;
+    text-align: right;
+    font-size: 11px;
+    opacity: 0.65;
+}
+
+#star-config-json {
+    width: 100%;
+    min-height: 150px;
+    resize: vertical;
+    background: rgba(0,0,0,0.26);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.84);
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+#star-config-json.is-error {
+    border-color: #FF6B6B;
+    box-shadow: 0 0 0 2px rgba(255,107,107,0.16);
 }

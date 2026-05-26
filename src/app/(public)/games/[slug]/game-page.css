@@ -1,7 +1,59 @@
 .game-page {
+  position: relative;
+  z-index: 1;
   padding: 90px 24px 80px;
   max-width: 1280px;
   margin: 0 auto;
+}
+
+body:has(.planet-merge) {
+  position: relative;
+  background-color: #0d1117;
+  background-image: none;
+}
+
+.planet-page-starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.planet-page-star {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--star-size);
+  height: var(--star-size);
+  border-radius: 50%;
+  background: var(--star-color);
+  box-shadow: 0 0 calc(var(--star-size) * 2.8) var(--star-color);
+  opacity: 0;
+  animation: planet-page-star-object-blink var(--star-speed) ease-in-out infinite;
+  animation-delay: var(--star-delay);
+}
+
+@keyframes planet-page-star-object-blink {
+  0%, 48%, 100% {
+    opacity: 0;
+    transform: translate(var(--star-x-a), var(--star-y-a)) scale(0.45);
+  }
+
+  18%, 36% {
+    opacity: 1;
+    transform: translate(var(--star-x-a), var(--star-y-a)) scale(1);
+  }
+
+  50%, 98% {
+    opacity: 0;
+    transform: translate(var(--star-x-b), var(--star-y-b)) scale(0.45);
+  }
+
+  68%, 86% {
+    opacity: 1;
+    transform: translate(var(--star-x-b), var(--star-y-b)) scale(1);
+  }
 }
 
 .game-back-link {
