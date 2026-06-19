@@ -10,7 +10,8 @@
       "Bash(taskkill //F //PID 24364)",
       "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }')",
       "PowerShell(cd \"c:\\\\Users\\\\Administrator\\\\Desktop\\\\Logo-professionals\"; $env:ANALYZE='true'; npm run build 2>&1 | Select-Object -Last 20)",
-      "Bash(node --check game.js)"
+      "Bash(node --check game.js)",
+      "Bash(grep -n \"earnPerk\\(\\\\`merge-\" game.js)"
     ]
   }
 }

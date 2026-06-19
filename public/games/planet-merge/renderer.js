@@ -226,6 +226,89 @@ export function drawFlashes(ctx, flashes, totalMs) {
 }
 
 
+/* ── NEW-PLANET UNLOCK GLOW ──────────────────────────────────────────────
+   A light-blue outline that traces a planet's edges when its kind is first
+   created in a run. Round planets get a circle; silhouette planets (Moon,
+   Saturn, Sun) trace their real SVG outline (rings included) via the
+   un-decomposed silhouette vertices from physics.js, NOT the convex collider
+   decomposition (which would show internal seams).                         */
+const UNLOCK_GLOW_MS = 1500;
+const UNLOCK_RGB = '112, 224, 249'; // #70E0F9
+
+/** Build (only) the edge path for a body at the given outward scale.
+ *  `getOutlineSets(lvl)` returns silhouette unit-vertex sets or null. */
+function pathBodyEdge(ctx, body, lvl, getOutlineSets, scale) {
+    const sets = getOutlineSets(lvl);
+    const pos  = body.position;
+    ctx.beginPath();
+    if (sets) {
+        // Match the sprite transform from drawBody so the outline lands on the
+        // drawn image: translate → rotate(visual angle) → renderOffset, then
+        // verts in unit space scaled by the body radius.
+        const rad    = r(lvl);
+        const vAngle = body.angle + polyCorr(lvl);
+        const ro     = body.renderOffset || { x: 0, y: 0 };
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(vAngle);
+        ctx.translate(ro.x, ro.y);
+        for (const set of sets) {
+            set.forEach((v, i) => {
+                const x = v.x * rad * scale;
+                const y = v.y * rad * scale;
+                i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+            });
+            ctx.closePath();
+        }
+        ctx.restore();   // points are already placed; path survives the restore
+    } else {
+        ctx.arc(pos.x, pos.y, r(lvl) * scale, 0, Math.PI * 2);
+    }
+}
+
+/**
+ * Draw and age all pending unlock glows. Mutates `glows` (drops expired ones
+ * and any whose body has merged away).
+ * @param getBody        (id) => Matter.Body | null
+ * @param getOutlineSets (lvl) => silhouette sets | null  (from physics.js)
+ */
+export function drawUnlockGlows(ctx, glows, getBody, getOutlineSets, bodyLvl, totalMs) {
+    for (let i = glows.length - 1; i >= 0; i--) {
+        const g = glows[i];
+        const age = totalMs - g.t;
+        if (age > UNLOCK_GLOW_MS) { glows.splice(i, 1); continue; }
+        const body = getBody(g.bodyId);
+        const lvl  = body ? bodyLvl.get(body.id) : undefined;
+        if (!body || lvl === undefined) { glows.splice(i, 1); continue; }
+
+        const p    = age / UNLOCK_GLOW_MS;                 // 0 → 1
+        const fade = 1 - p;                                // overall fade-out
+        const pulse = 0.55 + 0.45 * Math.sin(age / 1000 * Math.PI * 4); // ~2 pulses
+
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap  = 'round';
+
+        // Steady edge outline hugging just outside the planet, alpha pulsing.
+        pathBodyEdge(ctx, body, lvl, getOutlineSets, 1.03);
+        ctx.strokeStyle = `rgba(${UNLOCK_RGB}, ${fade * pulse})`;
+        ctx.lineWidth   = 3.5;
+        ctx.shadowColor = `rgba(${UNLOCK_RGB}, ${fade})`;
+        ctx.shadowBlur  = 14;
+        ctx.stroke();
+
+        // Expanding ripple following the same edges, growing as it fades.
+        pathBodyEdge(ctx, body, lvl, getOutlineSets, 1.03 + p * 0.45);
+        ctx.strokeStyle = `rgba(${UNLOCK_RGB}, ${fade * 0.5})`;
+        ctx.lineWidth   = 2;
+        ctx.shadowBlur  = 0;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+
 /* ── SCORE POPUPS ────────────────────────────────────────────────────── */
 /**
  * Draw and age all pending score popup effects.

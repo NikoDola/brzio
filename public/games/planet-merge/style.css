@@ -21,38 +21,12 @@ body {
     overflow: hidden;
 }
 
-#body-starfield {
+#bg-starfield {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    overflow: hidden;
-}
-
-.body-star {
-    position: absolute;
-    left: var(--star-x);
-    top: var(--star-y);
-    width: var(--star-size);
-    height: var(--star-size);
-    border-radius: 50%;
-    background: var(--star-color);
-    box-shadow: 0 0 calc(var(--star-size) * 2.8) var(--star-color);
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
-    animation: body-star-object-blink var(--star-speed) ease-in-out infinite;
-    animation-delay: var(--star-delay);
-}
-
-@keyframes body-star-object-blink {
-    0%, 100% {
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.45);
-    }
-    28%, 64% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
+    display: block;
 }
 
 #game-container {
@@ -869,12 +843,12 @@ body.fullscreen #dev-panel { display: flex; }
 
 .perks-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 6px;
     align-content: start;
 }
 
@@ -882,11 +856,11 @@ body.fullscreen #dev-panel { display: flex; }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
-    padding: 12px 6px 10px;
-    border-radius: 12px;
+    gap: 8px;
+    padding: 18px 10px 16px;
+    border-radius: 16px;
     text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.04);
 }
 .perk-tile.earned {
@@ -896,12 +870,12 @@ body.fullscreen #dev-panel { display: flex; }
 .perk-tile.locked { opacity: 0.62; }
 
 .perk-tile-icon {
-    width: 46px;
-    height: 46px;
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 30px;
+    font-size: 46px;
 }
 .perk-tile-icon img { width: 100%; height: 100%; object-fit: contain; }
 .perk-tile-q {
@@ -911,21 +885,73 @@ body.fullscreen #dev-panel { display: flex; }
     border-radius: 50%;
 }
 .perk-tile-title {
-    font-size: 12px;
+    font-size: 17px;
     font-weight: 700;
-    line-height: 1.1;
+    line-height: 1.15;
+}
+
+/* Earned perks that have an explanation clip get a play/pause control. */
+.perk-tile.has-audio {
+    position: relative;
+    cursor: pointer;
+}
+
+.perk-audio-btn {
+    margin-top: 8px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 0 2px;          /* nudge the ▶ glyph optically centred */
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: radial-gradient(circle at 50% 32%, #8fe9ff 0%, #46c8f5 60%, #2aa8e0 100%);
+    color: #fff;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #1f86bd, 0 4px 8px rgba(0, 0, 0, 0.35);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.perk-audio-btn:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 4px 0 #1f86bd, 0 6px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Chunky "press down" when clicked, like a big toy button. */
+.perk-audio-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #1f86bd, 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.perk-audio-btn.playing {
+    background: radial-gradient(circle at 50% 32%, #ffd36b 0%, #ffb23f 60%, #ff9a1f 100%);
+    border-color: #fff;
+    color: #6b3500;
+    padding-left: 0;
+    box-shadow: 0 3px 0 #d9791a, 0 4px 8px rgba(0, 0, 0, 0.35);
+    animation: perk-audio-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes perk-audio-pulse {
+    0%, 100% { box-shadow: 0 3px 0 #d9791a, 0 4px 8px rgba(0,0,0,0.35), 0 0 0 0 rgba(255, 193, 71, 0.55); }
+    50%      { box-shadow: 0 3px 0 #d9791a, 0 4px 8px rgba(0,0,0,0.35), 0 0 0 8px rgba(255, 193, 71, 0); }
 }
 .perk-tile-goal {
-    font-size: 10px;
-    line-height: 1.2;
-    opacity: 0.65;
+    font-size: 13px;
+    line-height: 1.25;
+    opacity: 0.7;
 }
 
 @media (max-width: 480px) {
-    .perks-grid { grid-template-columns: repeat(4, 1fr); gap: 7px; }
-    .perk-tile-icon { width: 38px; height: 38px; font-size: 24px; }
-    .perk-tile-title { font-size: 11px; }
-    .perk-tile-goal { font-size: 9px; }
+    .perks-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .perk-tile-icon { width: 64px; height: 64px; font-size: 40px; }
+    .perk-tile-title { font-size: 16px; }
+    .perk-tile-goal { font-size: 12px; }
 }
 
 /* ── PERKS: "unlocked" toast that flies into the collection card ───────────*/
@@ -969,6 +995,47 @@ body.fullscreen #dev-panel { display: flex; }
 }
 .perk-toast-icon img { width: 100%; height: 100%; object-fit: contain; }
 .perk-toast-title { font-size: 18px; font-weight: 700; color: #fff; }
+
+/* Merge unlock clip: two source planets fly together and pop (~0.5s), then
+   the merged planet rises up (~0.5s). Shows kids how the planet was made. */
+.perk-merge-stage {
+    position: relative;
+    width: 116px;
+    height: 78px;
+}
+.perk-merge-stage img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 54px;
+    height: 54px;
+    object-fit: contain;
+    transform: translate(-50%, -50%);
+}
+.pm-src-l { animation: pm-src-l 1s ease-in-out forwards; }
+.pm-src-r { animation: pm-src-r 1s ease-in-out forwards; }
+.pm-result { opacity: 0; animation: pm-result 1s ease-out forwards; }
+
+@keyframes pm-src-l {
+    0%   { transform: translate(calc(-50% - 40px), -50%) scale(0.8); opacity: 0; }
+    15%  { opacity: 1; }
+    45%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    54%  { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+    100% { opacity: 0; }
+}
+@keyframes pm-src-r {
+    0%   { transform: translate(calc(-50% + 40px), -50%) scale(0.8); opacity: 0; }
+    15%  { opacity: 1; }
+    45%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    54%  { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+    100% { opacity: 0; }
+}
+@keyframes pm-result {
+    0%, 48% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+    63%     { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    76%     { transform: translate(-50%, -50%) scale(0.95); }
+    100%    { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 
 /* ── DEV PANEL ─────────────────────────────────────────────────────────── */
 /* Hidden by default. The parent page adds ?dev=1 for authenticated admins,
@@ -1156,6 +1223,18 @@ html.dev-mode #dev-panel {
     color: #1DD1A1;
 }
 
+.dev-pill-danger {
+    background: rgba(255,107,107,0.14);
+    border-color: rgba(255,107,107,0.5);
+    color: #FF8A8A;
+}
+
+.dev-pill-danger:hover {
+    background: rgba(255,107,107,0.24);
+    border-color: #FF6B6B;
+    color: #fff;
+}
+
 #auto-speed, #auto-x {
     flex: 1;
     accent-color: #FECA57;
@@ -1203,18 +1282,6 @@ html.dev-mode #dev-panel {
     font-size: 13px;
 }
 
-.dev-star-editor {
-    order: 2;
-    flex: 1 0 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 8px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.07);
-    opacity: 1;
-}
-
 .dev-section-title {
     color: #FECA57;
     font-size: 11px;
@@ -1226,58 +1293,6 @@ html.dev-mode #dev-panel {
 .dev-hint {
     font-size: 11px;
     opacity: 0.55;
-}
-
-.dev-star-editor input[type="range"] {
-    flex: 1;
-    accent-color: #FECA57;
-}
-
-.dev-star-editor input[type="number"] {
-    width: 72px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: #fff;
-    border-radius: 6px;
-    padding: 5px 8px;
-    font-family: inherit;
-    font-size: 12px;
-}
-
-.dev-star-editor input[type="color"] {
-    width: 34px;
-    height: 28px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.16);
-    border-radius: 6px;
-    cursor: pointer;
-}
-
-#star-base-speed-val {
-    width: 52px;
-    text-align: right;
-    font-size: 11px;
-    opacity: 0.65;
-}
-
-#star-config-json {
-    width: 100%;
-    min-height: 150px;
-    resize: vertical;
-    background: rgba(0,0,0,0.26);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 8px;
-    color: rgba(255,255,255,0.84);
-    padding: 10px;
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 11px;
-    line-height: 1.45;
-}
-
-#star-config-json.is-error {
-    border-color: #FF6B6B;
-    box-shadow: 0 0 0 2px rgba(255,107,107,0.16);
 }
 
 .dev-physics-editor {

@@ -16,6 +16,7 @@ import {
   wakeAllShapes,
   separateOverlapping,
   applyTuningToBodies,
+  getOutlineSets,
 } from "./physics.js";
 import { TUNING } from "./tuning.js";
 import {
@@ -25,6 +26,7 @@ import {
   drawPreview,
   drawFlashes,
   drawPopups,
+  drawUnlockGlows,
   onAssetLoad,
   setDebugColliders,
 } from "./renderer.js";
@@ -32,10 +34,12 @@ import {
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
 const { W, H, WALL, DROP_Y, DANGER_Y } = LAYOUT;
 
-/* Body star objects live outside the canvas. Four timing groups make the
-   surrounding page keep repopulating instead of blinking in one fixed place:
-   30 stars refresh every blink, 30 every two, 30 every three, and 10 every
-   five. */
+/* Background galaxy. Drawn on a single full-viewport canvas (#bg-starfield)
+   behind the whole game, NOT as DOM elements. One canvas with ~100 cheap
+   arcs costs far less than 100 blurred, individually-composited <span>s, and
+   it lets us add a baked nebula + soft star halos for a real galaxy look.
+   Still driven by `bodyStarConfig` so the dev "Body Stars" editor keeps
+   working: groups map to twinkle periods, plus size/colors. */
 let bodyStarConfig = {
   baseBlinkMs: 2600,
   groups: [
@@ -48,40 +52,116 @@ let bodyStarConfig = {
   colors: ["#ffffff", "#7ddfff", "#feca57"],
 };
 
-function placeBodyStar(el) {
-  el.style.setProperty("--star-x", `${Math.round(Math.random() * 10000) / 100}vw`);
-  el.style.setProperty("--star-y", `${Math.round(Math.random() * 10000) / 100}vh`);
+/* ── BACKGROUND GALAXY CANVAS ─────────────────────────────────────────── */
+const bgCanvas = document.getElementById("bg-starfield");
+const bgCtx = bgCanvas ? bgCanvas.getContext("2d") : null;
+let bgW = 0;
+let bgH = 0;
+let bgNebula = null; // baked offscreen: nebula glow, redrawn only on resize
+let bgStars = []; // { xf, yf, size, color, period, phase, glow }
+
+// Soft round glow sprites, one per colour, pre-rendered once. drawImage of a
+// cached sprite is cheap; building a radial gradient per star per frame is not.
+const glowSpriteCache = new Map();
+function glowSprite(color) {
+  if (glowSpriteCache.has(color)) return glowSpriteCache.get(color);
+  const s = 48;
+  const c = document.createElement("canvas");
+  c.width = c.height = s;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  grad.addColorStop(0, color);
+  grad.addColorStop(0.35, color);
+  grad.addColorStop(1, "transparent");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, s, s);
+  glowSpriteCache.set(color, c);
+  return c;
 }
 
-function clampNumber(value, min, max, fallback) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
+// Bake the nebula (a few big soft colour blobs) once per size. Drawn each
+// frame as a single drawImage, so it costs nothing to keep on screen.
+function buildBgNebula() {
+  if (!bgCtx) return;
+  const c = document.createElement("canvas");
+  c.width = bgW;
+  c.height = bgH;
+  const g = c.getContext("2d");
+  const span = Math.max(bgW, bgH);
+  const blobs = [
+    { x: bgW * 0.24, y: bgH * 0.28, r: span * 0.55, color: "rgba(86,46,150,0.20)" },
+    { x: bgW * 0.78, y: bgH * 0.62, r: span * 0.60, color: "rgba(32,84,168,0.18)" },
+    { x: bgW * 0.55, y: bgH * 0.12, r: span * 0.42, color: "rgba(170,64,128,0.12)" },
+  ];
+  for (const b of blobs) {
+    const grad = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+    grad.addColorStop(0, b.color);
+    grad.addColorStop(1, "transparent");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, bgW, bgH);
+  }
+  bgNebula = c;
 }
 
-function normalizeBodyStarConfig(config) {
-  const current = bodyStarConfig;
-  const incomingGroups = Array.isArray(config?.groups) ? config.groups : [];
-  const groups = [1, 2, 3, 5].map((blinks, i) => {
-    const match = incomingGroups.find((g) => Number(g?.blinks) === blinks) || incomingGroups[i] || {};
-    return {
-      label: `${blinks} ${blinks === 1 ? "blink" : "blinks"}`,
-      blinks,
-      count: Math.round(clampNumber(match.count, 0, 180, current.groups[i]?.count ?? 0)),
-    };
-  });
-  const min = Math.round(clampNumber(config?.starSize?.min, 1, 12, current.starSize.min));
-  const max = Math.round(clampNumber(config?.starSize?.max, 1, 12, current.starSize.max));
-  const colors = Array.isArray(config?.colors) && config.colors.length
-    ? config.colors.slice(0, 3)
-    : current.colors;
+function resizeBgStarfield() {
+  if (!bgCtx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  bgW = window.innerWidth;
+  bgH = window.innerHeight;
+  bgCanvas.width = Math.round(bgW * dpr);
+  bgCanvas.height = Math.round(bgH * dpr);
+  bgCanvas.style.width = `${bgW}px`;
+  bgCanvas.style.height = `${bgH}px`;
+  bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  buildBgNebula();
+}
 
-  return {
-    baseBlinkMs: Math.round(clampNumber(config?.baseBlinkMs, 1000, 8000, current.baseBlinkMs)),
-    groups,
-    starSize: { min: Math.min(min, max), max: Math.max(min, max) },
-    colors,
-  };
+// Rebuild the star list from the current config. Positions are fractions of
+// the viewport so a resize never needs a rebuild, only a re-bake of nebula.
+function buildBgStars() {
+  bgStars = [];
+  let index = 0;
+  for (const group of bodyStarConfig.groups) {
+    const period = bodyStarConfig.baseBlinkMs * group.blinks;
+    for (let i = 0; i < group.count; i += 1) {
+      const color = bodyStarConfig.colors[index % bodyStarConfig.colors.length];
+      bgStars.push({
+        xf: Math.random(),
+        yf: Math.random(),
+        size: pickBodyStarSize(),
+        color,
+        period,
+        phase: Math.random() * Math.PI * 2,
+        glow: Math.random() < 0.22, // ~1 in 5 gets a soft halo
+      });
+      index += 1;
+    }
+  }
+}
+
+function drawBgStarfield(t) {
+  if (!bgCtx) return;
+  bgCtx.clearRect(0, 0, bgW, bgH);
+  if (bgNebula) bgCtx.drawImage(bgNebula, 0, 0, bgW, bgH);
+  for (const s of bgStars) {
+    // Twinkle: alpha breathes between 0.2 and 1 over the star's period.
+    const tw = 0.2 + 0.8 * (Math.sin((t / s.period) * Math.PI * 2 + s.phase) * 0.5 + 0.5);
+    const x = s.xf * bgW;
+    const y = s.yf * bgH;
+    if (s.glow) {
+      const sprite = glowSprite(s.color);
+      const d = s.size * 9;
+      bgCtx.globalAlpha = tw * 0.5;
+      bgCtx.drawImage(sprite, x - d / 2, y - d / 2, d, d);
+    }
+    bgCtx.globalAlpha = tw;
+    bgCtx.fillStyle = s.color;
+    bgCtx.beginPath();
+    bgCtx.arc(x, y, s.size, 0, Math.PI * 2);
+    bgCtx.fill();
+  }
+  bgCtx.globalAlpha = 1;
+  requestAnimationFrame(drawBgStarfield);
 }
 
 function pickBodyStarSize() {
@@ -89,44 +169,21 @@ function pickBodyStarSize() {
   return Math.round(min + Math.random() * (max - min));
 }
 
-function bodyStarConfigJson() {
-  return JSON.stringify(bodyStarConfig, null, 2);
-}
-
+// Rebuild the star field from config (re-randomises positions).
 function initBodyStarfield() {
-  const host = document.getElementById("body-starfield");
-  if (!host) return;
-  host.replaceChildren();
-
-  let index = 0;
-  for (const group of bodyStarConfig.groups) {
-    for (let i = 0; i < group.count; i += 1) {
-      const star = document.createElement("span");
-      const size = pickBodyStarSize();
-      const color = bodyStarConfig.colors[index % bodyStarConfig.colors.length];
-
-      star.className = "body-star";
-      star.style.setProperty("--star-size", `${size}px`);
-      star.style.setProperty("--star-color", color);
-      star.style.setProperty("--star-speed", `${(bodyStarConfig.baseBlinkMs * group.blinks) / 1000}s`);
-      star.style.setProperty(
-        "--star-delay",
-        `${-Math.random() * (bodyStarConfig.baseBlinkMs * group.blinks) / 1000}s`,
-      );
-      placeBodyStar(star);
-      star.addEventListener("animationiteration", () => placeBodyStar(star));
-      host.appendChild(star);
-      index += 1;
-    }
-  }
+  buildBgStars();
 }
 
-function applyBodyStarConfig(config) {
-  bodyStarConfig = normalizeBodyStarConfig(config);
+// Boot the background galaxy: size the canvas, build stars, start its own
+// lightweight render loop, and re-bake on resize (positions are fractional).
+if (bgCtx) {
+  resizeBgStarfield();
+  initBodyStarfield();
+  window.addEventListener("resize", resizeBgStarfield);
+  requestAnimationFrame(drawBgStarfield);
+} else {
   initBodyStarfield();
 }
-
-initBodyStarfield();
 
 /* ── CANVAS ──────────────────────────────────────────────────────────── */
 const canvas = document.getElementById("game-canvas");
@@ -203,6 +260,7 @@ function makeSfx(file, volume) {
 const laserSfx = makeSfx("laser.mp3", 0.55);
 const targetLockSfx = makeSfx("target-lock.mp3", 0.6);
 const selectSfx = makeSfx("select-sound.mp3", 0.6);
+const perkSfx = makeSfx("peark.mp3", 0.7);
 function playOnce(sfx) {
   try {
     sfx.currentTime = 0;
@@ -212,6 +270,7 @@ function playOnce(sfx) {
 const playLaser = () => playOnce(laserSfx);
 const playTargetLock = () => playOnce(targetLockSfx);
 const playSelect = () => playOnce(selectSfx);
+const playPerk = () => playOnce(perkSfx);
 
 /* ── GAME STATE ──────────────────────────────────────────────────────── */
 const mergeQ = []; // { a, b, level } — bodies queued to merge
@@ -220,6 +279,8 @@ const mergeSeen = new Set(); // bodyIds already in a queue (prevents duplicates)
 
 const flashes = []; // visual fx: { x, y, t, big }
 const popups = []; // score fx:  { x, y, t, text, big }
+const unlockGlows = []; // light-blue edge glow on first-creation: { bodyId, t }
+const seenLevels = new Set(); // planet levels already created this run (unlock detection)
 
 /* Drop mode for dev panel:
  *   'weighted'  → weighted random across the current difficulty's droppables
@@ -446,23 +507,31 @@ const PERKS = [
   { id: "lose-under-100", tab: "losing", emoji: "💥", title: "Quick Exit",     goal: "Lose with under 100 merges" },
   { id: "lose-under-150", tab: "losing", emoji: "⏳", title: "Cut Short",      goal: "Lose with under 150 merges" },
 ];
-// Planets you can drop in at least one mode don't earn a perk — only planets
-// you can ONLY reach by merging do. (Stars/Moon/Pluto/Mercury/Mars drop on
-// normal/hard; Venus is added to the easy drop pool, so it's excluded too.)
-const EVER_DROPPABLE = new Set(
-  SHAPES.map((s, i) => (s.droppable ? i : -1)).filter((i) => i >= 0),
-);
-EVER_DROPPABLE.add(5); // Venus drops on easy
+// Optional explanation/voice-over clip per planet (file in assets/sounds).
+// Earned perks with one show a play/pause button that plays the clip.
+const PERK_AUDIO = {
+  Moon: "moon-explaing.mp3",
+  Venus: "venus-explain.mp3",
+  Earth: "earth-explain.mp3",
+};
 
-// One "collect this planet" perk per merge-only planet, in merge order.
+// One "merge up to this planet" perk for every planet that CAN be made by
+// merging — i.e. everything except the smallest (Stars), which is the base
+// drop. Earned ONLY when the planet is born from a merge (see flushMerges),
+// never from dropping one: dropping a Mercury gives nothing, but merging two
+// Plutos into a Mercury unlocks it.
 SHAPES.forEach((s, i) => {
-  if (EVER_DROPPABLE.has(i)) return;
+  if (i === 0) return; // Stars are the base planet; can't be merge-created
+  const srcName = SHAPES[i - 1].name;
+  const srcPlural = srcName.endsWith("s") ? srcName : `${srcName}s`;
   PERKS.push({
     id: `merge-${i}`,
     tab: "merges",
     img: `assets/images/${s.asset}`,
     title: s.name,
-    goal: `Get a ${s.name}`,
+    goal: `Merge two ${srcPlural} into a ${s.name}`,
+    audio: PERK_AUDIO[s.name],
+    level: i, // drives the merge animation in the unlock toast
   });
 });
 
@@ -488,6 +557,7 @@ const perksOverlayEl = document.getElementById("perks-overlay");
 const perksGridEl = document.getElementById("perks-grid");
 const perksCloseEl = document.getElementById("perks-close");
 let perksActiveTab = "wins";
+let lastEarnedTab = null; // tab of the most recently earned perk; opens the card straight to it
 
 const perksOpen = () => !!perksOverlayEl?.classList.contains("visible");
 
@@ -502,13 +572,48 @@ function updatePerkCardUI() {
   if (perkTotalEl) perkTotalEl.textContent = PERKS.length;
 }
 
+// Explanation-clip playback. One clip plays at a time; clicking an audio
+// perk (or its button) toggles play/pause.
+let perkExplainAudio = null;
+let playingPerkId = null;
+
+function stopPerkAudio() {
+  if (perkExplainAudio) {
+    perkExplainAudio.pause();
+    perkExplainAudio = null;
+  }
+  playingPerkId = null;
+}
+
+function togglePerkAudio(perk) {
+  if (!perk.audio) return;
+  if (playingPerkId === perk.id) {
+    stopPerkAudio();
+    if (perksOpen()) renderPerksGrid();
+    return;
+  }
+  stopPerkAudio();
+  const a = new Audio(`${SOUNDS_DIR}/${perk.audio}`);
+  a.volume = 0.9;
+  a.addEventListener("ended", () => {
+    if (playingPerkId === perk.id) stopPerkAudio();
+    if (perksOpen()) renderPerksGrid();
+  });
+  perkExplainAudio = a;
+  playingPerkId = perk.id;
+  a.play().catch(() => {});
+  if (perksOpen()) renderPerksGrid();
+}
+
 function renderPerksGrid() {
   if (!perksGridEl) return;
   perksGridEl.innerHTML = "";
   PERKS.filter((p) => p.tab === perksActiveTab).forEach((perk) => {
     const earned = earnedPerks.has(perk.id);
+    const hasAudio = earned && !!perk.audio;
     const tile = document.createElement("div");
-    tile.className = "perk-tile " + (earned ? "earned" : "locked");
+    tile.className =
+      "perk-tile " + (earned ? "earned" : "locked") + (hasAudio ? " has-audio" : "");
     tile.innerHTML = earned
       ? `<div class="perk-tile-icon">${perkIconHTML(perk)}</div>
          <div class="perk-tile-title">${perk.title}</div>
@@ -516,6 +621,22 @@ function renderPerksGrid() {
       : `<div class="perk-tile-icon perk-tile-q">?</div>
          <div class="perk-tile-title">???</div>
          <div class="perk-tile-goal">${perk.goal}</div>`;
+
+    if (hasAudio) {
+      const playing = playingPerkId === perk.id;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "perk-audio-btn" + (playing ? " playing" : "");
+      btn.setAttribute("aria-label", playing ? "Pause explanation" : "Play explanation");
+      btn.textContent = playing ? "⏸" : "▶";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePerkAudio(perk);
+      });
+      tile.appendChild(btn);
+      tile.addEventListener("click", () => togglePerkAudio(perk));
+    }
+
     perksGridEl.appendChild(tile);
   });
 }
@@ -529,15 +650,21 @@ function setPerksTab(tab) {
 }
 
 perkCardEl?.addEventListener("click", () => {
-  setPerksTab(perksActiveTab);
+  // Jump straight to the tab of the most recently earned perk so a fresh
+  // unlock isn't hidden behind the default "wins" tab full of question marks.
+  setPerksTab(lastEarnedTab || perksActiveTab);
   perksOverlayEl.classList.add("visible");
 });
-perksCloseEl?.addEventListener("click", () =>
-  perksOverlayEl.classList.remove("visible"),
+perksCloseEl?.addEventListener("click", () => {
+  perksOverlayEl.classList.remove("visible");
+  stopPerkAudio(); // don't keep a clip playing once the overlay is closed
+});
+document.querySelectorAll(".perks-tab").forEach((t) =>
+  t.addEventListener("click", () => {
+    stopPerkAudio();
+    setPerksTab(t.dataset.tab);
+  }),
 );
-document
-  .querySelectorAll(".perks-tab")
-  .forEach((t) => t.addEventListener("click", () => setPerksTab(t.dataset.tab)));
 
 /* Earn + the "card flies into the collection" toast (queued so simultaneous
    unlocks play one after another instead of stacking). */
@@ -549,9 +676,11 @@ function earnPerk(id) {
   const perk = PERKS.find((p) => p.id === id);
   if (!perk) return; // ignore ids that aren't real perks (e.g. droppable planets)
   earnedPerks.add(id);
+  lastEarnedTab = perk.tab; // so opening the card lands on this perk's tab
   saveEarnedPerks();
   updatePerkCardUI();
-  if (perksOpen()) renderPerksGrid();
+  if (perksOpen()) setPerksTab(perk.tab); // already open → jump to the new perk
+  playPerk();
   perkToastQueue.push(perk);
   if (!perkToastPlaying) playNextPerkToast();
 }
@@ -571,17 +700,36 @@ function animatePerkEarn(perk, done) {
     return;
   }
   const toast = document.createElement("div");
-  toast.className = "perk-toast";
-  toast.innerHTML = `
-    <div class="perk-toast-badge">Perk unlocked!</div>
-    <div class="perk-toast-icon">${perkIconHTML(perk)}</div>
-    <div class="perk-toast-title">${perk.title}</div>`;
+  // Merge perks (those with a `level`) play a mini "two planets merge → result"
+  // clip so a kid sees exactly how the planet was made. ~1s: ~0.5s the two
+  // smaller planets fly together and pop, ~0.5s the merged planet rises up.
+  const isMerge = Number.isInteger(perk.level) && perk.level > 0;
+  if (isMerge) {
+    const srcImg = `assets/images/${SHAPES[perk.level - 1].asset}`;
+    toast.className = "perk-toast merge";
+    toast.innerHTML = `
+      <div class="perk-toast-badge">Perk unlocked!</div>
+      <div class="perk-merge-stage">
+        <img class="pm-src pm-src-l" src="${srcImg}" alt="">
+        <img class="pm-src pm-src-r" src="${srcImg}" alt="">
+        <img class="pm-result" src="${perk.img}" alt="">
+      </div>
+      <div class="perk-toast-title">${perk.title}</div>`;
+  } else {
+    toast.className = "perk-toast";
+    toast.innerHTML = `
+      <div class="perk-toast-badge">Perk unlocked!</div>
+      <div class="perk-toast-icon">${perkIconHTML(perk)}</div>
+      <div class="perk-toast-title">${perk.title}</div>`;
+  }
   document.body.appendChild(toast);
 
   // Pop in at centre.
   requestAnimationFrame(() => toast.classList.add("show"));
 
-  // After a beat, fly into the collection card under the merges panel.
+  // Hold long enough for the merge clip to finish, then fly into the
+  // collection card under the merges panel.
+  const flyDelay = isMerge ? 1450 : 1050;
   setTimeout(() => {
     const card = perkCardEl.getBoundingClientRect();
     const dx = card.left + card.width / 2 - window.innerWidth / 2;
@@ -589,7 +737,7 @@ function animatePerkEarn(perk, done) {
     toast.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.12)`;
     toast.style.opacity = "0";
     toast.classList.add("fly");
-  }, 1050);
+  }, flyDelay);
 
   let finished = false;
   const finish = () => {
@@ -628,20 +776,6 @@ const forceDestroyBtn = document.getElementById("force-destroy-btn");
 const statDropsEl = document.getElementById("stat-drops");
 const statGamesEl = document.getElementById("stat-games");
 const statAvgEl = document.getElementById("stat-avg");
-const starBaseSpeedEl = document.getElementById("star-base-speed");
-const starBaseSpeedVal = document.getElementById("star-base-speed-val");
-const starCount1El = document.getElementById("star-count-1");
-const starCount2El = document.getElementById("star-count-2");
-const starCount3El = document.getElementById("star-count-3");
-const starCount5El = document.getElementById("star-count-5");
-const starMinSizeEl = document.getElementById("star-min-size");
-const starMaxSizeEl = document.getElementById("star-max-size");
-const starColor1El = document.getElementById("star-color-1");
-const starColor2El = document.getElementById("star-color-2");
-const starColor3El = document.getElementById("star-color-3");
-const starRandomizeBtn = document.getElementById("star-randomize-btn");
-const starApplyJsonBtn = document.getElementById("star-apply-json-btn");
-const starConfigJsonEl = document.getElementById("star-config-json");
 const massPowerEl = document.getElementById("mass-power");
 const massPowerVal = document.getElementById("mass-power-val");
 const impactStrengthEl = document.getElementById("impact-strength");
@@ -649,6 +783,8 @@ const impactStrengthVal = document.getElementById("impact-strength-val");
 const physicsResetBtn = document.getElementById("physics-reset-btn");
 const physicsApplyJsonBtn = document.getElementById("physics-apply-json-btn");
 const physicsConfigJsonEl = document.getElementById("physics-config-json");
+const clearSaveBtn = document.getElementById("clear-save-btn");
+const clearSaveMsg = document.getElementById("clear-save-msg");
 
 /* ── COLLISION → MERGE / VANISH ──────────────────────────────────────── */
 /* IMPACT_KICK shoves both bodies a bit harder along the contact normal when
@@ -1011,6 +1147,11 @@ function flushMerges() {
     scoreEl.textContent = score;
     earnPerk(`merge-${newLvl}`); // first time this planet is created
     if (score >= 200) earnPerk("win-200");
+    // New planet unlocked this run → light-blue glow tracing its edges.
+    if (!seenLevels.has(newLvl)) {
+      seenLevels.add(newLvl);
+      unlockGlows.push({ bodyId: merged.id, t: totalMs });
+    }
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: false });
     popups.push({
@@ -1115,7 +1256,8 @@ function drop() {
   const maxX = W - WALL - rad - 2;
   const sx = Math.max(minX, Math.min(maxX, dropX));
   spawn(sx, DROP_Y, curLvl, totalMs);
-  earnPerk(`merge-${curLvl}`); // first time this planet is collected
+  // Note: dropping a planet does NOT earn its perk — only merging UP to it
+  // does (handled in flushMerges). So a chosen/dropped Mercury grants nothing.
   curLvl = nxtLvl;
   nxtLvl = pickLvl();
   canDrop = false;
@@ -1235,6 +1377,14 @@ function frame(ts) {
   for (const body of Composite.allBodies(world)) {
     if (body.label === "shape") drawBody(ctx, body, bodyLvl);
   }
+  drawUnlockGlows(
+    ctx,
+    unlockGlows,
+    (id) => Composite.get(world, id, "body"),
+    getOutlineSets,
+    bodyLvl,
+    totalMs,
+  );
   if (destroyCharges > 0) drawDestroyTargets();
   drawPopups(ctx, popups, totalMs);
 
@@ -1345,6 +1495,8 @@ function resetGameState() {
   mergeSeen.clear();
   flashes.length = 0;
   popups.length = 0;
+  unlockGlows.length = 0;
+  seenLevels.clear();
 
   score = 0;
   scoreEl.textContent = "0";
@@ -1418,6 +1570,8 @@ function showDifficultyPicker() {
   mergeSeen.clear();
   flashes.length = 0;
   popups.length = 0;
+  unlockGlows.length = 0;
+  seenLevels.clear();
 
   difficulty = null;
   gameOver = false;
@@ -1596,73 +1750,27 @@ autoXEl.addEventListener("input", () => {
   autoXVal.textContent = pct === 50 ? "center" : pct + "%";
 });
 
-function readStarEditorConfig() {
-  return {
-    baseBlinkMs: Number(starBaseSpeedEl.value),
-    groups: [
-      { label: "1 blink", blinks: 1, count: Number(starCount1El.value) },
-      { label: "2 blinks", blinks: 2, count: Number(starCount2El.value) },
-      { label: "3 blinks", blinks: 3, count: Number(starCount3El.value) },
-      { label: "5 blinks", blinks: 5, count: Number(starCount5El.value) },
-    ],
-    starSize: {
-      min: Number(starMinSizeEl.value),
-      max: Number(starMaxSizeEl.value),
-    },
-    colors: [starColor1El.value, starColor2El.value, starColor3El.value],
-  };
-}
-
-function syncStarEditor() {
-  const groupsByBlink = new Map(bodyStarConfig.groups.map((g) => [g.blinks, g]));
-  starBaseSpeedEl.value = String(bodyStarConfig.baseBlinkMs);
-  starBaseSpeedVal.textContent = `${(bodyStarConfig.baseBlinkMs / 1000).toFixed(1)}s`;
-  starCount1El.value = String(groupsByBlink.get(1)?.count ?? 0);
-  starCount2El.value = String(groupsByBlink.get(2)?.count ?? 0);
-  starCount3El.value = String(groupsByBlink.get(3)?.count ?? 0);
-  starCount5El.value = String(groupsByBlink.get(5)?.count ?? 0);
-  starMinSizeEl.value = String(bodyStarConfig.starSize.min);
-  starMaxSizeEl.value = String(bodyStarConfig.starSize.max);
-  starColor1El.value = bodyStarConfig.colors[0] || "#ffffff";
-  starColor2El.value = bodyStarConfig.colors[1] || "#7ddfff";
-  starColor3El.value = bodyStarConfig.colors[2] || "#feca57";
-  starConfigJsonEl.value = bodyStarConfigJson();
-}
-
-function applyStarEditor() {
-  applyBodyStarConfig(readStarEditorConfig());
-  syncStarEditor();
-}
-
-[
-  starBaseSpeedEl,
-  starCount1El,
-  starCount2El,
-  starCount3El,
-  starCount5El,
-  starMinSizeEl,
-  starMaxSizeEl,
-  starColor1El,
-  starColor2El,
-  starColor3El,
-].forEach((el) => el.addEventListener("input", applyStarEditor));
-
-starRandomizeBtn.addEventListener("click", () => {
-  initBodyStarfield();
-  starConfigJsonEl.value = bodyStarConfigJson();
-});
-
-starApplyJsonBtn.addEventListener("click", () => {
+/* ── CLEAR SAVE (dev) ────────────────────────────────────────────────────
+   Wipe persisted unlocks + earned perks so mode locks, perks, and the
+   first-unlock glow can be retested from scratch without hand-clearing
+   browser storage. */
+clearSaveBtn?.addEventListener("click", () => {
   try {
-    applyBodyStarConfig(JSON.parse(starConfigJsonEl.value));
-    syncStarEditor();
-    starConfigJsonEl.classList.remove("is-error");
-  } catch {
-    starConfigJsonEl.classList.add("is-error");
+    localStorage.removeItem(UNLOCK_KEY);
+    localStorage.removeItem(PERK_KEY);
+  } catch {}
+  unlockedModes = loadUnlocks(); // back to defaults (easy only)
+  earnedPerks = new Set();
+  updatePerkCardUI();
+  if (perksOpen()) renderPerksGrid();
+  refreshDifficultyLocks();
+  if (clearSaveMsg) {
+    clearSaveMsg.textContent = "cleared!";
+    setTimeout(() => {
+      clearSaveMsg.textContent = "";
+    }, 1500);
   }
 });
-
-syncStarEditor();
 
 /* ── PHYSICS EDITOR (mass + impact) ──────────────────────────────────────
    Tune how heavy each planet is and how hard impacts hit, live. Defaults

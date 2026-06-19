@@ -261,6 +261,18 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
 }
 
 /**
+ * Silhouette vertex sets for an `outline:true` planet, in unit space
+ * (1 = viewBox half-span), or null. These are the *original* SVG outline
+ * polylines (body, rings, etc.), NOT the convex collision decomposition, so
+ * the renderer can trace a planet's true edges cleanly (used by the
+ * new-planet unlock glow). Multiply by the body radius and apply the body's
+ * angle + renderOffset to align with the drawn sprite.
+ */
+export function getOutlineSets(lvl) {
+    return outlineUnitVerts.get(lvl) || null;
+}
+
+/**
  * Wake every sleeping shape in the world. Matter.js doesn't propagate wake
  * events up through chains, so a body 3 layers up a stack stays frozen when
  * the bottom merges. With ~30 bodies max in this game, scanning them all is
