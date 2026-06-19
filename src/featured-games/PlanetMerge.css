@@ -19,3 +19,23 @@
     aspect-ratio: auto;
   }
 }
+
+/* Mobile: the game stacks score/next row, canvas, planet legend, and the
+   How to Play/fullscreen buttons vertically (see style.css's max-width:700px
+   block). That stack is taller relative to width than the canvas alone, so
+   the default 2/3 ratio leaves the legend and How to Play button clipped
+   (the game's body is overflow:hidden, so overflow is cropped, not
+   scrollable). Give it more height on phones, with extra room on the
+   narrowest screens where the fixed-height chrome (score/next panels,
+   buttons) eats a bigger share of the total. */
+@media (max-width: 700px) {
+  .planet-merge-frame .game-embed {
+    aspect-ratio: 1 / 1.9;
+  }
+}
+
+@media (max-width: 400px) {
+  .planet-merge-frame .game-embed {
+    aspect-ratio: 1 / 2.15;
+  }
+}
