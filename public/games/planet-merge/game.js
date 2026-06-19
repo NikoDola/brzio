@@ -429,6 +429,186 @@ function applyLegendMode(diff) {
 // Hidden until a mode is picked (the picker is the first screen).
 planetLegendEl?.classList.add("hidden");
 
+/* ── PERKS / ACHIEVEMENTS ────────────────────────────────────────────────
+   Collectible goals across three tabs (wins / merges / losing). Earned perks
+   persist in localStorage; unlocking one pops a card in the centre that flies
+   into the collection card under the merges panel. New perks get added to the
+   PERKS list over time. */
+const PERK_KEY = "pm_earned_perks";
+
+const PERKS = [
+  { id: "win-easy",       tab: "wins",   emoji: "🌙", title: "Easy Cleared",   goal: "Clear Easy mode" },
+  { id: "win-normal",     tab: "wins",   emoji: "🔴", title: "Normal Cleared", goal: "Clear Normal mode" },
+  { id: "win-hard",       tab: "wins",   emoji: "☀️", title: "Hard Cleared",   goal: "Clear Hard mode" },
+  { id: "win-200",        tab: "wins",   emoji: "🏆", title: "Double Century", goal: "Reach 200 merges in one run" },
+  { id: "lose-under-100", tab: "losing", emoji: "💥", title: "Quick Exit",     goal: "Lose with under 100 merges" },
+  { id: "lose-under-150", tab: "losing", emoji: "⏳", title: "Cut Short",      goal: "Lose with under 150 merges" },
+];
+// Planets you can drop in at least one mode don't earn a perk — only planets
+// you can ONLY reach by merging do. (Stars/Moon/Pluto/Mercury/Mars drop on
+// normal/hard; Venus is added to the easy drop pool, so it's excluded too.)
+const EVER_DROPPABLE = new Set(
+  SHAPES.map((s, i) => (s.droppable ? i : -1)).filter((i) => i >= 0),
+);
+EVER_DROPPABLE.add(5); // Venus drops on easy
+
+// One "collect this planet" perk per merge-only planet, in merge order.
+SHAPES.forEach((s, i) => {
+  if (EVER_DROPPABLE.has(i)) return;
+  PERKS.push({
+    id: `merge-${i}`,
+    tab: "merges",
+    img: `assets/images/${s.asset}`,
+    title: s.name,
+    goal: `Get a ${s.name}`,
+  });
+});
+
+function loadEarnedPerks() {
+  const set = new Set();
+  try {
+    const raw = localStorage.getItem(PERK_KEY);
+    if (raw) JSON.parse(raw).forEach((id) => set.add(id));
+  } catch (_) {}
+  return set;
+}
+let earnedPerks = loadEarnedPerks();
+function saveEarnedPerks() {
+  try {
+    localStorage.setItem(PERK_KEY, JSON.stringify([...earnedPerks]));
+  } catch (_) {}
+}
+
+const perkCardEl = document.getElementById("perk-card");
+const perkCountEl = document.getElementById("perk-count");
+const perkTotalEl = document.getElementById("perk-total");
+const perksOverlayEl = document.getElementById("perks-overlay");
+const perksGridEl = document.getElementById("perks-grid");
+const perksCloseEl = document.getElementById("perks-close");
+let perksActiveTab = "wins";
+
+const perksOpen = () => !!perksOverlayEl?.classList.contains("visible");
+
+function perkIconHTML(perk) {
+  return perk.img
+    ? `<img src="${perk.img}" alt="">`
+    : `<span class="perk-emoji">${perk.emoji || "✦"}</span>`;
+}
+
+function updatePerkCardUI() {
+  if (perkCountEl) perkCountEl.textContent = earnedPerks.size;
+  if (perkTotalEl) perkTotalEl.textContent = PERKS.length;
+}
+
+function renderPerksGrid() {
+  if (!perksGridEl) return;
+  perksGridEl.innerHTML = "";
+  PERKS.filter((p) => p.tab === perksActiveTab).forEach((perk) => {
+    const earned = earnedPerks.has(perk.id);
+    const tile = document.createElement("div");
+    tile.className = "perk-tile " + (earned ? "earned" : "locked");
+    tile.innerHTML = earned
+      ? `<div class="perk-tile-icon">${perkIconHTML(perk)}</div>
+         <div class="perk-tile-title">${perk.title}</div>
+         <div class="perk-tile-goal">${perk.goal}</div>`
+      : `<div class="perk-tile-icon perk-tile-q">?</div>
+         <div class="perk-tile-title">???</div>
+         <div class="perk-tile-goal">${perk.goal}</div>`;
+    perksGridEl.appendChild(tile);
+  });
+}
+
+function setPerksTab(tab) {
+  perksActiveTab = tab;
+  document
+    .querySelectorAll(".perks-tab")
+    .forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+  renderPerksGrid();
+}
+
+perkCardEl?.addEventListener("click", () => {
+  setPerksTab(perksActiveTab);
+  perksOverlayEl.classList.add("visible");
+});
+perksCloseEl?.addEventListener("click", () =>
+  perksOverlayEl.classList.remove("visible"),
+);
+document
+  .querySelectorAll(".perks-tab")
+  .forEach((t) => t.addEventListener("click", () => setPerksTab(t.dataset.tab)));
+
+/* Earn + the "card flies into the collection" toast (queued so simultaneous
+   unlocks play one after another instead of stacking). */
+const perkToastQueue = [];
+let perkToastPlaying = false;
+
+function earnPerk(id) {
+  if (earnedPerks.has(id)) return;
+  const perk = PERKS.find((p) => p.id === id);
+  if (!perk) return; // ignore ids that aren't real perks (e.g. droppable planets)
+  earnedPerks.add(id);
+  saveEarnedPerks();
+  updatePerkCardUI();
+  if (perksOpen()) renderPerksGrid();
+  perkToastQueue.push(perk);
+  if (!perkToastPlaying) playNextPerkToast();
+}
+
+function playNextPerkToast() {
+  if (!perkToastQueue.length) {
+    perkToastPlaying = false;
+    return;
+  }
+  perkToastPlaying = true;
+  animatePerkEarn(perkToastQueue.shift(), playNextPerkToast);
+}
+
+function animatePerkEarn(perk, done) {
+  if (!perkCardEl) {
+    done();
+    return;
+  }
+  const toast = document.createElement("div");
+  toast.className = "perk-toast";
+  toast.innerHTML = `
+    <div class="perk-toast-badge">Perk unlocked!</div>
+    <div class="perk-toast-icon">${perkIconHTML(perk)}</div>
+    <div class="perk-toast-title">${perk.title}</div>`;
+  document.body.appendChild(toast);
+
+  // Pop in at centre.
+  requestAnimationFrame(() => toast.classList.add("show"));
+
+  // After a beat, fly into the collection card under the merges panel.
+  setTimeout(() => {
+    const card = perkCardEl.getBoundingClientRect();
+    const dx = card.left + card.width / 2 - window.innerWidth / 2;
+    const dy = card.top + card.height / 2 - window.innerHeight / 2;
+    toast.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.12)`;
+    toast.style.opacity = "0";
+    toast.classList.add("fly");
+  }, 1050);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    toast.remove();
+    perkCardEl.classList.remove("pulse");
+    void perkCardEl.offsetWidth; // restart the pulse animation
+    perkCardEl.classList.add("pulse");
+    done();
+  };
+  toast.addEventListener("transitionend", (e) => {
+    if (e.propertyName === "transform" && toast.classList.contains("fly")) {
+      finish();
+    }
+  });
+  setTimeout(finish, 2400); // safety net if transitionend never fires
+}
+
+updatePerkCardUI();
+
 /* dev panel elements */
 const devPanelEl = document.getElementById("dev-panel");
 const devToggleEl = document.getElementById("dev-toggle");
@@ -818,6 +998,8 @@ function flushMerges() {
     // Score is just a merge counter now: +1 per merge, regardless of planet.
     score += 1;
     scoreEl.textContent = score;
+    earnPerk(`merge-${newLvl}`); // first time this planet is created
+    if (score >= 200) earnPerk("win-200");
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: false });
     popups.push({
@@ -860,6 +1042,7 @@ function flushVanishes() {
 /* ── WIN SEQUENCE ───────────────────────────────────────────────────────── */
 function startWinSequence(x, y) {
   if (winActive) return;
+  earnPerk(`win-${difficulty}`); // Easy/Normal/Hard cleared perk
   // Record the unlock now so the popup can announce it and the picker reflects
   // it the moment the player continues.
   const idx = MODE_ORDER.indexOf(difficulty);
@@ -912,7 +1095,7 @@ function drawWinAnimation() {
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
-  if (!canDrop || gameOver || winActive) return;
+  if (!canDrop || gameOver || winActive || perksOpen()) return;
   // Every drop starts a fresh chain — powers are earned by chains spawned
   // from ONE drop's cascade, never by accumulation across drops.
   resetChain();
@@ -921,6 +1104,7 @@ function drop() {
   const maxX = W - WALL - rad - 2;
   const sx = Math.max(minX, Math.min(maxX, dropX));
   spawn(sx, DROP_Y, curLvl, totalMs);
+  earnPerk(`merge-${curLvl}`); // first time this planet is collected
   curLvl = nxtLvl;
   nxtLvl = pickLvl();
   canDrop = false;
@@ -954,6 +1138,8 @@ function checkOver() {
 function endGame() {
   gameOver = true;
   finalEl.textContent = score;
+  if (score < 100) earnPerk("lose-under-100"); // play the game in reverse
+  if (score < 150) earnPerk("lose-under-150");
   overlayEl.classList.add("visible");
 
   devGames++;
@@ -1301,6 +1487,33 @@ function syncFullscreenState() {
 }
 document.addEventListener("fullscreenchange", syncFullscreenState);
 document.addEventListener("webkitfullscreenchange", syncFullscreenState);
+
+/* ── HOW-TO-PLAY POPOUT ─────────────────────────────────────────────────
+   Toggle the bottom-right how-to panel. Closes on a click outside the popout
+   or on Escape so it never lingers over the playfield. */
+const howtoBtn = document.getElementById("howto-btn");
+const howtoPanel = document.getElementById("howto-panel");
+
+function setHowtoOpen(open) {
+  if (!howtoBtn || !howtoPanel) return;
+  howtoPanel.hidden = !open;
+  howtoBtn.setAttribute("aria-expanded", String(open));
+}
+
+howtoBtn?.addEventListener("click", (e) => {
+  e.stopPropagation(); // don't let the document handler immediately re-close it
+  setHowtoOpen(howtoPanel.hidden);
+});
+
+document.addEventListener("click", (e) => {
+  if (howtoPanel && !howtoPanel.hidden && !e.target.closest("#howto-popout")) {
+    setHowtoOpen(false);
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setHowtoOpen(false);
+});
 
 /* ── DEV PANEL CONTROLS ──────────────────────────────────────────────── */
 let suppressDevToggleClick = false;

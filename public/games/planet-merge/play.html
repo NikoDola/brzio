@@ -22,9 +22,16 @@
     <div id="body-starfield" aria-hidden="true"></div>
     <div id="game-container">
         <div id="game-stage">
-            <div class="panel" id="score-panel">
-                <div class="panel-label">MERGES</div>
-                <div id="score">0</div>
+            <div id="score-col">
+                <div class="panel" id="score-panel">
+                    <div class="panel-label">MERGES</div>
+                    <div id="score">0</div>
+                </div>
+                <button id="perk-card" type="button" aria-label="Open perks">
+                    <span class="perk-card-icon">✦</span>
+                    <span class="perk-card-label">PERKS</span>
+                    <span class="perk-card-count"><span id="perk-count">0</span>/<span id="perk-total">0</span></span>
+                </button>
             </div>
             <div id="canvas-wrapper">
                 <canvas id="game-canvas"></canvas>
@@ -90,6 +97,20 @@
                             <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                     </div>
+                </div>
+            </div>
+            <div id="perks-overlay">
+                <div class="perks-inner">
+                    <div class="perks-header">
+                        <h2 class="perks-title">Perks</h2>
+                        <button id="perks-close" type="button" aria-label="Close perks">✕</button>
+                    </div>
+                    <div class="perks-tabs">
+                        <button class="perks-tab active" type="button" data-tab="wins">Wins</button>
+                        <button class="perks-tab" type="button" data-tab="merges">Merges</button>
+                        <button class="perks-tab" type="button" data-tab="losing">Losing</button>
+                    </div>
+                    <div class="perks-grid" id="perks-grid"></div>
                 </div>
             </div>
         </div>
@@ -188,6 +209,30 @@
                 </div>
             </div>
         </div>
+    </div>
+    <!-- How-to-play popout: a small controller button anchored bottom-right,
+         just left of the fullscreen toggle. Opens a panel with how-to-play +
+         controls. Fixed to the viewport so it works in fullscreen and never
+         overlaps the playfield (the old below-iframe details did on phones). -->
+    <div id="howto-popout">
+        <div id="howto-panel" role="dialog" aria-label="How to play and controls" hidden>
+            <div class="howto-section">
+                <h3>How to Play</h3>
+                <p>Move to aim, then click or tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+            </div>
+            <div class="howto-section">
+                <h3>Controls</h3>
+                <ul>
+                    <li><b>Move / drag</b> aim the drop</li>
+                    <li><b>Click / tap</b> drop a planet</li>
+                    <li><b>Space</b> drop a planet</li>
+                </ul>
+            </div>
+        </div>
+        <button id="howto-btn" type="button" aria-label="How to play and controls" aria-expanded="false">
+            <span class="howto-btn-icon" aria-hidden="true">🎮</span>
+            <span class="howto-btn-label">How to Play<br>&amp; Controls</span>
+        </button>
     </div>
     <button id="fullscreen-btn" class="fs-btn" type="button" aria-label="Toggle fullscreen">
         <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">

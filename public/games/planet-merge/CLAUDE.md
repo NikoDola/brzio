@@ -154,6 +154,17 @@ When two Suns vanish, `startWinSequence(mx, my)` records the unlock and plays a 
 
 Timing uses `performance.now()` (wall clock), not `totalMs`, because physics freezes while `winActive` is true. `winActive` also blocks `drop()` and canvas clicks. `clearWinState()` resets it on restart, new game, and continue.
 
+## Perks (collectible achievements)
+
+A data-driven achievement system. Everything is keyed off the `PERKS` array near the top of game.js, so adding a perk is just a new entry there (plus a call to `earnPerk(id)` at the moment it should unlock).
+
+- **Tabs:** `wins`, `merges`, `losing`. Each perk has `{ id, tab, title, goal, emoji|img }`.
+- **Current perks:** Wins = `win-easy` / `win-normal` / `win-hard` (earned in `startWinSequence`) + `win-200` (200 merges in a run, checked in `flushMerges`). Merges = one `merge-<lvl>` per **merge-only** planet (Earth, Uranus, Neptune, Saturn, Jupiter, Sun), earned the first time it's created in `flushMerges`. Droppable planets get no perk: `EVER_DROPPABLE` excludes everything in any drop pool, including Venus (which drops on easy). Losing = `lose-under-100` (earned in `endGame` when score < 100).
+- **Persistence:** earned ids live in `localStorage` under `pm_earned_perks` (`earnedPerks` Set). `earnPerk(id)` is idempotent.
+- **UI:** `#perk-card` (under the merges panel, in `#score-col`) shows `earned/total` and opens `#perks-overlay` (full-stage, tabbed 4-wide grid). It is deliberately NOT a bag icon.
+- **Unlock animation:** `earnPerk` → a `.perk-toast` pops at screen centre, then flies into `#perk-card` (which pulses). Toasts are queued (`perkToastQueue`) so simultaneous unlocks play one at a time.
+- Dropping is blocked while the perks overlay is open (`perksOpen()` guard in `drop()`).
+
 ## Restart
 
 `restart-btn` click handler in game.js:

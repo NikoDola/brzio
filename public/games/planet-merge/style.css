@@ -114,9 +114,17 @@ body {
     gap: 12px;
 }
 
-#game-stage > #score-panel   { grid-area: score; }
+#game-stage > #score-col     { grid-area: score; }
 #game-stage > #canvas-wrapper { grid-area: canvas; }
 #game-stage > #next-panel    { grid-area: next; }
+
+/* Score panel + perk collection card stacked in the left column. */
+#score-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+}
 
 .panel {
     flex: 1;
@@ -241,6 +249,98 @@ body {
 .fs-btn .fs-icon-exit  { display: none; }
 .fs-btn.is-fullscreen .fs-icon-enter { display: none; }
 .fs-btn.is-fullscreen .fs-icon-exit  { display: block; }
+
+/* ── HOW-TO-PLAY POPOUT ────────────────────────────────────────────────
+   Controller button bottom-right (just left of the fullscreen toggle) that
+   opens a how-to-play + controls panel above it. Fixed to the viewport so it
+   stays put in fullscreen and never sits over the planets. */
+#howto-popout {
+    position: fixed;
+    bottom: 12px;
+    right: 58px; /* 12px gap + 38px fullscreen button + 8px spacing */
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+#howto-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 9px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.82);
+    font-family: inherit;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s;
+}
+
+#howto-btn:hover  { background: rgba(0, 0, 0, 0.6); color: #fff; border-color: rgba(255, 255, 255, 0.28); }
+#howto-btn:active { transform: scale(0.94); }
+
+.howto-btn-icon { font-size: 18px; line-height: 1; }
+
+.howto-btn-label {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-align: center;
+    text-transform: uppercase;
+    opacity: 0.85;
+    line-height: 1.15;
+}
+
+#howto-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: min(280px, calc(100vw - 70px)); /* keep clear of the left edge given the 58px right offset */
+    background: linear-gradient(160deg, #1c2c4e, #0e1730);
+    border: 1px solid rgba(125, 223, 255, 0.4);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(125, 223, 255, 0.18);
+    padding: 16px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#howto-panel[hidden] { display: none; }
+
+.howto-section h3 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #7ddfff;
+}
+
+.howto-section p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.howto-section ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.howto-section li {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.howto-section li b { color: #fff; font-weight: 700; }
 
 /* In fullscreen, drop the centered max-width cap so the canvas can grow to
    fit the screen, and size the wrapper by viewport height (canvas keeps its
@@ -642,6 +742,217 @@ body.fullscreen #dev-panel { display: flex; }
 
 #win-continue:hover  { opacity: 0.9; transform: scale(1.03); }
 #win-continue:active { transform: scale(0.96); }
+
+/* ── PERKS: collection card ────────────────────────────────────────────────
+   Sits under the merges panel. Clicking opens the perks overlay. Not a bag —
+   a sparkle + count. */
+#perk-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 10px;
+    background: rgba(125, 223, 255, 0.08);
+    border: 1px solid rgba(125, 223, 255, 0.28);
+    border-radius: 12px;
+    color: #fff;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+#perk-card:hover {
+    background: rgba(125, 223, 255, 0.16);
+    border-color: rgba(125, 223, 255, 0.5);
+}
+#perk-card:active { transform: scale(0.96); }
+
+.perk-card-icon { font-size: 20px; line-height: 1; color: #7ddfff; }
+.perk-card-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    opacity: 0.6;
+    font-weight: 600;
+}
+.perk-card-count { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+
+/* Pulse when a freshly earned perk lands in the card. */
+#perk-card.pulse { animation: perk-card-pulse 0.6s ease; }
+@keyframes perk-card-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(125, 223, 255, 0); }
+    35%      { transform: scale(1.12); box-shadow: 0 0 16px 4px rgba(125, 223, 255, 0.7); }
+}
+
+/* ── PERKS: full-stage overlay ────────────────────────────────────────────*/
+#perks-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    flex-direction: column;
+    background: radial-gradient(circle at 50% 30%, #2a3c5e 0%, #161f38 70%, #0a1020 100%);
+    border-radius: 14px;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.7);
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+    padding: 16px 18px 20px;
+}
+#perks-overlay.visible { display: flex; }
+
+.perks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.perks-title {
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 700;
+    color: #FECA57;
+    letter-spacing: 1px;
+    margin: 0;
+}
+#perks-close {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+#perks-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+.perks-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.perks-tab {
+    flex: 1;
+    padding: 9px 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.perks-tab:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.perks-tab.active {
+    background: rgba(125, 223, 255, 0.16);
+    border-color: rgba(125, 223, 255, 0.5);
+    color: #e3f5ff;
+}
+
+.perks-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+    align-content: start;
+}
+
+.perk-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 6px 10px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+}
+.perk-tile.earned {
+    border-color: rgba(125, 223, 255, 0.45);
+    background: rgba(125, 223, 255, 0.1);
+}
+.perk-tile.locked { opacity: 0.62; }
+
+.perk-tile-icon {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+}
+.perk-tile-icon img { width: 100%; height: 100%; object-fit: contain; }
+.perk-tile-q {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+}
+.perk-tile-title {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+.perk-tile-goal {
+    font-size: 10px;
+    line-height: 1.2;
+    opacity: 0.65;
+}
+
+@media (max-width: 480px) {
+    .perks-grid { grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .perk-tile-icon { width: 38px; height: 38px; font-size: 24px; }
+    .perk-tile-title { font-size: 11px; }
+    .perk-tile-goal { font-size: 9px; }
+}
+
+/* ── PERKS: "unlocked" toast that flies into the collection card ───────────*/
+.perk-toast {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    z-index: 1000;
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 26px;
+    width: 200px;
+    border-radius: 16px;
+    background: linear-gradient(160deg, #1c2c4e, #0e1730);
+    border: 2px solid rgba(125, 223, 255, 0.7);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(125, 223, 255, 0.35);
+    pointer-events: none;
+    transition: transform 0.6s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.5s ease;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+    text-align: center;
+}
+.perk-toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.perk-toast-badge {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: #7ddfff;
+    text-transform: uppercase;
+}
+.perk-toast-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+}
+.perk-toast-icon img { width: 100%; height: 100%; object-fit: contain; }
+.perk-toast-title { font-size: 18px; font-weight: 700; color: #fff; }
 
 /* ── DEV PANEL ─────────────────────────────────────────────────────────── */
 /* Hidden by default. The parent page adds ?dev=1 for authenticated admins,
