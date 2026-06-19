@@ -491,6 +491,119 @@ body.fullscreen #dev-panel { display: flex; }
     .diff-btn  { padding: 12px 14px; gap: 12px; }
 }
 
+/* ── LOCKED MODES ──────────────────────────────────────────────────────────
+   A mode is locked until the previous one is cleared (two Suns vanish). Locked
+   buttons grey out, surface a lock badge, and swap their blurb for a hint. */
+.diff-lock {
+    display: none;
+    font-size: 26px;
+    flex-shrink: 0;
+    filter: grayscale(0.2) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    pointer-events: none;
+}
+
+.diff-lock-hint {
+    display: none;
+    font-size: clamp(11px, 1.8vw, 13px);
+    font-weight: 600;
+    color: #ffd97a;
+    line-height: 1.25;
+    pointer-events: none;
+}
+
+.diff-btn.locked {
+    cursor: not-allowed;
+    border-color: rgba(255,255,255,0.18) !important;
+    box-shadow: none !important;
+    opacity: 0.55;
+    filter: grayscale(0.85);
+}
+
+/* Locked buttons stay flat — no hover lift, no colour wash. */
+.diff-btn.locked:hover {
+    transform: none;
+    background: rgba(255,255,255,0.06);
+    box-shadow: none !important;
+}
+
+.diff-btn.locked .diff-blurb { display: none; }
+.diff-btn.locked .diff-lock-hint { display: block; }
+.diff-btn.locked .diff-lock { display: block; }
+
+/* ── MODE-CLEAR / WIN OVERLAY ──────────────────────────────────────────────
+   Shown after the white wipe (drawn on the canvas) finishes. Opaque white so
+   it covers the canvas with no flash back to the playfield. */
+#win-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border-radius: 14px;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+}
+
+#win-overlay.visible {
+    display: flex;
+    animation: win-pop 0.35s ease both;
+}
+
+@keyframes win-pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.win-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 0 24px;
+}
+
+.win-badge {
+    font-size: 64px;
+    line-height: 1;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.25));
+}
+
+.win-title {
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700;
+    color: #1a2540;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+.win-message {
+    font-size: clamp(16px, 2.6vw, 20px);
+    font-weight: 600;
+    color: #3a5680;
+    margin: 0;
+}
+
+#win-continue {
+    margin-top: 6px;
+    background: linear-gradient(135deg, #7ddfff, #4a8af0);
+    color: #fff;
+    border: none;
+    padding: 13px 44px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.1s, opacity 0.15s;
+}
+
+#win-continue:hover  { opacity: 0.9; transform: scale(1.03); }
+#win-continue:active { transform: scale(0.96); }
+
 /* ── DEV PANEL ─────────────────────────────────────────────────────────── */
 /* Hidden by default. The parent page adds ?dev=1 for authenticated admins,
    which sets html.dev-mode and reveals the panel. */

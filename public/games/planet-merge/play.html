@@ -42,6 +42,14 @@
                     <button id="restart-btn">Play Again</button>
                     <button id="change-difficulty-btn" type="button">Change Mode</button>
                 </div>
+                <div id="win-overlay">
+                    <div class="win-inner">
+                        <div class="win-badge">🪐</div>
+                        <h2 class="win-title">Mode Cleared!</h2>
+                        <p class="win-message" id="win-message"></p>
+                        <button id="win-continue" type="button">Continue</button>
+                    </div>
+                </div>
             </div>
             <div class="panel" id="next-panel">
                 <div class="panel-label" id="next-label">NEXT</div>
@@ -59,21 +67,27 @@
                             <div class="diff-text">
                                 <div class="diff-label">Easy</div>
                                 <div class="diff-blurb">No tiny stars. Venus drops too!</div>
+                                <div class="diff-lock-hint"></div>
                             </div>
+                            <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                         <button class="diff-btn diff-normal" type="button" data-diff="normal">
                             <img class="diff-icon" src="assets/images/planet_mars.svg" alt="">
                             <div class="diff-text">
                                 <div class="diff-label">Normal</div>
                                 <div class="diff-blurb">The classic planet mix</div>
+                                <div class="diff-lock-hint"></div>
                             </div>
+                            <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                         <button class="diff-btn diff-hard" type="button" data-diff="hard">
                             <img class="diff-icon" src="assets/images/planet_sun.svg" alt="">
                             <div class="diff-text">
                                 <div class="diff-label">Hard</div>
                                 <div class="diff-blurb">No superpowers. Just skill!</div>
+                                <div class="diff-lock-hint"></div>
                             </div>
+                            <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                     </div>
                 </div>

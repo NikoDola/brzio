@@ -161,7 +161,7 @@ export const SHAPES = [
 
     {   /* ── 11  Jupiter ──────────────────────────────────────────────── */
         name:      'Jupiter',
-        size:      80,
+        size:      76,
         sides:     0,
         color:     '#c9a979',
         glow:      '#7a5a2c',
@@ -173,7 +173,7 @@ export const SHAPES = [
 
     {   /* ── 12  Sun — MAX (two Suns touching → both vanish!) ─────────── */
         name:      'Sun',
-        size:      100,
+        size:      95,
         sides:     0,
         color:     '#F8EFBA',
         glow:      '#f9ca24',

@@ -137,6 +137,23 @@ Start the brzio app with `npm run dev` first. Production (`brzio.com`) does not 
 
 ---
 
+## Mode progression (locked easy → normal → hard)
+
+Modes unlock in order. Easy is always playable; normal unlocks once easy is "cleared", hard unlocks once normal is cleared. A mode is **cleared when two Suns vanish into each other** (the existing max-level vanish event). Unlock state persists in `localStorage` under `pm_unlocked_modes` (easy is always forced in, even with empty/blocked storage).
+
+- `MODE_ORDER`, `unlockedModes` (a Set), `loadUnlocks`/`saveUnlocks`/`isUnlocked` live near the top of game.js.
+- `refreshDifficultyLocks()` toggles `.locked` (greyed + 🔒 badge + "Finish X to unlock" hint) on each `.diff-btn` and disables it. Called on load, when reopening the picker, and after a clear.
+- `startGame(diff)` early-returns if the mode is not unlocked. The `.diff-btn` click handler is also inert for locked modes.
+
+### Win sequence (`startWinSequence` in flushVanishes)
+
+When two Suns vanish, `startWinSequence(mx, my)` records the unlock and plays a wipe:
+1. A white circle grows from the merge point to cover the canvas (`WIN_GROW_MS`, easeOutCubic), drawn last in `frame()` via `drawWinAnimation()`.
+2. Holds as a full white screen (`WIN_HOLD_MS`).
+3. `#win-overlay` popup fades in with "You have unlocked <Next> mode!" (or a master message after hard). Continue reopens the picker.
+
+Timing uses `performance.now()` (wall clock), not `totalMs`, because physics freezes while `winActive` is true. `winActive` also blocks `drop()` and canvas clicks. `clearWinState()` resets it on restart, new game, and continue.
+
 ## Restart
 
 `restart-btn` click handler in game.js:

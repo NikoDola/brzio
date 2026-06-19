@@ -238,6 +238,34 @@ let droppableLvls = [];
 let dropTable = [];
 let dropTotal = 0;
 
+/* ── MODE PROGRESSION ─────────────────────────────────────────────────────
+   Modes unlock in order: easy is always playable, normal unlocks when easy is
+   "cleared" (two Suns vanish into each other), hard unlocks when normal is
+   cleared. Unlock state persists in localStorage so it survives reloads. */
+const MODE_ORDER = ["easy", "normal", "hard"];
+const UNLOCK_KEY = "pm_unlocked_modes";
+
+function loadUnlocks() {
+  // easy is always available even if storage is empty or unavailable.
+  const set = new Set(["easy"]);
+  try {
+    const raw = localStorage.getItem(UNLOCK_KEY);
+    if (raw) JSON.parse(raw).forEach((m) => set.add(m));
+  } catch (_) {}
+  return set;
+}
+
+let unlockedModes = loadUnlocks();
+
+function saveUnlocks() {
+  try {
+    localStorage.setItem(UNLOCK_KEY, JSON.stringify([...unlockedModes]));
+  } catch (_) {}
+}
+
+const isUnlocked = (diff) => unlockedModes.has(diff);
+const capMode = (diff) => diff.charAt(0).toUpperCase() + diff.slice(1);
+
 function rebuildDropTable() {
   dropTable.length = 0;
   dropTotal = 0;
@@ -315,6 +343,21 @@ let totalMs = 0; // total elapsed ms (frozen when game is over)
 let gameOver = false;
 let lastTs = 0;
 
+/* ── WIN / MODE-CLEAR ANIMATION ─────────────────────────────────────────────
+   When two Suns vanish into each other the round is "cleared". A white circle
+   grows from the merge point until it fills the canvas, holds as a white
+   screen, then an "unlocked" popup appears. Timed with wall-clock ms because
+   physics (and totalMs) freeze while the animation plays. */
+const WIN_GROW_MS = 700; // circle expands from the merge point
+const WIN_HOLD_MS = 1500; // full white screen before the popup
+let winActive = false;
+let winStartReal = 0;
+let winX = 0;
+let winY = 0;
+let winMaxR = 0;
+let winPopupShown = false;
+let winMessage = "";
+
 /* ── DEV / AUTO-DROP STATE ──────────────────────────────────────────────── */
 let autoDropOn = false;
 let autoDropX = 0.5; // 0-1 fraction of playfield width
@@ -343,6 +386,9 @@ const currentNext = document.getElementById("current-next");
 const destroyOverlay = document.getElementById("destroy-overlay");
 const destroyTextEl = document.getElementById("destroy-text");
 const destroySkipBtn = document.getElementById("destroy-skip");
+const winOverlayEl = document.getElementById("win-overlay");
+const winMessageEl = document.getElementById("win-message");
+const winContinueEl = document.getElementById("win-continue");
 
 /* dev panel elements */
 const devPanelEl = document.getElementById("dev-panel");
@@ -765,12 +811,68 @@ function flushVanishes() {
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
     popups.push({ x: mx, y: my, t: totalMs, text: `+${bonus}`, big: true });
     registerChain(mx, my);
+    // Two Suns just vanished → the mode is cleared. Kick off the win wipe.
+    startWinSequence(mx, my);
+    return;
   }
+}
+
+/* ── WIN SEQUENCE ───────────────────────────────────────────────────────── */
+function startWinSequence(x, y) {
+  if (winActive) return;
+  // Record the unlock now so the popup can announce it and the picker reflects
+  // it the moment the player continues.
+  const idx = MODE_ORDER.indexOf(difficulty);
+  const next = MODE_ORDER[idx + 1];
+  if (next && !isUnlocked(next)) {
+    unlockedModes.add(next);
+    saveUnlocks();
+    winMessage = `You have unlocked ${capMode(next)} mode!`;
+  } else if (next) {
+    winMessage = `${capMode(difficulty)} mode cleared!`;
+  } else {
+    winMessage = "You cleared Hard mode. You are a Planet Master!";
+  }
+
+  winActive = true;
+  winPopupShown = false;
+  winStartReal = performance.now();
+  winX = x;
+  winY = y;
+  // Farthest corner from the merge point — how big the circle must grow to
+  // cover the whole canvas.
+  winMaxR = Math.max(
+    Math.hypot(x, y),
+    Math.hypot(W - x, y),
+    Math.hypot(x, H - y),
+    Math.hypot(W - x, H - y),
+  );
+}
+
+function drawWinAnimation() {
+  const e = performance.now() - winStartReal;
+  ctx.save();
+  ctx.fillStyle = "#ffffff";
+  if (e < WIN_GROW_MS) {
+    const t = e / WIN_GROW_MS;
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    ctx.beginPath();
+    ctx.arc(winX, winY, winMaxR * eased, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(0, 0, W, H);
+    if (!winPopupShown && e >= WIN_GROW_MS + WIN_HOLD_MS) {
+      winPopupShown = true;
+      winMessageEl.textContent = winMessage;
+      winOverlayEl.classList.add("visible");
+    }
+  }
+  ctx.restore();
 }
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
-  if (!canDrop || gameOver) return;
+  if (!canDrop || gameOver || winActive) return;
   // Every drop starts a fresh chain — powers are earned by chains spawned
   // from ONE drop's cascade, never by accumulation across drops.
   resetChain();
@@ -827,7 +929,7 @@ function frame(ts) {
   const dt = Math.min(ts - lastTs, 32);
   lastTs = ts;
 
-  if (!gameOver && difficulty !== null) {
+  if (!gameOver && difficulty !== null && !winActive) {
     // 2 physics substeps per game tick (8ms each) instead of 1×16ms.
     // The smaller dt keeps fast-moving small bodies (e.g. a falling Star)
     // from tunneling through concave polygon planets (e.g. the Moon).
@@ -920,6 +1022,9 @@ function frame(ts) {
     ctx.restore();
   }
 
+  /* Mode-clear wipe sits on top of everything. */
+  if (winActive) drawWinAnimation();
+
   requestAnimationFrame(frame);
 }
 
@@ -930,6 +1035,7 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("click", (e) => {
+  if (winActive) return;
   // When destroy power is armed, the click selects a target instead of
   // dropping. A missed click is a no-op (don't burn the charge or drop).
   if (destroyCharges > 0) {
@@ -1014,6 +1120,7 @@ function resetGameState() {
   gameOver = false;
   devDrops = 0;
   statDropsEl.textContent = "0";
+  clearWinState();
 
   resetChain();
   // Hard disables powers entirely. Other modes honour the dev-panel force-on
@@ -1028,7 +1135,31 @@ function resetGameState() {
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
 }
 
+function clearWinState() {
+  winActive = false;
+  winPopupShown = false;
+  winOverlayEl.classList.remove("visible");
+}
+
+/* Reflect unlock state on the picker: locked modes get the `.locked` class
+   (greyed + lock icon) and a hint pointing at the mode that gates them. */
+function refreshDifficultyLocks() {
+  document.querySelectorAll(".diff-btn").forEach((btn) => {
+    const diff = btn.dataset.diff;
+    const unlocked = isUnlocked(diff);
+    btn.classList.toggle("locked", !unlocked);
+    btn.disabled = !unlocked;
+    const hint = btn.querySelector(".diff-lock-hint");
+    if (hint && !unlocked) {
+      const prev = MODE_ORDER[MODE_ORDER.indexOf(diff) - 1];
+      hint.textContent = prev ? `Finish ${capMode(prev)} to unlock` : "Locked";
+    }
+  });
+}
+
 function startGame(diff) {
+  if (!isUnlocked(diff)) return;
+  clearWinState();
   difficulty = diff;
   rebuildDropTable();
   resetGameState();
@@ -1051,6 +1182,8 @@ function showDifficultyPicker() {
 
   difficulty = null;
   gameOver = false;
+  clearWinState();
+  refreshDifficultyLocks();
   overlayEl.classList.remove("visible");
   difficultyOverlayEl.classList.add("visible");
 }
@@ -1071,13 +1204,27 @@ document.querySelectorAll(".diff-btn").forEach((btn) => {
   // Hover plays the planet-hit thud, click plays the merge pop. First hover
   // before any user gesture may be silently blocked by the browser's
   // autoplay policy; subsequent hovers (and the click itself) always play.
-  btn.addEventListener("mouseenter", () => playPlanetHit());
+  btn.addEventListener("mouseenter", () => {
+    if (!btn.classList.contains("locked")) playPlanetHit();
+  });
   btn.addEventListener("click", () => {
-    playPop();
     const d = btn.dataset.diff;
+    if (!isUnlocked(d)) return; // locked modes are inert
+    playPop();
     if (d === "easy" || d === "normal" || d === "hard") startGame(d);
   });
 });
+
+// Continue from the mode-clear popup → reopen the picker so the player sees
+// (and can jump straight into) the freshly unlocked mode.
+winContinueEl.addEventListener("click", () => {
+  playPop();
+  clearWinState();
+  showDifficultyPicker();
+});
+
+// Reflect any persisted unlocks on the picker that's already on screen at load.
+refreshDifficultyLocks();
 
 /* ── FULLSCREEN ─────────────────────────────────────────────────────────
    Requests fullscreen on the documentElement so the entire game body goes
