@@ -65,6 +65,44 @@ body {
     width: 100vw;
 }
 
+/* ── PLANET LEGEND ──────────────────────────────────────────────────────
+   A reference strip under the playfield showing every planet in merge order,
+   smallest → largest. Icons are built and sized in game.js (each 5% bigger
+   than the one before). Names sit under each icon. */
+#planet-legend {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    padding: 4px 12px 8px;
+    overflow-x: auto;
+}
+
+/* Hidden on the difficulty picker; shown once a mode is chosen. */
+#planet-legend.hidden { display: none; }
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Star is dropped from the easy-mode legend (easy never spawns Stars). */
+.legend-item.legend-hidden { display: none; }
+
+.legend-item img {
+    display: block;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.45));
+    pointer-events: none;
+}
+
+@media (max-width: 480px) {
+    #planet-legend { gap: 5px; padding: 2px 8px 6px; }
+}
+
 #game-stage {
     position: relative; /* anchors the absolutely-positioned difficulty overlay */
     display: grid;
@@ -221,13 +259,14 @@ body.fullscreen #game-container {
 }
 
 body.fullscreen #game-stage {
-    height: 100%;
+    height: auto;
     width: auto;
-    align-items: center;
+    align-items: start;
 }
 
+/* Leave room under the playfield for the planet legend so it isn't clipped. */
 body.fullscreen #canvas-wrapper {
-    height: 100%;
+    height: calc(100vh - 150px);
     width: auto;
     aspect-ratio: 840 / 927;
 }
@@ -638,11 +677,39 @@ html.dev-mode #dev-panel {
     }
 }
 
-/* ── DESKTOP: panels sit beside the canvas (not overlaid) ─────────────── */
+/* ── DESKTOP: Score + Next flank the canvas, top-aligned ──────────────── */
 @media (min-width: 701px) {
-    /* Tighter cap so the canvas isn't huge — base styles handle centering */
+    /* Size the whole column by viewport HEIGHT so the playfield plus the
+       planet legend always fit (the body is overflow:hidden, so anything
+       taller than the viewport gets clipped). No body padding here, otherwise
+       a full-height column would spill past 100vh and clip the legend. */
+    body { padding: 0; align-items: center; }
+
+    /* Wide enough to hold both side panels + the canvas + gaps without the
+       stage overflowing (which would eat the gap and let Next touch the
+       canvas). */
     #game-container {
-        max-width: 700px;
+        max-width: 760px;
+        height: 100vh;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    /* Score | Canvas | Next side by side. align-items: start pins the side
+       panels to the TOP of the playfield rather than centering them. Canvas
+       auto-sizes to its height-derived width. */
+    #game-stage {
+        grid-template-columns: auto auto auto;
+        grid-template-areas: "score canvas next";
+        width: auto;
+        column-gap: 16px;
+        align-items: start;
+    }
+
+    #canvas-wrapper {
+        width: auto;
+        height: min(calc(100vh - 120px), 560px);
+        aspect-ratio: 840 / 927;
     }
 
     /* Fixed-width side panels — prevents canvas from resizing as score grows */

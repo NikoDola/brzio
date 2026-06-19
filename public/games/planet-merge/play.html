@@ -23,7 +23,7 @@
     <div id="game-container">
         <div id="game-stage">
             <div class="panel" id="score-panel">
-                <div class="panel-label">SCORE</div>
+                <div class="panel-label">MERGES</div>
                 <div id="score">0</div>
             </div>
             <div id="canvas-wrapper">
@@ -38,7 +38,7 @@
                 </div>
                 <div id="game-over-overlay">
                     <h2>Game Over</h2>
-                    <div class="final-line">Score: <span id="final-score">0</span></div>
+                    <div class="final-line">Merges: <span id="final-score">0</span></div>
                     <button id="restart-btn">Play Again</button>
                     <button id="change-difficulty-btn" type="button">Change Mode</button>
                 </div>
@@ -93,7 +93,11 @@
                 </div>
             </div>
         </div>
-       
+
+        <!-- Merge-order legend: every planet smallest → largest, built from
+             SHAPES in game.js so it can never drift from the real chain. -->
+        <div id="planet-legend" aria-label="Planet merge order, smallest to largest"></div>
+
         <div id="dev-panel">
             <button id="dev-toggle">⚙ DEV</button>
             <div id="dev-body">

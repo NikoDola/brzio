@@ -389,6 +389,45 @@ const destroySkipBtn = document.getElementById("destroy-skip");
 const winOverlayEl = document.getElementById("win-overlay");
 const winMessageEl = document.getElementById("win-message");
 const winContinueEl = document.getElementById("win-continue");
+const planetLegendEl = document.getElementById("planet-legend");
+
+/* Build the merge-order legend from SHAPES: smallest → largest, each icon 5%
+   bigger than the previous one. Generated (not hardcoded) so it always matches
+   the real planet chain. */
+function buildPlanetLegend() {
+  if (!planetLegendEl) return;
+  const BASE = 22; // px, the smallest planet (first in SHAPES)
+  const STEP = 1.05; // each planet 5% larger than the one before it
+  SHAPES.forEach((s, i) => {
+    const px = Math.round(BASE * Math.pow(STEP, i));
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.dataset.lvl = i;
+
+    const img = document.createElement("img");
+    img.src = `assets/images/${s.asset}`;
+    img.alt = s.name;
+    img.width = px;
+    img.height = px;
+
+    item.appendChild(img);
+    planetLegendEl.appendChild(item);
+  });
+}
+buildPlanetLegend();
+
+/* Easy never drops Stars, so its chain effectively starts at the Moon — hide
+   the Star from the legend on easy. Other modes show every planet. */
+function applyLegendMode(diff) {
+  if (!planetLegendEl) return;
+  planetLegendEl.querySelectorAll(".legend-item").forEach((item) => {
+    const lvl = Number(item.dataset.lvl);
+    item.classList.toggle("legend-hidden", diff === "easy" && lvl === 0);
+  });
+}
+
+// Hidden until a mode is picked (the picker is the first screen).
+planetLegendEl?.classList.add("hidden");
 
 /* dev panel elements */
 const devPanelEl = document.getElementById("dev-panel");
@@ -776,7 +815,8 @@ function flushMerges() {
     Body.setVelocity(merged, { x: 0, y: -3 });
     // Bigger body at the midpoint may intersect a neighbour — push them apart.
     separateOverlapping(merged);
-    score += SHAPES[newLvl].pts;
+    // Score is just a merge counter now: +1 per merge, regardless of planet.
+    score += 1;
     scoreEl.textContent = score;
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: false });
@@ -784,7 +824,7 @@ function flushMerges() {
       x: mx,
       y: my,
       t: totalMs,
-      text: `+${SHAPES[newLvl].pts}`,
+      text: "+1",
       big: false,
     });
     registerChain(mx, my);
@@ -805,11 +845,11 @@ function flushVanishes() {
     // Two Suns just disappeared — wake the whole field so any stack
     // above the vanish point collapses into the gap.
     wakeAllShapes();
-    const bonus = LAYOUT.VANISH_BONUS;
-    score += bonus;
+    // Two Suns merging counts as one merge, same as any other.
+    score += 1;
     scoreEl.textContent = score;
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
-    popups.push({ x: mx, y: my, t: totalMs, text: `+${bonus}`, big: true });
+    popups.push({ x: mx, y: my, t: totalMs, text: "+1", big: true });
     registerChain(mx, my);
     // Two Suns just vanished → the mode is cleared. Kick off the win wipe.
     startWinSequence(mx, my);
@@ -1163,6 +1203,8 @@ function startGame(diff) {
   difficulty = diff;
   rebuildDropTable();
   resetGameState();
+  applyLegendMode(diff);
+  planetLegendEl?.classList.remove("hidden");
   difficultyOverlayEl.classList.remove("visible");
 }
 
@@ -1184,6 +1226,7 @@ function showDifficultyPicker() {
   gameOver = false;
   clearWinState();
   refreshDifficultyLocks();
+  planetLegendEl?.classList.add("hidden");
   overlayEl.classList.remove("visible");
   difficultyOverlayEl.classList.add("visible");
 }
