@@ -4,6 +4,7 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 import { LAYOUT, SHAPES, r, polyCorr } from './config.js';
+import { densityFor } from './tuning.js';
 
 const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query } = Matter;   // Matter loaded via CDN <script>
 const { W, H, WALL } = LAYOUT;
@@ -194,7 +195,7 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
         friction:       0.18,   // lower  = planets slide further when shoved
         frictionStatic: 0.06,   // lower  = a planet perched on a curved planet rolls off instead of balancing
         frictionAir:    0.005,  // lower  = motion persists longer after a nudge
-        density:        0.002,
+        density:        densityFor(lvl),  // live-tunable (dev "Planet Physics"); default = flat 0.002
         label:          'shape',
     };
 
@@ -278,6 +279,21 @@ export function wakeAllShapes() {
         if (body.label !== 'shape') continue;
         if (body.isSleeping) Sleeping.set(body, false);
         body.sleepCounter = WAKE_WINDOW_TICKS;
+    }
+}
+
+/**
+ * Re-apply current TUNING (mass curve + per-planet multipliers) to every live
+ * body, so changing the dev "Planet Physics" sliders is felt immediately
+ * without waiting for new spawns. Wakes each body so the new mass takes effect.
+ */
+export function applyTuningToBodies() {
+    for (const body of world.bodies) {
+        if (body.label !== 'shape') continue;
+        const lvl = bodyLvl.get(body.id);
+        if (lvl === undefined) continue;
+        Body.setDensity(body, densityFor(lvl));
+        if (body.isSleeping) Sleeping.set(body, false);
     }
 }
 

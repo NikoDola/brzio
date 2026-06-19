@@ -312,6 +312,22 @@ body {
 
 #howto-panel[hidden] { display: none; }
 
+/* One panel, two copies: mouse/keyboard text on pointer devices, touch text on
+   touch screens. Default to the desktop variant; the coarse-pointer query below
+   swaps to the mobile variant. */
+.howto-variant {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.howto-mobile  { display: none; }
+
+@media (pointer: coarse) {
+    .howto-desktop { display: none; }
+    .howto-mobile  { display: flex; }
+}
+
 .howto-section h3 {
     margin: 0 0 6px;
     font-size: 11px;
@@ -1044,8 +1060,35 @@ html.dev-mode #dev-panel {
     #dev-panel { padding: 0; }
 }
 
-#dev-toggle {
+#dev-header {
     align-self: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#dev-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 28px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.45);
+    font-size: 15px;
+    line-height: 1;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    transition: background 0.15s, color 0.15s;
+}
+
+#dev-drag-handle:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.8); }
+#dev-drag-handle:active { cursor: grabbing; }
+
+#dev-toggle {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.12);
     color: rgba(255,255,255,0.38);
@@ -1233,6 +1276,49 @@ html.dev-mode #dev-panel {
 }
 
 #star-config-json.is-error {
+    border-color: #FF6B6B;
+    box-shadow: 0 0 0 2px rgba(255,107,107,0.16);
+}
+
+.dev-physics-editor {
+    order: 3;
+    flex: 1 0 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.dev-physics-editor input[type="range"] {
+    flex: 1;
+    accent-color: #FECA57;
+}
+
+#mass-power-val,
+#impact-strength-val {
+    width: 52px;
+    text-align: right;
+    font-size: 11px;
+    opacity: 0.65;
+}
+
+#physics-config-json {
+    width: 100%;
+    min-height: 150px;
+    resize: vertical;
+    background: rgba(0,0,0,0.26);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.84);
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+#physics-config-json.is-error {
     border-color: #FF6B6B;
     box-shadow: 0 0 0 2px rgba(255,107,107,0.16);
 }

@@ -15,7 +15,9 @@ import {
   loadOutlines,
   wakeAllShapes,
   separateOverlapping,
+  applyTuningToBodies,
 } from "./physics.js";
+import { TUNING } from "./tuning.js";
 import {
   drawProcedural,
   drawBody,
@@ -612,6 +614,7 @@ updatePerkCardUI();
 /* dev panel elements */
 const devPanelEl = document.getElementById("dev-panel");
 const devToggleEl = document.getElementById("dev-toggle");
+const devHandleEl = document.getElementById("dev-drag-handle");
 const devBodyEl = document.getElementById("dev-body");
 const autoDropBtn = document.getElementById("auto-drop-btn");
 const autoSpeedEl = document.getElementById("auto-speed");
@@ -639,14 +642,22 @@ const starColor3El = document.getElementById("star-color-3");
 const starRandomizeBtn = document.getElementById("star-randomize-btn");
 const starApplyJsonBtn = document.getElementById("star-apply-json-btn");
 const starConfigJsonEl = document.getElementById("star-config-json");
+const massPowerEl = document.getElementById("mass-power");
+const massPowerVal = document.getElementById("mass-power-val");
+const impactStrengthEl = document.getElementById("impact-strength");
+const impactStrengthVal = document.getElementById("impact-strength-val");
+const physicsResetBtn = document.getElementById("physics-reset-btn");
+const physicsApplyJsonBtn = document.getElementById("physics-apply-json-btn");
+const physicsConfigJsonEl = document.getElementById("physics-config-json");
 
 /* ── COLLISION → MERGE / VANISH ──────────────────────────────────────── */
 /* IMPACT_KICK shoves both bodies a bit harder along the contact normal when
    they collide fast. Game-feel hack: real momentum transfer from a tiny
    Star onto a heavy Mercury is almost zero, so a stack of planets barely
    reacts to drops. Adding a velocity-scaled kick gives the impact "weight"
-   and lets the energy propagate down through stacked planets. */
-const IMPACT_KICK_STRENGTH = 1; // 0 = vanilla physics, 1.0 = very arcadey
+   and lets the energy propagate down through stacked planets.
+   Strength is live-tunable via the dev "Planet Physics" Impact slider
+   (TUNING.impactStrength): 1 = shipping, 0 = vanilla physics, 2 = very arcadey. */
 const IMPACT_KICK_MIN_SPEED = 4; // px/tick — ignore gentle resting contacts
 const IMPACT_KICK_SPEED_CAP = 20; // px/tick — clamp so terminal-velocity drops don't explode the stack
 
@@ -719,7 +730,7 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
       }
       if (speed > IMPACT_KICK_MIN_SPEED) {
         const n = pair.collision.normal; // points from B → A
-        const k = Math.min(speed, IMPACT_KICK_SPEED_CAP) * IMPACT_KICK_STRENGTH;
+        const k = Math.min(speed, IMPACT_KICK_SPEED_CAP) * TUNING.impactStrength;
         // Push A along the normal, B opposite — preserves the
         // direction of the original impact, just amplified.
         // sqrt(mass) instead of mass so heavy targets (Mars, Saturn)
@@ -1516,14 +1527,9 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ── DEV PANEL CONTROLS ──────────────────────────────────────────────── */
-let suppressDevToggleClick = false;
-
-devToggleEl.addEventListener("click", (e) => {
-  if (suppressDevToggleClick) {
-    e.preventDefault();
-    suppressDevToggleClick = false;
-    return;
-  }
+// The ⚙ DEV button only opens/closes. Dragging is on the separate grip
+// handle (#dev-drag-handle) so the two actions never fight each other.
+devToggleEl.addEventListener("click", () => {
   const open = devBodyEl.classList.toggle("open");
   devToggleEl.classList.toggle("open", open);
 });
@@ -1546,30 +1552,24 @@ function setDevPanelPosition(x, y) {
   devPanelEl.style.bottom = "auto";
 }
 
-devToggleEl.addEventListener("pointerdown", (e) => {
+devHandleEl.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
   const rect = devPanelEl.getBoundingClientRect();
   devDrag = {
     pointerId: e.pointerId,
     dx: e.clientX - rect.left,
     dy: e.clientY - rect.top,
-    moved: false,
   };
-  devToggleEl.setPointerCapture(e.pointerId);
+  devHandleEl.setPointerCapture(e.pointerId);
 });
 
-devToggleEl.addEventListener("pointermove", (e) => {
+devHandleEl.addEventListener("pointermove", (e) => {
   if (!devDrag || devDrag.pointerId !== e.pointerId) return;
-  devDrag.moved = true;
   setDevPanelPosition(e.clientX - devDrag.dx, e.clientY - devDrag.dy);
 });
 
-devToggleEl.addEventListener("pointerup", (e) => {
+devHandleEl.addEventListener("pointerup", (e) => {
   if (!devDrag || devDrag.pointerId !== e.pointerId) return;
-  if (devDrag.moved) {
-    e.preventDefault();
-    suppressDevToggleClick = true;
-  }
   devDrag = null;
 });
 
@@ -1663,6 +1663,84 @@ starApplyJsonBtn.addEventListener("click", () => {
 });
 
 syncStarEditor();
+
+/* ── PHYSICS EDITOR (mass + impact) ──────────────────────────────────────
+   Tune how heavy each planet is and how hard impacts hit, live. Defaults
+   reproduce the shipping physics exactly: Mass Power 2 = flat density (mass
+   grows with area only), Impact 1. Drag Mass Power up to 3 to get volume
+   ("3D") mass where big planets get much heavier and small ones flick off
+   them. Per-planet multipliers live in the JSON box for fine tuning. */
+function physicsConfigJson() {
+  const planetMass = {};
+  SHAPES.forEach((s, i) => {
+    planetMass[s.name] = TUNING.massMult[i];
+  });
+  return JSON.stringify(
+    {
+      massPower: TUNING.massPower,
+      impactStrength: TUNING.impactStrength,
+      planetMass,
+    },
+    null,
+    2,
+  );
+}
+
+function syncPhysicsEditor() {
+  massPowerEl.value = String(TUNING.massPower);
+  massPowerVal.textContent = TUNING.massPower.toFixed(1);
+  impactStrengthEl.value = String(TUNING.impactStrength);
+  impactStrengthVal.textContent = `${TUNING.impactStrength.toFixed(2)}×`;
+  physicsConfigJsonEl.value = physicsConfigJson();
+}
+
+// Re-density live bodies (mass changed) and wake them so the change is felt now.
+function commitPhysicsMass() {
+  applyTuningToBodies();
+  wakeAllShapes();
+  syncPhysicsEditor();
+}
+
+massPowerEl.addEventListener("input", () => {
+  TUNING.massPower = Number(massPowerEl.value);
+  commitPhysicsMass();
+});
+
+impactStrengthEl.addEventListener("input", () => {
+  // Impact strength is read live by collisionStart; no body re-density needed.
+  TUNING.impactStrength = Number(impactStrengthEl.value);
+  syncPhysicsEditor();
+});
+
+physicsApplyJsonBtn.addEventListener("click", () => {
+  try {
+    const cfg = JSON.parse(physicsConfigJsonEl.value);
+    if (typeof cfg.massPower === "number") TUNING.massPower = cfg.massPower;
+    if (typeof cfg.impactStrength === "number")
+      TUNING.impactStrength = cfg.impactStrength;
+    if (cfg.planetMass) {
+      SHAPES.forEach((s, i) => {
+        const v = cfg.planetMass[s.name];
+        if (typeof v === "number" && v > 0) TUNING.massMult[i] = v;
+      });
+    }
+    commitPhysicsMass();
+    physicsConfigJsonEl.classList.remove("is-error");
+  } catch {
+    physicsConfigJsonEl.classList.add("is-error");
+  }
+});
+
+physicsResetBtn.addEventListener("click", () => {
+  TUNING.massPower = 2;
+  TUNING.impactStrength = 1;
+  SHAPES.forEach((_, i) => {
+    TUNING.massMult[i] = 1;
+  });
+  commitPhysicsMass();
+});
+
+syncPhysicsEditor();
 
 /* Populate Drop selector with all 12 planets */
 SHAPES.forEach((s, i) => {

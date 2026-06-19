@@ -120,7 +120,10 @@
         <div id="planet-legend" aria-label="Planet merge order, smallest to largest"></div>
 
         <div id="dev-panel">
-            <button id="dev-toggle">⚙ DEV</button>
+            <div id="dev-header">
+                <span id="dev-drag-handle" title="Drag to move panel" aria-hidden="true">⠿</span>
+                <button id="dev-toggle">⚙ DEV</button>
+            </div>
             <div id="dev-body">
                 <div class="dev-row">
                     <span class="dev-label">Auto-Drop</span>
@@ -205,6 +208,26 @@
                         </div>
                         <textarea id="star-config-json" spellcheck="false"></textarea>
                     </div>
+                    <div class="dev-physics-editor">
+                        <div class="dev-section-title">Planet Physics</div>
+                        <div class="dev-row">
+                            <span class="dev-label">Mass Power</span>
+                            <input id="mass-power" type="range" min="2" max="3.5" value="2" step="0.1">
+                            <span id="mass-power-val">2.0</span>
+                        </div>
+                        <div class="dev-row">
+                            <span class="dev-label">Impact</span>
+                            <input id="impact-strength" type="range" min="0" max="2" value="1" step="0.05">
+                            <span id="impact-strength-val">1.00×</span>
+                        </div>
+                        <div class="dev-hint">Mass Power 2 = current. Set 3 for volume (heavy big planets, flicky small ones).</div>
+                        <div class="dev-row">
+                            <span class="dev-label">JSON</span>
+                            <button id="physics-reset-btn" class="dev-pill" type="button">RESET</button>
+                            <button id="physics-apply-json-btn" class="dev-pill" type="button">APPLY</button>
+                        </div>
+                        <textarea id="physics-config-json" spellcheck="false"></textarea>
+                    </div>
                     <span>Avg score <b id="stat-avg">—</b></span>
                 </div>
             </div>
@@ -216,17 +239,35 @@
          overlaps the playfield (the old below-iframe details did on phones). -->
     <div id="howto-popout">
         <div id="howto-panel" role="dialog" aria-label="How to play and controls" hidden>
-            <div class="howto-section">
-                <h3>How to Play</h3>
-                <p>Move to aim, then click or tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+            <!-- Desktop (mouse + keyboard) copy. Shown unless the device is a
+                 touch screen, where the mobile variant below takes over. -->
+            <div class="howto-variant howto-desktop">
+                <div class="howto-section">
+                    <h3>How to Play</h3>
+                    <p>Move your mouse to aim, then click to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                </div>
+                <div class="howto-section">
+                    <h3>Controls</h3>
+                    <ul>
+                        <li><b>Move mouse</b> aim the drop</li>
+                        <li><b>Click</b> drop a planet</li>
+                        <li><b>Spacebar</b> drop a planet</li>
+                    </ul>
+                </div>
             </div>
-            <div class="howto-section">
-                <h3>Controls</h3>
-                <ul>
-                    <li><b>Move / drag</b> aim the drop</li>
-                    <li><b>Click / tap</b> drop a planet</li>
-                    <li><b>Space</b> drop a planet</li>
-                </ul>
+            <!-- Touch copy. Shown only on coarse-pointer (touch) devices. -->
+            <div class="howto-variant howto-mobile">
+                <div class="howto-section">
+                    <h3>How to Play</h3>
+                    <p>Slide your finger to aim, then tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                </div>
+                <div class="howto-section">
+                    <h3>Controls</h3>
+                    <ul>
+                        <li><b>Drag</b> aim the drop</li>
+                        <li><b>Tap</b> drop a planet</li>
+                    </ul>
+                </div>
             </div>
         </div>
         <button id="howto-btn" type="button" aria-label="How to play and controls" aria-expanded="false">

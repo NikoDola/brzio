@@ -83,8 +83,11 @@ History: this used to be a timer-based combo (3s window across drops) with thres
 ### `wakeAllShapes()` after every merge / vanish / destroy
 Matter.js doesn't propagate wake events up through chains. A body 3 layers up a stack stays frozen when the support below merges. Waking every sleeping shape on every merge fixes "floating planets". Cost is negligible at ~30 bodies max.
 
-### Impact kick (`IMPACT_KICK_STRENGTH` in game.js collisionStart)
-Real momentum transfer from a tiny Star onto a heavy Mercury is almost zero, so a stack barely reacts to drops without this. We add a velocity-scaled kick along the contact normal scaled by `sqrt(mass)`, so heavy targets feel a real shove but light Stars don't fly off-screen.
+### Impact kick (`TUNING.impactStrength` in game.js collisionStart)
+Real momentum transfer from a tiny Star onto a heavy Mercury is almost zero, so a stack barely reacts to drops without this. We add a velocity-scaled kick along the contact normal scaled by `sqrt(mass)`, so heavy targets feel a real shove but light Stars don't fly off-screen. Strength is live-tunable from the dev "Planet Physics" Impact slider (default 1 = shipping, 0 = vanilla).
+
+### Tunable mass (`tuning.js`, dev "Planet Physics" panel)
+Body density comes from `densityFor(lvl)` in [tuning.js](tuning.js), not a hardcoded constant. `TUNING.massPower` controls how mass scales with radius: **2 = the shipping behaviour** (flat density, mass ∝ area), **3 = volume / "3D" mass** (density ∝ radius, big planets get much heavier). `TUNING.massMult[]` is a per-planet density multiplier. The dev panel mass slider calls `applyTuningToBodies()` (physics.js) to re-density live bodies so changes are felt instantly. Defaults reproduce the old physics exactly.
 
 ### Anti-balance nudge (`collisionActive` handler)
 Two circles in vertical contact are at unstable equilibrium. Physics says the top one falls off, but Matter.js's friction + sleeping happily lets it sit forever. We nudge the top body horizontally on any near-vertical-normal persistent contact.
@@ -179,7 +182,7 @@ A data-driven achievement system. Everything is keyed off the `PERKS` array near
 ## When changing things, common pitfalls
 
 - **New planet:** just append to `SHAPES`. Don't hardcode indexes anywhere. Use `SHAPES.length - 1` for "max level", `SHAPES[lvl].pts` for score, etc.
-- **Tuning physics feel:** `restitution`, `friction`, `frictionStatic`, `frictionAir`, `density` are in `spawn()` in physics.js. Gravity in `Engine.create({ gravity: { y: 1.8 } })`.
+- **Tuning physics feel:** `restitution`, `friction`, `frictionStatic`, `frictionAir` are in `spawn()` in physics.js. Gravity in `Engine.create({ gravity: { y: 1.8 } })`. Density is now derived from `tuning.js` (`densityFor(lvl)`), live-tunable from the dev "Planet Physics" panel.
 - **New superpower:** add a threshold constant, state variable, UI updater, and granting branch in `registerChain`. Mirror how `CHOOSE_UNLOCK` and `DESTROY_UNLOCK` work.
 - **Don't put logic in renderer.js.** Renderer is read-only: it inspects state and draws. State mutations belong in game.js or physics.js.
 - **Don't bypass spawn() / despawn().** Those keep `bodyLvl` / `bodyBorn` / `active` in sync. Mutating `World` directly without updating the maps causes ghosts.
