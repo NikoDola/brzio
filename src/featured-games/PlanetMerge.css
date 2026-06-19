@@ -8,6 +8,21 @@
   width: 100%;
 }
 
+/* Phones: a taller portrait box than the default 2/3 so the game PLUS the
+   how-to / fullscreen controls row beneath it both fit without the controls
+   overlapping the playfield. Narrow phones get extra height because the
+   fixed-height chrome (score/next panels, controls) eats a bigger share. */
+@media (max-width: 700px) {
+  .planet-merge-frame .game-embed {
+    aspect-ratio: 1 / 1.9;
+  }
+}
+@media (max-width: 400px) {
+  .planet-merge-frame .game-embed {
+    aspect-ratio: 1 / 2.15;
+  }
+}
+
 /* Desktop: iframe spans the full page width. The game inside still caps
    #game-container at 700px, so the game stays centered with dark
    background filling the sides. Fixed height prevents the iframe from

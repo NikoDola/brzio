@@ -1068,6 +1068,17 @@ html.dev-mode #dev-panel {
     #score { font-size: 22px; }
     .panel { padding: 6px 10px; }
 
+    /* Shorter PERKS card: lay it out as a row and drop the ✦ star so the
+       score column isn't tall, leaving room for the legend + controls below. */
+    #perk-card {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 10px;
+    }
+    .perk-card-icon { display: none; }
+
     /* How-to + fullscreen flow BELOW the game container as a centred row, so
        they never overlap the playfield on phones. */
     #game-controls {
@@ -1099,6 +1110,16 @@ html.dev-mode #dev-panel {
         grid-template-areas:
             "score next"
             "canvas canvas";
+    }
+
+    /* Size the playfield by the height LEFT OVER after the score row, legend
+       and the controls row, so the controls always fit below it inside the
+       portrait iframe and never overlap. On tall screens the width cap wins. */
+    #canvas-wrapper {
+        width: auto;
+        justify-self: center;
+        height: min(calc((100vw - 16px) * 927 / 840), calc(100vh - 250px));
+        aspect-ratio: 840 / 927;
     }
 }
 
