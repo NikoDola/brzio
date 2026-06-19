@@ -191,10 +191,14 @@
             </div>
         </div>
     </div>
-    <!-- How-to-play popout: a small controller button anchored bottom-right,
-         just left of the fullscreen toggle. Opens a panel with how-to-play +
-         controls. Fixed to the viewport so it works in fullscreen and never
-         overlaps the playfield (the old below-iframe details did on phones). -->
+    <!-- How-to-play + fullscreen controls. On desktop #game-controls is
+         display:contents so each child keeps its own fixed bottom-right
+         position. On mobile (see style.css) the wrapper becomes a normal-flow
+         row placed BELOW the game container, so the buttons never overlap the
+         playfield. -->
+    <div id="game-controls">
+    <!-- How-to-play popout: a small controller button. Opens a panel with
+         how-to-play + controls. -->
     <div id="howto-popout">
         <div id="howto-panel" role="dialog" aria-label="How to play and controls" hidden>
             <!-- Desktop (mouse + keyboard) copy. Shown unless the device is a
@@ -247,6 +251,7 @@
             <path d="M15 20v-5h5"/>
         </svg>
     </button>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/poly-decomp@0.3.0/build/decomp.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <script type="module" src="game.js"></script>

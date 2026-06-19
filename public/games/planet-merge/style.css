@@ -197,6 +197,11 @@ body {
    "enter" (corner arrows out) and "exit" (corner arrows in) icon via the
    .is-fullscreen class. JS toggles `body.fullscreen` on fullscreenchange,
    which the layout overrides below key off. */
+/* Wrapper around the how-to + fullscreen buttons. On desktop it's invisible
+   to layout (display:contents), so each child keeps its own fixed position.
+   On mobile it becomes a normal-flow row below the game (see mobile block). */
+#game-controls { display: contents; }
+
 .fs-btn {
     position: fixed;
     bottom: 12px;
@@ -1058,9 +1063,35 @@ html.dev-mode #dev-panel {
 
 /* ── MOBILE TWEAKS ─────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
-    body { padding: 12px 8px; }
+    /* Stack vertically: game first, then the controls row underneath it. */
+    body { padding: 12px 8px; flex-direction: column; justify-content: flex-start; align-items: center; }
     #score { font-size: 22px; }
     .panel { padding: 6px 10px; }
+
+    /* How-to + fullscreen flow BELOW the game container as a centred row, so
+       they never overlap the playfield on phones. */
+    #game-controls {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        margin-top: 12px;
+        flex-shrink: 0;
+    }
+    /* relative (not static) so the how-to panel still anchors to this button. */
+    #howto-popout { position: relative; bottom: auto; right: auto; }
+    .fs-btn { position: static; }
+    /* Re-centre the how-to panel on the viewport (the button sits left of
+       centre in the row by (gap 10px + fs btn 38px)/2 = 24px) so it can't
+       clip off the screen edge on narrow phones. */
+    #howto-panel {
+        left: calc(50% + 24px);
+        right: auto;
+        transform: translateX(-50%);
+        width: min(300px, calc(100vw - 24px));
+    }
 
     /* Two-row stack: SCORE | NEXT on top, canvas spans both columns below. */
     #game-stage {
