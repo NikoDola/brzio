@@ -858,6 +858,12 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
       const rvx = bodyB.velocity.x - bodyA.velocity.x;
       const rvy = bodyB.velocity.y - bodyA.velocity.y;
       const speed = Math.hypot(rvx, rvy);
+      // Face reaction: a planet hit hard by another flinches, then sulks.
+      // The renderer reads body.expr.hitAt to time hurt → sad → casual.
+      if (speed > PLANET_HIT_MIN_SPEED) {
+        if (SHAPES[bodyLvl.get(bodyA.id)]?.expressions) bodyA.expr = { hitAt: totalMs };
+        if (SHAPES[bodyLvl.get(bodyB.id)]?.expressions) bodyB.expr = { hitAt: totalMs };
+      }
       // Non-merging planet impact: different sizes touching with real speed.
       // Same-size pairs are filtered out because they'll fire the pop instead
       // via flushMerges (or vanish for max level).
@@ -938,7 +944,7 @@ Events.on(engine, "collisionActive", ({ pairs }) => {
         : Math.sign(dx); // off-centre → fall toward that side
     if (top.isSleeping) Sleeping.set(top, false);
     Body.setVelocity(top, {
-      x: top.velocity.x + dir * 0.35,
+      x: top.velocity.x + dir * 0.15,
       y: top.velocity.y,
     });
   }
@@ -1380,7 +1386,7 @@ function frame(ts) {
   /* Effects → bodies → score popups (draw order matters) */
   drawFlashes(ctx, flashes, totalMs);
   for (const body of Composite.allBodies(world)) {
-    if (body.label === "shape") drawBody(ctx, body, bodyLvl);
+    if (body.label === "shape") drawBody(ctx, body, bodyLvl, totalMs);
   }
   drawUnlockGlows(
     ctx,

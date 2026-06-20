@@ -30,6 +30,49 @@ const hasImg = (lvl) => {
 };
 
 
+/* ── FACE EXPRESSIONS ─────────────────────────────────────────────────────
+   Planets flagged `expressions:true` in config draw a face OVERLAY on top of
+   their (now faceless) body image. The overlay SVG must share the body's
+   viewBox so it aligns when drawn at the same rect + rotation.
+   File convention: body `planet_earth_body.svg` → `planet_earth_casual.svg`,
+   `planet_earth_hurt.svg`, `planet_earth_sad.svg` (the `_body` suffix is
+   dropped to get the shared face stem). Missing files fail silently (planet
+   just shows the bare body) so art can be added incrementally.
+
+   Mood sequence when a planet is hit (game.js stamps body.expr.hitAt):
+     0–HURT_MS:           hurt
+     HURT_MS–+SAD_MS:     sad
+     after:               casual (resting face)                              */
+const EXPR_HURT_MS = 400;   // brief flinch the instant it's struck
+const EXPR_SAD_MS  = 2000;  // sulks for two seconds, then back to casual
+
+const exprImgs = SHAPES.map((s, i) => {
+    if (!s.asset || !s.expressions) return null;
+    const base = s.asset.replace(/\.svg$/i, '').replace(/_body$/, '');
+    const load = (suffix) => {
+        const img = new Image();
+        img.src = `assets/images/${base}_${suffix}.svg`;
+        img.onload  = () => _assetLoadCbs.forEach((cb) => cb(i));
+        img.onerror = () => {};  // art may not exist yet — fall back to bare body
+        return img;
+    };
+    return { casual: load('casual'), hurt: load('hurt'), sad: load('sad') };
+});
+
+/** Which face a planet should show right now, from its hit timestamp. Pure
+ *  read of body.expr + the clock — no state mutation (that lives in game.js). */
+function currentExpr(body, totalMs) {
+    const e = body.expr;
+    if (!e) return 'casual';
+    const dt = totalMs - e.hitAt;
+    if (dt < EXPR_HURT_MS) return 'hurt';
+    if (dt < EXPR_HURT_MS + EXPR_SAD_MS) return 'sad';
+    return 'casual';
+}
+
+const ready = (img) => img && img.complete && img.naturalWidth > 0;
+
+
 /* ── COLOUR UTIL ─────────────────────────────────────────────────────── */
 function lighten(hex, amt) {
     const ri = parseInt(hex.slice(1, 3), 16);
@@ -121,7 +164,7 @@ export function setDebugColliders(v) { DEBUG_COLLIDERS = !!v; }
  * @param {Matter.Body} body
  * @param {Map} bodyLvl   bodyId → level index (from physics.js)
  */
-export function drawBody(ctx, body, bodyLvl) {
+export function drawBody(ctx, body, bodyLvl, totalMs = 0) {
     const lvl = bodyLvl.get(body.id);
     if (lvl === undefined) return;
 
@@ -136,6 +179,13 @@ export function drawBody(ctx, body, bodyLvl) {
         ctx.rotate(vAngle);
         if (ro) ctx.translate(ro.x, ro.y);    // align image w/ collider when silhouette is off-centre
         ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        // Face overlay on top of the body, same rect so it tracks position
+        // and rotation. Drawn after the body, inside the same transform.
+        const faces = exprImgs[lvl];
+        if (faces) {
+            const face = faces[currentExpr(body, totalMs)];
+            if (ready(face)) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
+        }
         ctx.restore();
     } else {
         drawProcedural(ctx, lvl, body.position.x, body.position.y, vAngle);
@@ -178,6 +228,12 @@ export function drawPreview(ctx, lvl, cx, cy, angle, rad) {
         ctx.translate(cx, cy);
         ctx.rotate(angle);
         ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        // A planet waiting to drop (or in the NEXT panel) has no hit state,
+        // so it always wears its casual face — same overlay as a live body.
+        const faces = exprImgs[lvl];
+        if (faces && ready(faces.casual)) {
+            ctx.drawImage(faces.casual, -rad, -rad, rad * 2, rad * 2);
+        }
         ctx.restore();
         return;
     }

@@ -107,7 +107,8 @@ export const SHAPES = [
         pts:       21,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_venus.svg',
+        asset:     'planet_venus_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 7  Earth ─────────────────────────────────────────────────── */
@@ -119,7 +120,8 @@ export const SHAPES = [
         pts:       28,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_earth.svg',
+        asset:     'planet_earth_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 8  Uranus ────────────────────────────────────────────────── */
