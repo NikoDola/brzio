@@ -197,16 +197,21 @@ body {
    "enter" (corner arrows out) and "exit" (corner arrows in) icon via the
    .is-fullscreen class. JS toggles `body.fullscreen` on fullscreenchange,
    which the layout overrides below key off. */
-/* Wrapper around the how-to + fullscreen buttons. On desktop it's invisible
-   to layout (display:contents), so each child keeps its own fixed position.
-   On mobile it becomes a normal-flow row below the game (see mobile block). */
-#game-controls { display: contents; }
-
-.fs-btn {
+/* Wrapper around the save + how-to + fullscreen buttons. A fixed bottom-right
+   row on desktop so the three controls line up next to each other; on mobile it
+   becomes a normal-flow centred row below the game (see mobile block). */
+#game-controls {
     position: fixed;
     bottom: 12px;
     right: 12px;
     z-index: 30;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.fs-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -234,13 +239,44 @@ body {
    opens a how-to-play + controls panel above it. Fixed to the viewport so it
    stays put in fullscreen and never sits over the planets. */
 #howto-popout {
-    position: fixed;
-    bottom: 12px;
-    right: 58px; /* 12px gap + 38px fullscreen button + 8px spacing */
-    z-index: 30;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+}
+
+/* Save progress button. Matches the how-to button so the two read as a pair. */
+#save-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 9px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.82);
+    font-family: inherit;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s;
+}
+
+#save-btn:hover  { background: rgba(0, 0, 0, 0.6); color: #fff; border-color: rgba(255, 255, 255, 0.28); }
+#save-btn:active { transform: scale(0.94); }
+/* Brief confirmation tint after a save. */
+#save-btn.saved  { color: #7ddfff; border-color: rgba(125, 223, 255, 0.6); }
+
+.save-btn-icon { font-size: 16px; line-height: 1; }
+
+.save-btn-label {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-align: center;
+    text-transform: uppercase;
+    opacity: 0.85;
+    line-height: 1.15;
 }
 
 #howto-btn {
@@ -556,6 +592,31 @@ body.fullscreen #dev-panel { display: flex; }
     color: rgba(255,255,255,0.72);
     margin-bottom: 14px;
 }
+
+/* Resume button. Hidden unless a saved game exists in localStorage; shown
+   above the mode buttons so a returning player can jump straight back in. */
+#continue-saved {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 13px 18px;
+    border-radius: 22px;
+    border: 3px solid rgba(125, 223, 255, 0.7);
+    background: rgba(125, 223, 255, 0.12);
+    color: #fff;
+    font-family: inherit;
+    font-size: clamp(15px, 2.6vw, 18px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, border-color 0.15s;
+}
+
+#continue-saved.show  { display: flex; }
+#continue-saved:hover { background: rgba(125, 223, 255, 0.22); border-color: rgba(125, 223, 255, 0.95); }
+#continue-saved:active { transform: scale(0.97); }
+.continue-icon { font-size: 0.85em; }
 
 .difficulty-buttons {
     display: flex;
@@ -1082,6 +1143,7 @@ html.dev-mode #dev-panel {
     /* How-to + fullscreen flow BELOW the game container as a centred row, so
        they never overlap the playfield on phones. */
     #game-controls {
+        position: static;
         display: flex;
         flex-direction: row;
         align-items: center;

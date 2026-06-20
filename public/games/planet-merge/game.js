@@ -499,6 +499,11 @@ planetLegendEl?.classList.add("hidden");
    PERKS list over time. */
 const PERK_KEY = "pm_earned_perks";
 
+// Saved in-progress game (board + score + powers). Written by the Save Progress
+// button, read by the start screen's Continue button. Separate from unlocks/perks
+// so clearing one doesn't touch the other.
+const SAVE_KEY = "pm_saved_game";
+
 const PERKS = [
   { id: "win-easy",       tab: "wins",   emoji: "🌙", title: "Easy Cleared",   goal: "Clear Easy mode" },
   { id: "win-normal",     tab: "wins",   emoji: "🔴", title: "Normal Cleared", goal: "Clear Normal mode" },
@@ -1432,6 +1437,20 @@ canvas.addEventListener("click", (e) => {
   drop();
 });
 
+// Snap the drop point to wherever the finger first lands, so a plain tap on
+// the right drops on the right without needing to drag the crosshair over.
+// touchmove then keeps following if the finger slides. Mouse already does this
+// via mousemove tracking the cursor before every click.
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    dropX = (e.touches[0].clientX - rect.left) * (W / rect.width);
+  },
+  { passive: false },
+);
+
 canvas.addEventListener(
   "touchmove",
   (e) => {
@@ -1577,6 +1596,7 @@ function showDifficultyPicker() {
   gameOver = false;
   clearWinState();
   refreshDifficultyLocks();
+  updateContinueBtn();
   planetLegendEl?.classList.add("hidden");
   overlayEl.classList.remove("visible");
   difficultyOverlayEl.classList.add("visible");
@@ -1619,6 +1639,184 @@ winContinueEl.addEventListener("click", () => {
 
 // Reflect any persisted unlocks on the picker that's already on screen at load.
 refreshDifficultyLocks();
+
+/* ── SAVE / CONTINUE ─────────────────────────────────────────────────────
+   Snapshot the live game (difficulty, score, powers, the current/next planet,
+   and every body's level + position + angle + velocity) into localStorage so
+   the player can close the tab and resume later. The Save Progress button
+   writes; the start screen's Continue button reads. Saving is non-destructive:
+   the snapshot stays until the player saves again or clears storage, so they
+   can keep playing after a save and still resume that point later. */
+const saveBtn = document.getElementById("save-btn");
+const saveBtnLabel = document.getElementById("save-btn-label");
+const continueBtn = document.getElementById("continue-saved");
+const continueLabel = document.getElementById("continue-saved-label");
+
+function snapshotBodies() {
+  const out = [];
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== "shape") continue;
+    const lvl = bodyLvl.get(body.id);
+    if (lvl === undefined) continue;
+    out.push({
+      lvl,
+      x: body.position.x,
+      y: body.position.y,
+      angle: body.angle,
+      vx: body.velocity.x,
+      vy: body.velocity.y,
+      av: body.angularVelocity,
+    });
+  }
+  return out;
+}
+
+function saveGame() {
+  // Nothing meaningful to save before a mode is picked, after a loss, or mid
+  // win-wipe. Give the player a clear "can't save right now" nudge instead.
+  if (difficulty === null || gameOver || winActive) {
+    flashSaveBtn("Nothing\nto Save");
+    return;
+  }
+  const data = {
+    v: 1,
+    difficulty,
+    score,
+    curLvl,
+    nxtLvl,
+    powerCharges,
+    destroyCharges,
+    seenLevels: [...seenLevels],
+    bodies: snapshotBodies(),
+  };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    flashSaveBtn("Saved!");
+  } catch (_) {
+    flashSaveBtn("Save\nFailed");
+  }
+}
+
+// Brief label swap + tint on the save button, then restore the default label.
+let saveFlashTimer = null;
+function flashSaveBtn(msg) {
+  if (!saveBtn || !saveBtnLabel) return;
+  saveBtn.classList.add("saved");
+  saveBtnLabel.innerHTML = msg.replace(/\n/g, "<br>");
+  clearTimeout(saveFlashTimer);
+  saveFlashTimer = setTimeout(() => {
+    saveBtn.classList.remove("saved");
+    saveBtnLabel.innerHTML = "Save<br>Progress";
+  }, 1400);
+}
+
+function loadSavedGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.bodies) || !d.difficulty) return null;
+    return d;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch (_) {}
+}
+
+// Show/hide the start-screen Continue button based on whether a save exists.
+function updateContinueBtn() {
+  if (!continueBtn) return;
+  const saved = loadSavedGame();
+  if (saved && isUnlocked(saved.difficulty)) {
+    if (continueLabel) {
+      continueLabel.textContent = `Continue saved ${capMode(saved.difficulty)} game`;
+    }
+    continueBtn.classList.add("show");
+  } else {
+    continueBtn.classList.remove("show");
+  }
+}
+
+function restoreGame(data) {
+  clearWinState();
+  difficulty = data.difficulty;
+  rebuildDropTable();
+
+  // Wipe the current board + all transient state, same teardown resetGameState
+  // does, then rebuild from the snapshot instead of starting fresh.
+  Composite.allBodies(world)
+    .filter((b) => b.label === "shape")
+    .forEach((b) => World.remove(world, b));
+  bodyLvl.clear();
+  bodyBorn.clear();
+  active.clear();
+  mergeQ.length = 0;
+  vanishQ.length = 0;
+  mergeSeen.clear();
+  flashes.length = 0;
+  popups.length = 0;
+  unlockGlows.length = 0;
+  seenLevels.clear();
+
+  score = data.score || 0;
+  scoreEl.textContent = score;
+  curLvl = data.curLvl ?? firstDrop();
+  nxtLvl = data.nxtLvl ?? pickLvl();
+  dropX = W / 2;
+  canDrop = true;
+  cooldown = 0;
+  totalMs = 0;
+  gameOver = false;
+  devDrops = 0;
+  statDropsEl.textContent = "0";
+  resetChain();
+  (data.seenLevels || []).forEach((l) => seenLevels.add(l));
+
+  // Re-create each saved planet with its exact position, facing, and motion.
+  // spawn() sets a default angle/velocity, so override both afterwards. Born
+  // at totalMs 0 → every restored body gets the normal 1.6s grace before the
+  // danger-line check can fire, so resuming never instantly ends the game.
+  for (const b of data.bodies) {
+    const body = spawn(b.x, b.y, b.lvl, 0);
+    Body.setAngle(body, b.angle || 0);
+    Body.setVelocity(body, { x: b.vx || 0, y: b.vy || 0 });
+    Body.setAngularVelocity(body, b.av || 0);
+  }
+  wakeAllShapes();
+
+  // Hard mode never grants powers; otherwise restore the saved charges.
+  const allowPowers = difficulty !== "hard";
+  powerCharges = allowPowers ? data.powerCharges || 0 : 0;
+  destroyCharges = allowPowers ? data.destroyCharges || 0 : 0;
+  updatePowerUI();
+  updateDestroyUI();
+
+  applyLegendMode(difficulty);
+  planetLegendEl?.classList.remove("hidden");
+  overlayEl.classList.remove("visible");
+  difficultyOverlayEl.classList.remove("visible");
+  drawNext(nxtCtx, nxtCanvas, nxtLvl);
+}
+
+saveBtn?.addEventListener("click", saveGame);
+
+continueBtn?.addEventListener("click", () => {
+  const saved = loadSavedGame();
+  if (!saved) {
+    updateContinueBtn();
+    return;
+  }
+  playPop();
+  restoreGame(saved);
+});
+
+// Reflect any saved game on the picker that's already on screen at load.
+updateContinueBtn();
 
 /* ── FULLSCREEN ─────────────────────────────────────────────────────────
    Requests fullscreen on the documentElement so the entire game body goes
@@ -1759,11 +1957,13 @@ clearSaveBtn?.addEventListener("click", () => {
     localStorage.removeItem(UNLOCK_KEY);
     localStorage.removeItem(PERK_KEY);
   } catch {}
+  clearSavedGame();
   unlockedModes = loadUnlocks(); // back to defaults (easy only)
   earnedPerks = new Set();
   updatePerkCardUI();
   if (perksOpen()) renderPerksGrid();
   refreshDifficultyLocks();
+  updateContinueBtn();
   if (clearSaveMsg) {
     clearSaveMsg.textContent = "cleared!";
     setTimeout(() => {

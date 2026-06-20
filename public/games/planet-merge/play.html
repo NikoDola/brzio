@@ -68,6 +68,10 @@
                 <div class="difficulty-inner">
                     <h1 class="difficulty-title">Planet Merge</h1>
                     <p class="difficulty-sub">Choose your adventure!</p>
+                    <button id="continue-saved" type="button">
+                        <span class="continue-icon" aria-hidden="true">▶</span>
+                        <span id="continue-saved-label">Continue saved game</span>
+                    </button>
                     <div class="difficulty-buttons">
                         <button class="diff-btn diff-easy" type="button" data-diff="easy">
                             <img class="diff-icon" src="assets/images/planet_moon.svg" alt="">
@@ -197,6 +201,13 @@
          row placed BELOW the game container, so the buttons never overlap the
          playfield. -->
     <div id="game-controls">
+    <!-- Save progress: snapshots the live board so the player can close the
+         tab and resume later from the start screen's Continue button. Sits
+         next to How to Play. -->
+    <button id="save-btn" type="button" aria-label="Save progress to continue later">
+        <span class="save-btn-icon" aria-hidden="true">💾</span>
+        <span class="save-btn-label" id="save-btn-label">Save<br>Progress</span>
+    </button>
     <!-- How-to-play popout: a small controller button. Opens a panel with
          how-to-play + controls. -->
     <div id="howto-popout">
