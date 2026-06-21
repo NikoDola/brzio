@@ -171,14 +171,41 @@ export async function DELETE(req: NextRequest) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // ?id=<docId> deletes a single log row; no id falls back to clearing all
-  // localhost/dev test rows.
-  const id = new URL(req.url).searchParams.get("id");
+  const params = new URL(req.url).searchParams;
+
+  // ?id=<docId> deletes a single log row.
+  const id = params.get("id");
   if (id) {
     await adminDb.collection("game_stats").doc(id).delete();
     return NextResponse.json({ deleted: 1 });
   }
 
+  // ?playerId=<id> deletes every log for that player plus their name label.
+  const playerId = params.get("playerId");
+  if (playerId) {
+    const owned = await adminDb
+      .collection("game_stats")
+      .where("playerId", "==", playerId)
+      .get();
+    let batch = adminDb.batch();
+    let pending = 0;
+    let deleted = 0;
+    for (const doc of owned.docs) {
+      batch.delete(doc.ref);
+      pending++;
+      deleted++;
+      if (pending >= 450) {
+        await batch.commit();
+        batch = adminDb.batch();
+        pending = 0;
+      }
+    }
+    if (pending) await batch.commit();
+    await adminDb.collection("player_labels").doc(playerId).delete().catch(() => {});
+    return NextResponse.json({ deleted });
+  }
+
+  // No id falls back to clearing all localhost/dev test rows.
   const snap = await adminDb.collection("game_stats").get();
   const targets = snap.docs.filter((d) => isLocalIp(d.data()));
 

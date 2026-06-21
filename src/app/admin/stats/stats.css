@@ -101,6 +101,72 @@
   color: var(--text-muted);
 }
 
+.stats-name-text {
+  color: var(--text);
+}
+
+.stats-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.stats-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.stats-menu-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--card);
+}
+
+.stats-menu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.stats-menu-pop button {
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.stats-menu-pop button:hover {
+  background: var(--card);
+}
+
+.stats-menu-danger {
+  color: var(--primary-rose-dim) !important;
+}
+
+.stats-menu-danger:hover {
+  background: color-mix(in srgb, var(--primary-rose) 12%, transparent) !important;
+}
+
 .stats-name-input {
   width: 100%;
   max-width: 180px;

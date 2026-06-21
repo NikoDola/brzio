@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { adminDb } from "@/lib/firebase/admin";
 import ClearLocalButton from "./ClearLocalButton";
 import DeleteLogButton from "./DeleteLogButton";
-import PlayerNameEditor from "./PlayerNameEditor";
+import PlayerRow from "./PlayerRow";
 
 // Read-only window onto the anonymous gameplay stats collected by /api/stats.
 // Lives under /admin, so proxy.ts makes it 404 in production: you view it by
@@ -324,33 +324,22 @@ export default async function AdminStatsPage() {
                 <th>Best</th>
                 <th>Last seen</th>
                 <th>IPs seen</th>
+                <th aria-label="Actions"></th>
               </tr>
             </thead>
             <tbody>
               {players.map((p) => (
-                <tr key={p.playerId}>
-                  <td>
-                    <PlayerNameEditor
-                      playerId={p.playerId}
-                      name={p.hasLabel ? p.name : ""}
-                      placeholder={p.nickname || shortId(p.playerId)}
-                    />
-                  </td>
-                  <td>{p.rounds.toLocaleString()}</td>
-                  <td>{p.bestScore.toLocaleString()}</td>
-                  <td>{fmtTime(p.lastSeen)}</td>
-                  <td className="stats-ip">
-                    {p.ips.length === 0 ? (
-                      "—"
-                    ) : (
-                      <span title={p.ips.join(", ")}>
-                        {p.ips.length > 1 ? `${p.ips.length} IPs: ` : ""}
-                        {p.ips.slice(0, 3).join(", ")}
-                        {p.ips.length > 3 ? "…" : ""}
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                <PlayerRow
+                  key={p.playerId}
+                  playerId={p.playerId}
+                  displayName={p.name || shortId(p.playerId)}
+                  labelValue={p.hasLabel ? p.name : ""}
+                  placeholder={p.nickname || shortId(p.playerId)}
+                  rounds={p.rounds.toLocaleString()}
+                  best={p.bestScore.toLocaleString()}
+                  lastSeen={fmtTime(p.lastSeen)}
+                  ips={p.ips}
+                />
               ))}
             </tbody>
           </table>
