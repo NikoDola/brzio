@@ -41,6 +41,24 @@ function asInt(value: unknown, min: number, max: number): number {
   return Math.min(Math.max(Math.trunc(n), min), max);
 }
 
+// Benign device/browser context (no fingerprinting). Each field is sanitised to
+// a bounded string; anything missing becomes "".
+function cleanClient(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const pick = (k: string, max: number) =>
+    typeof r[k] === "string" ? (r[k] as string).slice(0, max) : "";
+  return {
+    device: pick("device", 12),
+    os: pick("os", 24),
+    browser: pick("browser", 40),
+    language: pick("language", 24),
+    timezone: pick("timezone", 48),
+    screen: pick("screen", 16),
+    referrer: pick("referrer", 300),
+  };
+}
+
 export async function POST(req: NextRequest) {
   // 1. Origin check.
   if (!isSameOrigin(req)) {
@@ -83,6 +101,7 @@ export async function POST(req: NextRequest) {
       : null;
   const score = asInt(data.score, 0, MAX_SCORE);
   const durationMs = asInt(data.durationMs, 0, MAX_DURATION_MS);
+  const client = cleanClient(data.client);
 
   // 4. Store one document per event. The full IP is kept for the admin
   //    dashboard + abuse triage; it is admin-only and never exposed publicly.
@@ -97,6 +116,7 @@ export async function POST(req: NextRequest) {
       sessionId,
       playerId,
       playerName,
+      client,
       ts: Date.now(),
       ip,
     });

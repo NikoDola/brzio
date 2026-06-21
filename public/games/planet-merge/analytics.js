@@ -68,6 +68,73 @@ export function setPlayerName(name) {
   }
 }
 
+// One-time, benign device/browser context. All of this is either sent by the
+// browser anyway (user agent) or trivially readable, no fingerprinting (no GPU,
+// canvas, fonts). Computed once and attached to every event.
+function detectClient() {
+  const ua = (navigator.userAgent || "").slice(0, 400);
+
+  let device = "desktop";
+  const uaData = navigator.userAgentData;
+  if (uaData && typeof uaData.mobile === "boolean") {
+    device = uaData.mobile ? "mobile" : "desktop";
+  }
+  if (/iPad|Tablet|PlayBook|Silk|Android(?!.*Mobile)/i.test(ua)) device = "tablet";
+  else if (/Mobi|iPhone|iPod|Android.*Mobile/i.test(ua)) device = "mobile";
+
+  let os = "Unknown";
+  if (/Windows NT/i.test(ua)) os = "Windows";
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = "macOS";
+  else if (/Android/i.test(ua)) os = "Android";
+  else if (/CrOS/i.test(ua)) os = "ChromeOS";
+  else if (/Linux/i.test(ua)) os = "Linux";
+
+  let browser = "Unknown";
+  let m;
+  if ((m = ua.match(/Edg\/(\d+)/))) browser = "Edge " + m[1];
+  else if ((m = ua.match(/(?:OPR|Opera)\/(\d+)/))) browser = "Opera " + m[1];
+  else if ((m = ua.match(/SamsungBrowser\/(\d+)/))) browser = "Samsung " + m[1];
+  else if ((m = ua.match(/Firefox\/(\d+)/))) browser = "Firefox " + m[1];
+  else if ((m = ua.match(/Chrome\/(\d+)/))) browser = "Chrome " + m[1];
+  else if ((m = ua.match(/Version\/(\d+)[\d.]*\s*(?:Mobile\/\S+\s*)?Safari/)))
+    browser = "Safari " + m[1];
+  else if (/Safari/i.test(ua)) browser = "Safari";
+
+  let language = "";
+  try { language = navigator.language || ""; } catch { language = ""; }
+
+  let timezone = "";
+  try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { timezone = ""; }
+
+  let screenSize = "";
+  try { screenSize = `${window.screen.width}x${window.screen.height}`; } catch { screenSize = ""; }
+
+  // The game runs in a same-origin iframe, so document.referrer here is just the
+  // brzio wrapper. The real "came from" is the parent page's referrer, which we
+  // can read because it is the same origin.
+  let referrer = "";
+  try {
+    referrer =
+      window.top && window.top !== window
+        ? window.top.document.referrer || ""
+        : document.referrer || "";
+  } catch {
+    referrer = document.referrer || "";
+  }
+
+  return {
+    device,
+    os,
+    browser,
+    language,
+    timezone,
+    screen: screenSize,
+    referrer: referrer.slice(0, 300),
+  };
+}
+const clientInfo = detectClient();
+
 let startedAt = 0;
 let endReported = false; // a clean end (game_over) was already sent this round
 let quitReported = false; // a quit beacon was already sent this round
@@ -78,6 +145,7 @@ function send(event, payload, useBeacon) {
     sessionId,
     playerId,
     playerName,
+    client: clientInfo,
     event,
     ...payload,
   });

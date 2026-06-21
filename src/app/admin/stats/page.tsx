@@ -25,6 +25,17 @@ type StatEvent = {
   ip: string;
   playerId: string | null;
   playerName: string | null;
+  client: ClientInfo | null;
+};
+
+type ClientInfo = {
+  device: string;
+  os: string;
+  browser: string;
+  language: string;
+  timezone: string;
+  screen: string;
+  referrer: string;
 };
 
 type PlayerSummary = {
@@ -36,6 +47,7 @@ type PlayerSummary = {
   bestScore: number;
   lastSeen: number;
   ips: string[]; // distinct, most-recent first
+  client: ClientInfo | null; // most recent device/browser context
 };
 
 type GameSummary = {
@@ -49,6 +61,21 @@ type GameSummary = {
   avgScore: number;
   maxScore: number;
 };
+
+function readClient(raw: unknown): ClientInfo | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const s = (k: string) => (typeof r[k] === "string" ? (r[k] as string) : "");
+  return {
+    device: s("device"),
+    os: s("os"),
+    browser: s("browser"),
+    language: s("language"),
+    timezone: s("timezone"),
+    screen: s("screen"),
+    referrer: s("referrer"),
+  };
+}
 
 async function loadEvents(): Promise<{ events: StatEvent[]; error: string | null }> {
   try {
@@ -71,6 +98,7 @@ async function loadEvents(): Promise<{ events: StatEvent[]; error: string | null
         ip: String(v.ip ?? v.ipPrefix ?? "—"),
         playerId: v.playerId ? String(v.playerId) : null,
         playerName: v.playerName ? String(v.playerName) : null,
+        client: readClient(v.client),
       } satisfies StatEvent;
     });
     return { events, error: null };
@@ -116,6 +144,7 @@ function summarisePlayers(
         bestScore: 0,
         lastSeen: 0,
         ips: [],
+        client: null,
         nickAt: 0,
       };
       byPlayer.set(e.playerId, p);
@@ -127,6 +156,8 @@ function summarisePlayers(
       p.nickname = e.playerName;
       p.nickAt = e.ts;
     }
+    // events are newest-first, so the first client we see is the most recent
+    if (!p.client && e.client) p.client = e.client;
     if (e.ip && e.ip !== "—" && !p.ips.includes(e.ip)) p.ips.push(e.ip);
   }
 
@@ -142,6 +173,7 @@ function summarisePlayers(
         bestScore: p.bestScore,
         lastSeen: p.lastSeen,
         ips: p.ips,
+        client: p.client,
       };
     })
     .sort((a, b) => b.lastSeen - a.lastSeen);
@@ -211,6 +243,16 @@ function fmtDuration(ms: number): string {
 
 function shortId(id: string): string {
   return `#${id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 5)}`;
+}
+
+// "where they came from": the referrer's host, or "direct" when there is none.
+function fromLabel(referrer: string): string {
+  if (!referrer) return "direct";
+  try {
+    return new URL(referrer).host || referrer;
+  } catch {
+    return referrer;
+  }
 }
 
 export default async function AdminStatsPage() {
@@ -322,7 +364,6 @@ export default async function AdminStatsPage() {
                 <th>Name</th>
                 <th>Rounds</th>
                 <th>Best</th>
-                <th>Last seen</th>
                 <th>IPs seen</th>
                 <th aria-label="Actions"></th>
               </tr>
@@ -339,6 +380,13 @@ export default async function AdminStatsPage() {
                   best={p.bestScore.toLocaleString()}
                   lastSeen={fmtTime(p.lastSeen)}
                   ips={p.ips}
+                  device={p.client?.device ?? ""}
+                  os={p.client?.os ?? ""}
+                  browser={p.client?.browser ?? ""}
+                  language={p.client?.language ?? ""}
+                  timezone={p.client?.timezone ?? ""}
+                  screen={p.client?.screen ?? ""}
+                  from={p.client ? fromLabel(p.client.referrer) : ""}
                 />
               ))}
             </tbody>

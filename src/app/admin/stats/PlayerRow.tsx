@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
-// One player row. Name shows as text (or an inline input while renaming) and a
-// 3-dots menu at the far-right end offers Rename / Delete log. Numeric and date
-// cells are pre-formatted on the server and passed in as strings to avoid any
-// hydration mismatch.
+// One player row. The visible cells are kept minimal (name, rounds, best, IPs);
+// the full device/browser context lives behind the 3-dots "More info" popup.
+// Numeric/date cells are pre-formatted on the server and passed as strings to
+// avoid hydration mismatch.
 export default function PlayerRow({
   playerId,
   displayName,
@@ -16,6 +17,13 @@ export default function PlayerRow({
   best,
   lastSeen,
   ips,
+  device,
+  os,
+  browser,
+  language,
+  timezone,
+  screen,
+  from,
 }: {
   playerId: string;
   displayName: string;
@@ -25,10 +33,18 @@ export default function PlayerRow({
   best: string;
   lastSeen: string;
   ips: string[];
+  device: string;
+  os: string;
+  browser: string;
+  language: string;
+  timezone: string;
+  screen: string;
+  from: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [value, setValue] = useState(labelValue);
   const [busy, setBusy] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -44,7 +60,26 @@ export default function PlayerRow({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!infoOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setInfoOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [infoOpen]);
+
+  function cancelEdit() {
+    setValue(labelValue);
+    setEditing(false);
+  }
+
   async function saveName() {
+    // No write if nothing changed, just close the editor.
+    if (value.trim() === labelValue.trim()) {
+      setEditing(false);
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/stats", {
@@ -81,35 +116,56 @@ export default function PlayerRow({
     }
   }
 
+  const infoRows: [string, string][] = [
+    ["Name", displayName],
+    ["Player ID", playerId],
+    ["Last seen", lastSeen],
+    ["Device", device || "—"],
+    ["Operating system", os || "—"],
+    ["Browser", browser || "—"],
+    ["Language", language || "—"],
+    ["Timezone", timezone || "—"],
+    ["Screen", screen || "—"],
+    ["Came from", from || "—"],
+    ["Rounds", rounds],
+    ["Best score", best],
+    ["IPs seen", ips.length ? ips.join(", ") : "—"],
+  ];
+
   return (
     <tr>
       <td>
         {editing ? (
-          <input
-            className="stats-name-input"
-            type="text"
-            autoFocus
-            value={value}
-            placeholder={placeholder}
-            maxLength={40}
-            disabled={busy}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                setValue(labelValue);
-                setEditing(false);
-              }
-            }}
-          />
+          <div className="stats-name-edit">
+            <input
+              className="stats-name-input"
+              type="text"
+              autoFocus
+              value={value}
+              placeholder={placeholder}
+              maxLength={40}
+              disabled={busy}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") cancelEdit();
+              }}
+            />
+            <button
+              type="button"
+              className="stats-apply-btn"
+              onClick={saveName}
+              disabled={busy || value.trim() === labelValue.trim()}
+            >
+              Apply
+            </button>
+          </div>
         ) : (
           <span className="stats-name-text">{displayName}</span>
         )}
       </td>
       <td>{rounds}</td>
       <td>{best}</td>
-      <td>{lastSeen}</td>
       <td className="stats-ip">
         {ips.length === 0 ? (
           "—"
@@ -145,6 +201,16 @@ export default function PlayerRow({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
+                  setInfoOpen(true);
+                }}
+              >
+                More info
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
                   setEditing(true);
                 }}
               >
@@ -164,6 +230,44 @@ export default function PlayerRow({
             </div>
           )}
         </div>
+
+        {infoOpen &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div
+              className="stats-modal-backdrop"
+              onClick={() => setInfoOpen(false)}
+            >
+              <div
+                className="stats-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Player details"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="stats-modal-head">
+                  <h3>{displayName}</h3>
+                  <button
+                    type="button"
+                    className="stats-modal-x"
+                    onClick={() => setInfoOpen(false)}
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <dl className="stats-modal-body">
+                  {infoRows.map(([label, val]) => (
+                    <div key={label} className="stats-modal-row">
+                      <dt>{label}</dt>
+                      <dd>{val}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </div>,
+            document.body,
+          )}
       </td>
     </tr>
   );
