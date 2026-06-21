@@ -39,7 +39,7 @@
                 <div id="choose-label" class="current-label">Select Planet!</div>
                 <button id="current-next" class="current-arrow" type="button" aria-label="Next planet">&rsaquo;</button>
                 <div id="destroy-overlay" style="display:none">
-                    <div id="destroy-text">Eliminate Planets</div>
+                    <div id="destroy-text">Eliminate<br>Planets</div>
                     <div id="destroy-copy">Click a planet to destroy all matching sibling planets, or choose Skip to keep going.</div>
                     <button id="destroy-skip" type="button">Skip</button>
                 </div>
@@ -74,7 +74,10 @@
                     </button>
                     <div class="difficulty-buttons">
                         <button class="diff-btn diff-easy" type="button" data-diff="easy">
-                            <img class="diff-icon" src="assets/images/planet_moon.svg" alt="">
+                            <span class="diff-icon diff-icon-stack">
+                                <img src="assets/images/planet_moon_body.svg" alt="">
+                                <img src="assets/images/planet_moon_casual.svg" alt="">
+                            </span>
                             <div class="diff-text">
                                 <div class="diff-label">Easy</div>
                                 <div class="diff-blurb">No tiny stars. Venus drops too!</div>
@@ -83,7 +86,10 @@
                             <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                         <button class="diff-btn diff-normal" type="button" data-diff="normal">
-                            <img class="diff-icon" src="assets/images/planet_mars.svg" alt="">
+                            <span class="diff-icon diff-icon-stack">
+                                <img src="assets/images/planet_mars_body.svg" alt="">
+                                <img src="assets/images/planet_mars_casual.svg" alt="">
+                            </span>
                             <div class="diff-text">
                                 <div class="diff-label">Normal</div>
                                 <div class="diff-blurb">The classic planet mix</div>

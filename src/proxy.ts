@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { getSessionSecret } from "@/lib/auth/sessionSecret";
 
-const ADMIN_EMAILS = ["igor.dolovski@gmail.com", "nikodola@gmail.com"];
+const ADMIN_EMAILS = ["nikodola@gmail.com"];
 
 // The entire admin and content-editing surface is local-only.
 // In production every one of these paths returns 404 so the admin doesn't

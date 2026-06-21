@@ -73,6 +73,14 @@ body {
     pointer-events: none;
 }
 
+/* Stacked planet icon for static (non-canvas) displays: the bare body image
+   with its casual face overlaid on top, so the merge legend and perk icons
+   wear the same face the planet has in play. The face SVG shares the body's
+   viewBox, so filling the same box lines it up. */
+.planet-icon { position: relative; display: block; width: 100%; height: 100%; }
+.planet-icon > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.planet-icon > .planet-face { position: absolute; inset: 0; }
+
 @media (max-width: 480px) {
     #planet-legend { gap: 5px; padding: 2px 8px 6px; }
 }
@@ -140,7 +148,9 @@ body {
    (left arrow) and `left` (right arrow) so the gap stays constant. */
 .current-arrow {
     position: absolute;
-    top: 18%; /* DANGER_Y (133/927 ≈ 14.3%) plus breathing room */
+    /* Centred on the drop row (DROP_Y 81/927 ≈ 8.7%) so the arrows flank the
+       planet waiting to drop: ‹ planet ›. 28px = half the 56px arrow height. */
+    top: calc(8.7% - 28px);
     display: none;
     background: rgba(125, 223, 255, 0.18);
     border: 1px solid rgba(125, 223, 255, 0.6);
@@ -443,34 +453,48 @@ body.fullscreen #dev-panel { display: flex; }
 #destroy-overlay {
     position: absolute;
     left: 50%;
-    top: 16%; /* DANGER_Y (133/927 ≈ 14.3%) plus a small gap */
+    top: 2%; /* sit at the very top, where the planet drops in */
     transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 8px;
+    gap: 14px;
+    width: 94%;
+    padding: 8px 14px;
+    border-radius: 16px;
+    background: rgba(10, 16, 30, 0.55);
     pointer-events: none; /* allow clicks to fall through except button */
 }
 
+/* Big title on the left, two lines (Eliminate / Planets). */
 #destroy-overlay #destroy-text {
-    background: rgba(255, 105, 180, 0.14);
+    flex-shrink: 0;
     color: #ff66b2;
-    padding: 8px 18px;
-    border-radius: 12px;
-    font-size: 19px;
-    font-weight: 600;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.0;
     letter-spacing: 0.5px;
     pointer-events: none;
-    text-align: center;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Explanation fills the middle so the button is pushed to the far right. */
+#destroy-overlay #destroy-copy {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    line-height: 1.3;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 #destroy-overlay #destroy-skip {
+    flex-shrink: 0;
     pointer-events: auto; /* button must be clickable */
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.12);
     color: #fff;
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-radius: 8px;
     font-weight: 700;
     cursor: pointer;
@@ -658,6 +682,20 @@ body.fullscreen #dev-panel { display: flex; }
     flex-shrink: 0;
     filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
     pointer-events: none;
+}
+
+/* Stacked picker icon: bare body + casual face overlay, the same two layers
+   the renderer composites in-game (renderer.js drawBody). Both SVGs share the
+   200x200 viewBox, so filling the same box aligns them exactly. */
+.diff-icon-stack {
+    position: relative;
+    display: inline-block;
+}
+.diff-icon-stack img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
 }
 
 .diff-text {

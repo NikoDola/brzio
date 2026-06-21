@@ -18,7 +18,9 @@ export const TUNING = {
     //   3 = volume / "3D" mass (density ∝ radius): big planets get dramatically
     //       heavier, small ones flick off them. This is the "density: 0.002 *
     //       (rad / r(0))" feel — reach it by setting Mass Power to 3.
-    massPower:      2.0,
+    //   2.7 = current default: big planets noticeably outweigh and shove small
+    //       ones (e.g. Uranus ~2.4x Venus) without going full volume-mass.
+    massPower:      2.7,
     // Multiplies the impact kick in game.js. 1 = shipping. 0 = vanilla Matter.
     impactStrength: 1.0,
     // Per-planet density multiplier, indexed by level. 1 = unchanged.

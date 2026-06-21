@@ -1,0 +1,86 @@
+/* Game Analytics page. Uses global tokens from globals.css — no hardcoded colors.
+   Leans on the shared .admin-* classes (admin.css) for cards and headings;
+   only the stats-specific table and badges live here. */
+
+.stats-game-block {
+  margin-top: 28px;
+}
+
+.stats-game-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 12px;
+  text-transform: capitalize;
+}
+
+.stats-empty {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-top: 16px;
+  color: var(--text-muted);
+}
+
+.stats-empty strong {
+  color: var(--text);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.stats-empty p {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.stats-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.stats-table td {
+  color: var(--text);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stats-ip {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stats-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.stats-badge--won {
+  background: color-mix(in srgb, var(--primary-green) 16%, transparent);
+  color: var(--primary-green);
+}
+
+.stats-badge--lost {
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-secondary);
+}
+
+.stats-badge--quit {
+  background: color-mix(in srgb, var(--primary-rose) 16%, transparent);
+  color: var(--primary-rose-dim);
+}

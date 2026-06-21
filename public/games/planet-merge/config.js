@@ -58,8 +58,8 @@ export const SHAPES = [
         pts:       3,
         droppable: true,
         dropRate:  4,
-        asset:     'planet_moon.svg',
-        outline:   true,    // use SVG silhouette for collision (concave crescent)
+        asset:     'planet_moon_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 3  Pluto ─────────────────────────────────────────────────── */
@@ -71,7 +71,8 @@ export const SHAPES = [
         pts:       6,
         droppable: true,
         dropRate:  3,
-        asset:     'planet_pluto.svg',
+        asset:     'planet_pluto_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 4  Mercury ───────────────────────────────────────────────── */
@@ -83,7 +84,8 @@ export const SHAPES = [
         pts:       10,
         droppable: true,
         dropRate:  2,
-        asset:     'planet_mercury.svg',
+        asset:     'planet_mercury_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 5  Mars ──────────────────────────────────────────────────── */
@@ -95,7 +97,8 @@ export const SHAPES = [
         pts:       15,
         droppable: true,
         dropRate:  3,
-        asset:     'planet_mars.svg',
+        asset:     'planet_mars_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 6  Venus ─────────────────────────────────────────────────── */
@@ -133,7 +136,8 @@ export const SHAPES = [
         pts:       36,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_uranus.svg',
+        asset:     'planet_uranus_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 9  Neptune ───────────────────────────────────────────────── */
@@ -145,7 +149,8 @@ export const SHAPES = [
         pts:       45,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_neptune.svg',
+        asset:     'planet_neptune_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 10  Saturn ───────────────────────────────────────────────── */
@@ -170,7 +175,8 @@ export const SHAPES = [
         pts:       70,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_jupiter.svg',
+        asset:     'planet_jupiter_body.svg',
+        expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
 
     {   /* ── 12  Sun — MAX (two Suns touching → both vanish!) ─────────── */

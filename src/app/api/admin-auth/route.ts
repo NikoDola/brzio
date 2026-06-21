@@ -4,7 +4,7 @@ import { adminAuth } from "@/lib/firebase/admin";
 import { cookies } from "next/headers";
 import { getSessionSecret } from "@/lib/auth/sessionSecret";
 
-const ADMIN_EMAILS = ["igor.dolovski@gmail.com", "nikodola@gmail.com"];
+const ADMIN_EMAILS = ["nikodola@gmail.com"];
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 export async function POST(req: NextRequest) {

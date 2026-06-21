@@ -30,7 +30,7 @@ Content lives in JSON files in the repo. The admin UI only runs locally — ther
 
 1. `npm run dev`
 2. Open [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
-3. Sign in with an authorized Google account (`igor.dolovski@gmail.com` or `nikodola@gmail.com`)
+3. Sign in with an authorized Google account (`nikodola@gmail.com`)
 4. Add or edit:
    - **Blog post / portfolio item** → `/admin/posts`
    - **Team member** → `/admin/team`

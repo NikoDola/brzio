@@ -30,6 +30,12 @@ import {
   onAssetLoad,
   setDebugColliders,
 } from "./renderer.js";
+import {
+  initAnalytics,
+  reportOpen,
+  reportGameStart,
+  reportGameEnd,
+} from "./analytics.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
 const { W, H, WALL, DROP_Y, DANGER_Y } = LAYOUT;
@@ -457,6 +463,17 @@ const planetLegendEl = document.getElementById("planet-legend");
 /* Build the merge-order legend from SHAPES: smallest → largest, each icon 5%
    bigger than the previous one. Generated (not hardcoded) so it always matches
    the real planet chain. */
+/* Casual-face overlay path for a planet that has expressions, or null. Mirrors
+   the renderer's filename derivation: drop `.svg` and the `_body` suffix from
+   the body asset, then append `_casual.svg`. Used by the static DOM displays
+   (legend, perk icons) so they show the same face the canvas draws. */
+function casualFaceSrc(lvl) {
+  const s = SHAPES[lvl];
+  if (!s || !s.expressions || !s.asset) return null;
+  const stem = s.asset.replace(/\.svg$/i, "").replace(/_body$/, "");
+  return `assets/images/${stem}_casual.svg`;
+}
+
 function buildPlanetLegend() {
   if (!planetLegendEl) return;
   const BASE = 22; // px, the smallest planet (first in SHAPES)
@@ -467,13 +484,26 @@ function buildPlanetLegend() {
     item.className = "legend-item";
     item.dataset.lvl = i;
 
+    const icon = document.createElement("div");
+    icon.className = "planet-icon";
+    icon.style.width = `${px}px`;
+    icon.style.height = `${px}px`;
+
     const img = document.createElement("img");
     img.src = `assets/images/${s.asset}`;
     img.alt = s.name;
-    img.width = px;
-    img.height = px;
+    icon.appendChild(img);
 
-    item.appendChild(img);
+    const faceSrc = casualFaceSrc(i);
+    if (faceSrc) {
+      const face = document.createElement("img");
+      face.className = "planet-face";
+      face.src = faceSrc;
+      face.alt = "";
+      icon.appendChild(face);
+    }
+
+    item.appendChild(icon);
     planetLegendEl.appendChild(item);
   });
 }
@@ -567,9 +597,12 @@ let lastEarnedTab = null; // tab of the most recently earned perk; opens the car
 const perksOpen = () => !!perksOverlayEl?.classList.contains("visible");
 
 function perkIconHTML(perk) {
-  return perk.img
-    ? `<img src="${perk.img}" alt="">`
-    : `<span class="perk-emoji">${perk.emoji || "✦"}</span>`;
+  if (!perk.img) return `<span class="perk-emoji">${perk.emoji || "✦"}</span>`;
+  // Merge perks (those with a `level`) are planets, so overlay the casual face
+  // on the bare body, same as the legend and the live canvas.
+  const faceSrc = Number.isInteger(perk.level) ? casualFaceSrc(perk.level) : null;
+  const face = faceSrc ? `<img class="planet-face" src="${faceSrc}" alt="">` : "";
+  return `<span class="planet-icon"><img src="${perk.img}" alt="">${face}</span>`;
 }
 
 function updatePerkCardUI() {
@@ -711,13 +744,22 @@ function animatePerkEarn(perk, done) {
   const isMerge = Number.isInteger(perk.level) && perk.level > 0;
   if (isMerge) {
     const srcImg = `assets/images/${SHAPES[perk.level - 1].asset}`;
+    // Casual faces ride on top of each body, sharing the same animation class
+    // so they fly and pop in lock-step with the planet underneath them.
+    const srcFace = casualFaceSrc(perk.level - 1);
+    const resFace = casualFaceSrc(perk.level);
+    const faceImg = (cls, src) =>
+      src ? `<img class="${cls}" src="${src}" alt="">` : "";
     toast.className = "perk-toast merge";
     toast.innerHTML = `
       <div class="perk-toast-badge">Perk unlocked!</div>
       <div class="perk-merge-stage">
         <img class="pm-src pm-src-l" src="${srcImg}" alt="">
+        ${faceImg("pm-src pm-src-l", srcFace)}
         <img class="pm-src pm-src-r" src="${srcImg}" alt="">
+        ${faceImg("pm-src pm-src-r", srcFace)}
         <img class="pm-result" src="${perk.img}" alt="">
+        ${faceImg("pm-result", resFace)}
       </div>
       <div class="perk-toast-title">${perk.title}</div>`;
   } else {
@@ -1205,6 +1247,7 @@ function flushVanishes() {
 /* ── WIN SEQUENCE ───────────────────────────────────────────────────────── */
 function startWinSequence(x, y) {
   if (winActive) return;
+  reportGameEnd("won", score, difficulty);
   earnPerk(`win-${difficulty}`); // Easy/Normal/Hard cleared perk
   // Record the unlock now so the popup can announce it and the picker reflects
   // it the moment the player continues.
@@ -1302,6 +1345,7 @@ function checkOver() {
 function endGame() {
   gameOver = true;
   finalEl.textContent = score;
+  reportGameEnd("lost", score, difficulty);
   if (score < 100) earnPerk("lose-under-100"); // play the game in reverse
   if (score < 150) earnPerk("lose-under-150");
   overlayEl.classList.add("visible");
@@ -1575,12 +1619,23 @@ function startGame(diff) {
   if (!isUnlocked(diff)) return;
   clearWinState();
   difficulty = diff;
+  reportGameStart(diff);
   rebuildDropTable();
   resetGameState();
   applyLegendMode(diff);
   planetLegendEl?.classList.remove("hidden");
   difficultyOverlayEl.classList.remove("visible");
 }
+
+// Anonymous play analytics (see analytics.js). reportOpen counts loads; the
+// visibility handler records the score a player leaves off at if they quit
+// mid-round. Reads live game state so the snapshot is always current.
+reportOpen();
+initAnalytics(() => ({
+  active: difficulty !== null && !gameOver,
+  score,
+  mode: difficulty,
+}));
 
 function showDifficultyPicker() {
   // Wipe the board so nothing animates behind the overlay between rounds.
@@ -2046,7 +2101,7 @@ physicsApplyJsonBtn.addEventListener("click", () => {
 });
 
 physicsResetBtn.addEventListener("click", () => {
-  TUNING.massPower = 2;
+  TUNING.massPower = 2.7; // restore the shipping default
   TUNING.impactStrength = 1;
   SHAPES.forEach((_, i) => {
     TUNING.massMult[i] = 1;

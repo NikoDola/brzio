@@ -43,8 +43,8 @@ const hasImg = (lvl) => {
      0–HURT_MS:           hurt
      HURT_MS–+SAD_MS:     sad
      after:               casual (resting face)                              */
-const EXPR_HURT_MS = 400;   // brief flinch the instant it's struck
-const EXPR_SAD_MS  = 2000;  // sulks for two seconds, then back to casual
+const EXPR_HURT_MS = 1000;  // flinch for a second the instant it's struck
+const EXPR_SAD_MS  = 2000;  // then sulks for two seconds, then back to casual
 
 const exprImgs = SHAPES.map((s, i) => {
     if (!s.asset || !s.expressions) return null;

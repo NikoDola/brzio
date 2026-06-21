@@ -138,7 +138,7 @@ npm run lint     # ESLint
 
 ## Admin
 
-- **Whitelist:** `igor.dolovski@gmail.com`, `nikodola@gmail.com` (hardcoded in `proxy.ts`, `requireAdmin.ts`, `admin-auth/route.ts`)
+- **Whitelist:** `nikodola@gmail.com` (hardcoded in `proxy.ts`, `requireAdmin.ts`, `admin-auth/route.ts`, `admin-check/route.ts`)
 - **Auth:** Google, then Firebase ID token, then HS256 JWT in the `admin_session` HttpOnly cookie (7d)
 - **Production:** `/admin/*` and write-side APIs (`/api/posts`, `/api/seo`, `/api/upload`, `/api/admin-*`) all return 404 via `proxy.ts`. Admin only works in `npm run dev`.
 

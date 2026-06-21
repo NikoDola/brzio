@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { getSessionSecret } from "@/lib/auth/sessionSecret";
 
-const ADMIN_EMAILS = ["igor.dolovski@gmail.com", "nikodola@gmail.com"];
+const ADMIN_EMAILS = ["nikodola@gmail.com"];
 
 export async function GET() {
   try {
