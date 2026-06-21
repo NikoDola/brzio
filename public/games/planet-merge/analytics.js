@@ -87,20 +87,18 @@ export function reportGameEnd(outcome, score, mode) {
 // mobile. Capped to one quit per round so repeated alt-tabbing cannot spam
 // writes. getSnapshot() returns the live game state so we record the score
 // they left off at.
+const QUIT_MIN_MS = 5000; // a hide before this, at score 0, is a glance, not a quit
+
 export function initAnalytics(getSnapshot) {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "hidden") return;
     const snap = getSnapshot();
     if (!snap || !snap.active || endReported || quitReported) return;
+    const durationMs = startedAt ? Date.now() - startedAt : 0;
+    // Ignore a hide right after starting with no progress: that is someone
+    // glancing away (e.g. switching tabs), not a real mid-round quit.
+    if (snap.score <= 0 && durationMs < QUIT_MIN_MS) return;
     quitReported = true;
-    send(
-      "quit",
-      {
-        score: snap.score,
-        mode: snap.mode,
-        durationMs: startedAt ? Date.now() - startedAt : 0,
-      },
-      true, // beacon
-    );
+    send("quit", { score: snap.score, mode: snap.mode, durationMs }, true);
   });
 }
