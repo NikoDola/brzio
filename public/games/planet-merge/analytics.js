@@ -8,29 +8,79 @@
 // abuse blocking, never shown in the stats.
 //
 // WRITE BUDGET: Firestore bills per document write, so this is deliberately
-// frugal. A typical visit is 1 write (open, deduped per visit) plus 1 write
-// per round that ends. There is intentionally NO per-round "start" write.
+// frugal. A typical visit is 1 write (open, deduped per visit) plus a start and
+// an end (game_over or quit) per round played.
 //
 // Events:
 //   open      - the game loaded (written at most once per browser tab session)
+//   start     - the player entered a round (carries mode)
 //   game_over - a round ended on its own (carries score + outcome + duration)
 //   quit      - the player left mid-round (best-effort beacon, once per round)
 
 const ENDPOINT = "/api/stats";
 const GAME = "planet-merge";
 const OPEN_FLAG = "pm_open_reported"; // sessionStorage key, dedupes opens
+const PLAYER_ID_KEY = "pm_player_id"; // persistent random id, survives IP changes
+const PLAYER_NAME_KEY = "pm_player_name"; // optional nickname the player typed
 
 // Random per-session id so the server can tell a "quit" beacon apart from the
 // "game_over" of the same round.
 const sessionId =
   Math.random().toString(36).slice(2) + Date.now().toString(36);
 
+// Stable per-browser id. Unlike the IP it does not change when the network
+// does, so it is how we recognise the same player across sessions. Stored once
+// in localStorage; a fresh browser / cleared storage just becomes a new player.
+function loadPlayerId() {
+  try {
+    let id = localStorage.getItem(PLAYER_ID_KEY);
+    if (!id) {
+      id =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(PLAYER_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    // Storage blocked: a throwaway id keeps events flowing without crashing.
+    return "anon-" + Math.random().toString(36).slice(2);
+  }
+}
+const playerId = loadPlayerId();
+
+let playerName = "";
+try {
+  playerName = localStorage.getItem(PLAYER_NAME_KEY) || "";
+} catch {
+  playerName = "";
+}
+
+export function getPlayerName() {
+  return playerName;
+}
+export function setPlayerName(name) {
+  playerName = (name || "").slice(0, 40);
+  try {
+    localStorage.setItem(PLAYER_NAME_KEY, playerName);
+  } catch {
+    // ignore: name just won't persist across reloads
+  }
+}
+
 let startedAt = 0;
 let endReported = false; // a clean end (game_over) was already sent this round
 let quitReported = false; // a quit beacon was already sent this round
 
 function send(event, payload, useBeacon) {
-  const body = JSON.stringify({ game: GAME, sessionId, event, ...payload });
+  const body = JSON.stringify({
+    game: GAME,
+    sessionId,
+    playerId,
+    playerName,
+    event,
+    ...payload,
+  });
   try {
     if (useBeacon && navigator.sendBeacon) {
       // sendBeacon is the only thing that reliably survives the page being
@@ -64,11 +114,13 @@ export function reportOpen() {
   send("open", {});
 }
 
-// No DB write: we only reset the per-round trackers and start the clock.
-export function reportGameStart() {
+// Logs a "start" when the player enters a round, and resets the per-round
+// trackers + clock so the matching quit/game_over is measured from here.
+export function reportGameStart(mode) {
   startedAt = Date.now();
   endReported = false;
   quitReported = false;
+  send("start", { mode });
 }
 
 export function reportGameEnd(outcome, score, mode) {

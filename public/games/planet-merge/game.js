@@ -35,6 +35,8 @@ import {
   reportOpen,
   reportGameStart,
   reportGameEnd,
+  getPlayerName,
+  setPlayerName,
 } from "./analytics.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
@@ -1636,6 +1638,15 @@ initAnalytics(() => ({
   score,
   mode: difficulty,
 }));
+
+// Optional name field on the difficulty picker. Stored on the player's device
+// (via analytics.js) and sent with every event so the admin can tell players
+// apart even when their IP changes.
+const playerNameInput = document.getElementById("player-name-input");
+if (playerNameInput) {
+  playerNameInput.value = getPlayerName();
+  playerNameInput.addEventListener("input", () => setPlayerName(playerNameInput.value));
+}
 
 function showDifficultyPicker() {
   // Wipe the board so nothing animates behind the overlay between rounds.

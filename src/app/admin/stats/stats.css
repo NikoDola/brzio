@@ -101,6 +101,57 @@
   color: var(--text-muted);
 }
 
+.stats-name-input {
+  width: 100%;
+  max-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.stats-name-input::placeholder {
+  color: var(--text-faint);
+}
+
+.stats-name-input:focus {
+  border-color: var(--primary-green);
+}
+
+.stats-del-cell {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stats-row-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.stats-row-del:hover:not(:disabled) {
+  color: var(--primary-rose-dim);
+  background: color-mix(in srgb, var(--primary-rose) 12%, transparent);
+}
+
+.stats-row-del:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .stats-badge {
   display: inline-block;
   padding: 2px 9px;
@@ -108,6 +159,12 @@
   font-size: 12px;
   font-weight: 600;
   text-transform: capitalize;
+}
+
+.stats-badge--start {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--text-secondary);
 }
 
 .stats-badge--won {

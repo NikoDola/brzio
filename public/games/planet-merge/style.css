@@ -617,6 +617,40 @@ body.fullscreen #dev-panel { display: flex; }
     margin-bottom: 14px;
 }
 
+/* Optional player name field, under the mode buttons. Sent with analytics so
+   the admin can tell players apart even when their IP changes. */
+.player-name-field {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+.player-name-field label {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+}
+.player-name-field input {
+    flex: 0 1 200px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+.player-name-field input::placeholder {
+    color: rgba(255,255,255,0.35);
+}
+.player-name-field input:focus {
+    border-color: rgba(126,217,87,0.7);
+    background: rgba(255,255,255,0.1);
+}
+
 /* Resume button. Hidden unless a saved game exists in localStorage; shown
    above the mode buttons so a returning player can jump straight back in. */
 #continue-saved {

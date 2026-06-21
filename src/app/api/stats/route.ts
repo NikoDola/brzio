@@ -18,7 +18,7 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
  */
 export const runtime = "nodejs";
 
-const ALLOWED_EVENTS = new Set(["open", "game_over", "quit"]);
+const ALLOWED_EVENTS = new Set(["open", "start", "game_over", "quit"]);
 const ALLOWED_OUTCOMES = new Set(["lost", "won", "quit"]);
 const MAX_SCORE = 100_000; // real scores are merge counts (~hundreds); ceiling is sanity only
 const MAX_DURATION_MS = 6 * 60 * 60 * 1000; // 6h; anything longer is junk
@@ -71,6 +71,12 @@ export async function POST(req: NextRequest) {
   const mode = typeof data.mode === "string" ? data.mode.slice(0, 20) : null;
   const sessionId =
     typeof data.sessionId === "string" ? data.sessionId.slice(0, 64) : null;
+  const playerId =
+    typeof data.playerId === "string" ? data.playerId.slice(0, 64) : null;
+  const playerName =
+    typeof data.playerName === "string"
+      ? data.playerName.slice(0, 40).trim() || null
+      : null;
   const outcome =
     typeof data.outcome === "string" && ALLOWED_OUTCOMES.has(data.outcome)
       ? data.outcome
@@ -89,6 +95,8 @@ export async function POST(req: NextRequest) {
       score,
       durationMs,
       sessionId,
+      playerId,
+      playerName,
       ts: Date.now(),
       ip,
     });
@@ -98,6 +106,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+/**
+ * Admin-only, local-only: set (or clear) the display name for a player id.
+ * Stored in `player_labels` keyed by playerId. An empty name removes the label,
+ * falling display back to whatever nickname the player typed in-game.
+ */
+export async function PUT(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "disabled in production" }, { status: 403 });
+  }
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let data: Record<string, unknown>;
+  try {
+    data = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "bad json" }, { status: 400 });
+  }
+
+  const playerId =
+    typeof data.playerId === "string" ? data.playerId.slice(0, 64) : "";
+  const name =
+    typeof data.name === "string" ? data.name.slice(0, 40).trim() : "";
+  if (!playerId) {
+    return NextResponse.json({ error: "playerId required" }, { status: 400 });
+  }
+
+  const ref = adminDb.collection("player_labels").doc(playerId);
+  if (name) {
+    await ref.set({ name, updatedAt: Date.now() });
+  } else {
+    await ref.delete();
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -120,12 +164,20 @@ function isLocalIp(v: FirebaseFirestore.DocumentData): boolean {
  * Real visitor data (non-loopback IPs) is left untouched. Gated like the other
  * write APIs: 403 in production, and requires a valid admin session.
  */
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "disabled in production" }, { status: 403 });
   }
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ?id=<docId> deletes a single log row; no id falls back to clearing all
+  // localhost/dev test rows.
+  const id = new URL(req.url).searchParams.get("id");
+  if (id) {
+    await adminDb.collection("game_stats").doc(id).delete();
+    return NextResponse.json({ deleted: 1 });
+  }
 
   const snap = await adminDb.collection("game_stats").get();
   const targets = snap.docs.filter((d) => isLocalIp(d.data()));
