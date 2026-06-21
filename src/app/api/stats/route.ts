@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { guard, getClientIp } from "@/lib/stats/abuseGuard";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 /**
  * Public ingest endpoint for anonymous gameplay stats sent by the games in
@@ -98,4 +99,51 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+/** True for loopback / dev addresses across both the new `ip` and legacy
+ *  `ipPrefix` fields, so "Clear Local" wipes test rows but spares real plays. */
+function isLocalIp(v: FirebaseFirestore.DocumentData): boolean {
+  const ip = String(v.ip ?? v.ipPrefix ?? "");
+  return (
+    ip === "::1" ||
+    ip === "127.0" ||
+    ip === "unknown" ||
+    ip === "" ||
+    ip.startsWith("127.") ||
+    ip.startsWith("::ffff:127.")
+  );
+}
+
+/**
+ * Admin-only, local-only: delete the localhost/dev test rows from game_stats.
+ * Real visitor data (non-loopback IPs) is left untouched. Gated like the other
+ * write APIs: 403 in production, and requires a valid admin session.
+ */
+export async function DELETE() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "disabled in production" }, { status: 403 });
+  }
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const snap = await adminDb.collection("game_stats").get();
+  const targets = snap.docs.filter((d) => isLocalIp(d.data()));
+
+  let batch = adminDb.batch();
+  let pending = 0;
+  let deleted = 0;
+  for (const doc of targets) {
+    batch.delete(doc.ref);
+    pending++;
+    deleted++;
+    if (pending >= 450) {
+      await batch.commit();
+      batch = adminDb.batch();
+      pending = 0;
+    }
+  }
+  if (pending) await batch.commit();
+
+  return NextResponse.json({ deleted });
 }

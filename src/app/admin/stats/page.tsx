@@ -2,6 +2,7 @@ import "./stats.css";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { adminDb } from "@/lib/firebase/admin";
+import ClearLocalButton from "./ClearLocalButton";
 
 // Read-only window onto the anonymous gameplay stats collected by /api/stats.
 // Lives under /admin, so proxy.ts makes it 404 in production: you view it by
@@ -129,8 +130,9 @@ export default async function AdminStatsPage() {
 
   return (
     <div className="admin-content">
-      <div className="admin-section-header admin-section-header--tight">
+      <div className="admin-section-header admin-section-header--tight stats-header-row">
         <h1 className="admin-section-title">Game Analytics</h1>
+        <ClearLocalButton />
       </div>
       <p className="admin-section-sub">
         Anonymous play data. Showing the most recent {READ_LIMIT.toLocaleString()} events.

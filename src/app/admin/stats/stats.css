@@ -2,6 +2,46 @@
    Leans on the shared .admin-* classes (admin.css) for cards and headings;
    only the stats-specific table and badges live here. */
 
+.stats-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-clear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-clear-msg {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stats-clear-btn {
+  border: 1px solid color-mix(in srgb, var(--primary-rose) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-rose) 10%, transparent);
+  color: var(--primary-rose-dim);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.stats-clear-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary-rose) 18%, transparent);
+  border-color: var(--primary-rose);
+}
+
+.stats-clear-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .stats-game-block {
   margin-top: 28px;
 }
