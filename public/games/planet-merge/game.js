@@ -35,8 +35,6 @@ import {
   reportOpen,
   reportGameStart,
   reportGameEnd,
-  getPlayerName,
-  setPlayerName,
 } from "./analytics.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
@@ -422,6 +420,8 @@ let lastTs = 0;
 const WIN_GROW_MS = 700; // circle expands from the merge point
 const WIN_HOLD_MS = 1500; // full white screen before the popup
 let winActive = false;
+let winWipeStarted = false; // the white wipe only draws once perk toasts finish
+let startWipeAfterPerks = false; // win landed while a perk toast was still playing
 let winStartReal = 0;
 let winX = 0;
 let winY = 0;
@@ -590,6 +590,10 @@ function saveEarnedPerks() {
 const perkCardEl = document.getElementById("perk-card");
 const perkCountEl = document.getElementById("perk-count");
 const perkTotalEl = document.getElementById("perk-total");
+const statGamesPlayedEl = document.getElementById("stat-games-played");
+const statBestScoreEl = document.getElementById("stat-best-score");
+const statTimePlayedEl = document.getElementById("stat-time-played");
+const statBestChainEl = document.getElementById("stat-best-chain");
 const perksOverlayEl = document.getElementById("perks-overlay");
 const perksGridEl = document.getElementById("perks-grid");
 const perksCloseEl = document.getElementById("perks-close");
@@ -610,6 +614,75 @@ function perkIconHTML(perk) {
 function updatePerkCardUI() {
   if (perkCountEl) perkCountEl.textContent = earnedPerks.size;
   if (perkTotalEl) perkTotalEl.textContent = PERKS.length;
+}
+
+/* ── PERSISTENT STATS (shown in the Game Statistic overlay) ──────────────── */
+const HIGH_KEY = "pm_high_score";
+const GAMES_KEY = "pm_games_played";
+const TIME_KEY = "pm_play_time_ms";
+const CHAIN_KEY = "pm_best_chain";
+
+function loadNum(key) {
+  try {
+    const n = parseInt(localStorage.getItem(key) || "0", 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+function saveNum(key, n) {
+  try {
+    localStorage.setItem(key, String(n));
+  } catch {}
+}
+
+let highScore = loadNum(HIGH_KEY);
+let gamesPlayed = loadNum(GAMES_KEY);
+let totalPlayMs = loadNum(TIME_KEY);
+let bestChain = loadNum(CHAIN_KEY);
+
+function recordHigh() {
+  if (score > highScore) {
+    highScore = score;
+    saveNum(HIGH_KEY, highScore);
+  }
+}
+function recordBestChain(c) {
+  if (c > bestChain) {
+    bestChain = c;
+    saveNum(CHAIN_KEY, bestChain);
+  }
+}
+function recordGamePlayed() {
+  gamesPlayed += 1;
+  saveNum(GAMES_KEY, gamesPlayed);
+}
+
+// Play-time clock: counts wall-clock time only while a round is active. Banked
+// on game end and on leaving (visibilitychange), resumed when the tab returns.
+let playClockStart = 0;
+function startPlayClock() {
+  playClockStart = Date.now();
+}
+function bankPlayTime() {
+  if (!playClockStart) return;
+  totalPlayMs += Date.now() - playClockStart;
+  playClockStart = 0;
+  saveNum(TIME_KEY, totalPlayMs);
+}
+
+function fmtPlayTime(ms) {
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "<1m";
+  if (min < 60) return `${min}m`;
+  return `${Math.floor(min / 60)}h ${min % 60}m`;
+}
+
+function updateStatsUI() {
+  if (statGamesPlayedEl) statGamesPlayedEl.textContent = gamesPlayed;
+  if (statBestScoreEl) statBestScoreEl.textContent = highScore;
+  if (statTimePlayedEl) statTimePlayedEl.textContent = fmtPlayTime(totalPlayMs);
+  if (statBestChainEl) statBestChainEl.textContent = bestChain;
 }
 
 // Explanation-clip playback. One clip plays at a time; clicking an audio
@@ -689,9 +762,26 @@ function setPerksTab(tab) {
   renderPerksGrid();
 }
 
+// Top-level tab switch in the overlay: "stats" (Game Statistic) vs "perks".
+function setMainTab(name) {
+  document
+    .querySelectorAll(".main-tab")
+    .forEach((t) => t.classList.toggle("active", t.dataset.main === name));
+  document
+    .querySelectorAll(".main-panel")
+    .forEach((p) => p.classList.toggle("active", p.dataset.mainPanel === name));
+  if (name === "stats") updateStatsUI();
+  if (name === "perks") renderPerksGrid();
+}
+
+document.querySelectorAll(".main-tab").forEach((t) =>
+  t.addEventListener("click", () => setMainTab(t.dataset.main)),
+);
+
 perkCardEl?.addEventListener("click", () => {
-  // Jump straight to the tab of the most recently earned perk so a fresh
-  // unlock isn't hidden behind the default "wins" tab full of question marks.
+  // The in-game perk card jumps straight to the Perks tab, on the sub-tab of
+  // the most recently earned perk so a fresh unlock isn't buried.
+  setMainTab("perks");
   setPerksTab(lastEarnedTab || perksActiveTab);
   perksOverlayEl.classList.add("visible");
 });
@@ -728,6 +818,12 @@ function earnPerk(id) {
 function playNextPerkToast() {
   if (!perkToastQueue.length) {
     perkToastPlaying = false;
+    // A win that landed mid-toast waited for the queue: start its wipe now, so
+    // the celebration only covers the screen after every achievement has shown.
+    if (startWipeAfterPerks) {
+      startWipeAfterPerks = false;
+      beginWinWipe();
+    }
     return;
   }
   perkToastPlaying = true;
@@ -1001,6 +1097,7 @@ Events.on(engine, "collisionActive", ({ pairs }) => {
  */
 function registerChain(x, y) {
   chainCount++;
+  recordBestChain(chainCount);
 
   if (chainCount < 2) return;
 
@@ -1200,6 +1297,7 @@ function flushMerges() {
     // Score is just a merge counter now: +1 per merge, regardless of planet.
     score += 1;
     scoreEl.textContent = score;
+    recordHigh();
     earnPerk(`merge-${newLvl}`); // first time this planet is created
     if (score >= 200) earnPerk("win-200");
     // New planet unlocked this run → light-blue glow tracing its edges.
@@ -1237,6 +1335,7 @@ function flushVanishes() {
     // Two Suns merging counts as one merge, same as any other.
     score += 1;
     scoreEl.textContent = score;
+    recordHigh();
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
     popups.push({ x: mx, y: my, t: totalMs, text: "+1", big: true });
     registerChain(mx, my);
@@ -1250,6 +1349,8 @@ function flushVanishes() {
 function startWinSequence(x, y) {
   if (winActive) return;
   reportGameEnd("won", score, difficulty);
+  clearSavedGame(); // won → no resume
+  bankPlayTime();
   earnPerk(`win-${difficulty}`); // Easy/Normal/Hard cleared perk
   // Record the unlock now so the popup can announce it and the picker reflects
   // it the moment the player continues.
@@ -1265,9 +1366,8 @@ function startWinSequence(x, y) {
     winMessage = "You cleared Hard mode. You are a Planet Master!";
   }
 
-  winActive = true;
+  winActive = true; // freeze the board + block input immediately
   winPopupShown = false;
-  winStartReal = performance.now();
   winX = x;
   winY = y;
   // Farthest corner from the merge point — how big the circle must grow to
@@ -1278,6 +1378,16 @@ function startWinSequence(x, y) {
     Math.hypot(x, H - y),
     Math.hypot(W - x, H - y),
   );
+  // Let any achievement toasts (the Sun merge perk, then "Mode Cleared") play
+  // out one after another BEFORE the white wipe covers the screen. If a toast
+  // is mid-flight, defer the wipe until the queue drains (see playNextPerkToast).
+  if (perkToastPlaying) startWipeAfterPerks = true;
+  else beginWinWipe();
+}
+
+function beginWinWipe() {
+  winWipeStarted = true;
+  winStartReal = performance.now();
 }
 
 function drawWinAnimation() {
@@ -1348,6 +1458,8 @@ function endGame() {
   gameOver = true;
   finalEl.textContent = score;
   reportGameEnd("lost", score, difficulty);
+  clearSavedGame(); // a finished game shouldn't offer a resume
+  bankPlayTime();
   if (score < 100) earnPerk("lose-under-100"); // play the game in reverse
   if (score < 150) earnPerk("lose-under-150");
   overlayEl.classList.add("visible");
@@ -1466,8 +1578,9 @@ function frame(ts) {
     ctx.restore();
   }
 
-  /* Mode-clear wipe sits on top of everything. */
-  if (winActive) drawWinAnimation();
+  /* Mode-clear wipe sits on top of everything. Held back until the achievement
+     toasts have finished playing (winWipeStarted), so it never covers them. */
+  if (winWipeStarted) drawWinAnimation();
 
   requestAnimationFrame(frame);
 }
@@ -1597,6 +1710,8 @@ function resetGameState() {
 
 function clearWinState() {
   winActive = false;
+  winWipeStarted = false;
+  startWipeAfterPerks = false;
   winPopupShown = false;
   winOverlayEl.classList.remove("visible");
 }
@@ -1622,6 +1737,8 @@ function startGame(diff) {
   clearWinState();
   difficulty = diff;
   reportGameStart(diff);
+  recordGamePlayed();
+  startPlayClock();
   rebuildDropTable();
   resetGameState();
   applyLegendMode(diff);
@@ -1639,14 +1756,12 @@ initAnalytics(() => ({
   mode: difficulty,
 }));
 
-// Optional name field on the difficulty picker. Stored on the player's device
-// (via analytics.js) and sent with every event so the admin can tell players
-// apart even when their IP changes.
-const playerNameInput = document.getElementById("player-name-input");
-if (playerNameInput) {
-  playerNameInput.value = getPlayerName();
-  playerNameInput.addEventListener("input", () => setPlayerName(playerNameInput.value));
-}
+// Lobby "Game Statistic" button opens the overlay on the stats tab.
+const gameStatBtn = document.getElementById("game-stat-btn");
+gameStatBtn?.addEventListener("click", () => {
+  setMainTab("stats");
+  perksOverlayEl.classList.add("visible");
+});
 
 function showDifficultyPicker() {
   // Wipe the board so nothing animates behind the overlay between rounds.
@@ -1668,7 +1783,7 @@ function showDifficultyPicker() {
   gameOver = false;
   clearWinState();
   refreshDifficultyLocks();
-  updateContinueBtn();
+  checkResume();
   planetLegendEl?.classList.add("hidden");
   overlayEl.classList.remove("visible");
   difficultyOverlayEl.classList.add("visible");
@@ -1719,10 +1834,9 @@ refreshDifficultyLocks();
    writes; the start screen's Continue button reads. Saving is non-destructive:
    the snapshot stays until the player saves again or clears storage, so they
    can keep playing after a save and still resume that point later. */
-const saveBtn = document.getElementById("save-btn");
-const saveBtnLabel = document.getElementById("save-btn-label");
-const continueBtn = document.getElementById("continue-saved");
-const continueLabel = document.getElementById("continue-saved-label");
+const resumeOverlayEl = document.getElementById("resume-overlay");
+const resumeContinueBtn = document.getElementById("resume-continue");
+const resumeNewBtn = document.getElementById("resume-new");
 
 function snapshotBodies() {
   const out = [];
@@ -1743,13 +1857,11 @@ function snapshotBodies() {
   return out;
 }
 
+// Silent auto-save. Called when the player leaves mid-game; there is no manual
+// save button. Skips when there's nothing meaningful to save (no mode picked,
+// after a loss, or mid win-wipe).
 function saveGame() {
-  // Nothing meaningful to save before a mode is picked, after a loss, or mid
-  // win-wipe. Give the player a clear "can't save right now" nudge instead.
-  if (difficulty === null || gameOver || winActive) {
-    flashSaveBtn("Nothing\nto Save");
-    return;
-  }
+  if (difficulty === null || gameOver || winActive) return;
   const data = {
     v: 1,
     difficulty,
@@ -1763,23 +1875,7 @@ function saveGame() {
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    flashSaveBtn("Saved!");
-  } catch (_) {
-    flashSaveBtn("Save\nFailed");
-  }
-}
-
-// Brief label swap + tint on the save button, then restore the default label.
-let saveFlashTimer = null;
-function flashSaveBtn(msg) {
-  if (!saveBtn || !saveBtnLabel) return;
-  saveBtn.classList.add("saved");
-  saveBtnLabel.innerHTML = msg.replace(/\n/g, "<br>");
-  clearTimeout(saveFlashTimer);
-  saveFlashTimer = setTimeout(() => {
-    saveBtn.classList.remove("saved");
-    saveBtnLabel.innerHTML = "Save<br>Progress";
-  }, 1400);
+  } catch (_) {}
 }
 
 function loadSavedGame() {
@@ -1800,17 +1896,14 @@ function clearSavedGame() {
   } catch (_) {}
 }
 
-// Show/hide the start-screen Continue button based on whether a save exists.
-function updateContinueBtn() {
-  if (!continueBtn) return;
+// Show the resume popup over the picker when a saved (auto-saved) game exists.
+function checkResume() {
+  if (!resumeOverlayEl) return;
   const saved = loadSavedGame();
   if (saved && isUnlocked(saved.difficulty)) {
-    if (continueLabel) {
-      continueLabel.textContent = `Continue saved ${capMode(saved.difficulty)} game`;
-    }
-    continueBtn.classList.add("show");
+    resumeOverlayEl.classList.add("visible");
   } else {
-    continueBtn.classList.remove("show");
+    resumeOverlayEl.classList.remove("visible");
   }
 }
 
@@ -1873,22 +1966,40 @@ function restoreGame(data) {
   overlayEl.classList.remove("visible");
   difficultyOverlayEl.classList.remove("visible");
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
+  startPlayClock();
 }
 
-saveBtn?.addEventListener("click", saveGame);
-
-continueBtn?.addEventListener("click", () => {
-  const saved = loadSavedGame();
-  if (!saved) {
-    updateContinueBtn();
-    return;
+// Auto-save + bank play time when the player leaves mid-game (tab close, app
+// switch, screen lock); resume the clock when the tab returns to an active game.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    bankPlayTime();
+    saveGame();
+  } else if (difficulty !== null && !gameOver && !winActive) {
+    startPlayClock();
   }
-  playPop();
-  restoreGame(saved);
 });
 
-// Reflect any saved game on the picker that's already on screen at load.
-updateContinueBtn();
+resumeContinueBtn?.addEventListener("click", () => {
+  const saved = loadSavedGame();
+  resumeOverlayEl?.classList.remove("visible");
+  if (!saved) return;
+  playPop();
+  restoreGame(saved);
+  // One-time resume: consume the save so the player can't keep rewinding to the
+  // same point. Leaving again mid-game writes a fresh save.
+  clearSavedGame();
+});
+
+resumeNewBtn?.addEventListener("click", () => {
+  // Discard the saved game and reveal the picker that's already behind the popup.
+  playPop();
+  resumeOverlayEl?.classList.remove("visible");
+  clearSavedGame();
+});
+
+// Show the resume popup over the picker if a saved game exists at load.
+checkResume();
 
 /* ── FULLSCREEN ─────────────────────────────────────────────────────────
    Requests fullscreen on the documentElement so the entire game body goes
@@ -2028,14 +2139,24 @@ clearSaveBtn?.addEventListener("click", () => {
   try {
     localStorage.removeItem(UNLOCK_KEY);
     localStorage.removeItem(PERK_KEY);
+    localStorage.removeItem(HIGH_KEY);
+    localStorage.removeItem(GAMES_KEY);
+    localStorage.removeItem(TIME_KEY);
+    localStorage.removeItem(CHAIN_KEY);
   } catch {}
   clearSavedGame();
   unlockedModes = loadUnlocks(); // back to defaults (easy only)
   earnedPerks = new Set();
+  highScore = 0;
+  gamesPlayed = 0;
+  totalPlayMs = 0;
+  bestChain = 0;
+  playClockStart = 0;
   updatePerkCardUI();
+  updateStatsUI();
   if (perksOpen()) renderPerksGrid();
   refreshDifficultyLocks();
-  updateContinueBtn();
+  checkResume();
   if (clearSaveMsg) {
     clearSaveMsg.textContent = "cleared!";
     setTimeout(() => {

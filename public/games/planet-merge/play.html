@@ -14,8 +14,12 @@
       if (new URLSearchParams(location.search).get('dev') === '1') {
         document.documentElement.classList.add('dev-mode');
       }
-      // Block wheel events from bubbling out and scrolling the parent page.
-      window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+      // Block wheel events from bubbling out and scrolling the parent page,
+      // EXCEPT inside scrollable UI like the perks grid, which must scroll.
+      window.addEventListener('wheel', (e) => {
+        if (e.target.closest && e.target.closest('.perks-grid')) return;
+        e.preventDefault();
+      }, { passive: false });
     </script>
 </head>
 <body>
@@ -68,10 +72,6 @@
                 <div class="difficulty-inner">
                     <h1 class="difficulty-title">Planet Merge</h1>
                     <p class="difficulty-sub">Choose your adventure!</p>
-                    <button id="continue-saved" type="button">
-                        <span class="continue-icon" aria-hidden="true">▶</span>
-                        <span id="continue-saved-label">Continue saved game</span>
-                    </button>
                     <div class="difficulty-buttons">
                         <button class="diff-btn diff-easy" type="button" data-diff="easy">
                             <span class="diff-icon diff-icon-stack">
@@ -107,24 +107,45 @@
                             <span class="diff-lock" aria-hidden="true">🔒</span>
                         </button>
                     </div>
-                    <div class="player-name-field">
-                        <label for="player-name-input">Your name (optional)</label>
-                        <input id="player-name-input" type="text" maxlength="20" placeholder="Enter a name" autocomplete="off" spellcheck="false">
-                    </div>
+                    <button id="game-stat-btn" type="button">
+                        <span class="game-stat-icon" aria-hidden="true">📊</span>
+                        Game Statistic
+                    </button>
                 </div>
             </div>
             <div id="perks-overlay">
                 <div class="perks-inner">
                     <div class="perks-header">
-                        <h2 class="perks-title">Perks</h2>
-                        <button id="perks-close" type="button" aria-label="Close perks">✕</button>
+                        <div class="main-tabs">
+                            <button class="main-tab active" type="button" data-main="stats">Game Statistic</button>
+                            <button class="main-tab" type="button" data-main="perks">Perks</button>
+                        </div>
+                        <button id="perks-close" type="button" aria-label="Close">✕</button>
                     </div>
-                    <div class="perks-tabs">
-                        <button class="perks-tab active" type="button" data-tab="wins">Wins</button>
-                        <button class="perks-tab" type="button" data-tab="merges">Merges</button>
-                        <button class="perks-tab" type="button" data-tab="losing">Losing</button>
+
+                    <div class="main-panel stats-panel active" data-main-panel="stats">
+                        <div class="stat-line"><span class="stat-line-label">Games played</span><span class="stat-line-value" id="stat-games-played">0</span></div>
+                        <div class="stat-line"><span class="stat-line-label">Best score</span><span class="stat-line-value" id="stat-best-score">0</span></div>
+                        <div class="stat-line"><span class="stat-line-label">Time played</span><span class="stat-line-value" id="stat-time-played">0m</span></div>
+                        <div class="stat-line"><span class="stat-line-label">Best merge streak</span><span class="stat-line-value" id="stat-best-chain">0</span></div>
                     </div>
-                    <div class="perks-grid" id="perks-grid"></div>
+
+                    <div class="main-panel perks-panel" data-main-panel="perks">
+                        <div class="perks-tabs">
+                            <button class="perks-tab active" type="button" data-tab="wins">Wins</button>
+                            <button class="perks-tab" type="button" data-tab="merges">Merges</button>
+                            <button class="perks-tab" type="button" data-tab="losing">Losing</button>
+                        </div>
+                        <div class="perks-grid" id="perks-grid"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="resume-overlay">
+                <div class="resume-inner">
+                    <p class="resume-msg">We saved your progress.<br>Would you like to:</p>
+                    <button id="resume-continue" class="resume-btn resume-btn-primary" type="button">Continue</button>
+                    <div class="resume-or"><span>or start</span></div>
+                    <button id="resume-new" class="resume-btn" type="button">New Game</button>
                 </div>
             </div>
         </div>
@@ -211,13 +232,8 @@
          row placed BELOW the game container, so the buttons never overlap the
          playfield. -->
     <div id="game-controls">
-    <!-- Save progress: snapshots the live board so the player can close the
-         tab and resume later from the start screen's Continue button. Sits
-         next to How to Play. -->
-    <button id="save-btn" type="button" aria-label="Save progress to continue later">
-        <span class="save-btn-icon" aria-hidden="true">💾</span>
-        <span class="save-btn-label" id="save-btn-label">Save<br>Progress</span>
-    </button>
+    <!-- Progress auto-saves when the player leaves mid-game; the start screen's
+         Continue button offers a one-time resume. No manual save button. -->
     <!-- How-to-play popout: a small controller button. Opens a panel with
          how-to-play + controls. -->
     <div id="howto-popout">

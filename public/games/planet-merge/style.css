@@ -576,17 +576,18 @@ body.fullscreen #dev-panel { display: flex; }
    Full-canvas overlay shown on first load and re-openable from the game-over
    screen. Big rounded buttons, planet icons, color-coded per difficulty.
    Font is Fredoka via Google Fonts (loaded in play.html). */
+/* The overlay is just a scrim that covers the game board; the visible card is
+   .difficulty-inner, sized to its content so it hugs the buttons. */
 #difficulty-overlay {
     display: none;
     position: absolute;
     inset: 0;
     z-index: 20;
-    background: radial-gradient(circle at 50% 35%, #3a5680 0%, #1a2540 65%, #0a1020 100%);
+    background: rgba(8, 12, 22, 0.82);
     border-radius: 14px;
-    box-shadow: 0 16px 64px rgba(0,0,0,0.7);
     align-items: center;
     justify-content: center;
-    padding: 4% 5%;
+    padding: 20px;
     font-family: 'Fredoka', 'Segoe UI', sans-serif;
 }
 
@@ -594,11 +595,19 @@ body.fullscreen #dev-panel { display: flex; }
 
 .difficulty-inner {
     width: 100%;
-    max-width: 460px;
+    max-width: 480px;
     text-align: center;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding: 28px 26px;
+    border-radius: 22px;
+    background: radial-gradient(circle at 50% 20%, #34507a 0%, #1c2742 70%, #131c30 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.6),
+        0 0 30px rgba(254, 202, 87, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .difficulty-title {
@@ -617,64 +626,110 @@ body.fullscreen #dev-panel { display: flex; }
     margin-bottom: 14px;
 }
 
-/* Optional player name field, under the mode buttons. Sent with analytics so
-   the admin can tell players apart even when their IP changes. */
-.player-name-field {
+/* Game Statistic button under the mode buttons. Deliberately thinner than a
+   mode button (less vertical padding). Opens the stats/perks overlay. */
+#game-stat-btn {
+    margin-top: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-top: 14px;
-}
-.player-name-field label {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255,255,255,0.6);
-}
-.player-name-field input {
-    flex: 0 1 200px;
-    padding: 8px 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.16);
-    background: rgba(255,255,255,0.06);
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
     color: #fff;
-    font-size: 14px;
     font-family: inherit;
-    outline: none;
-    transition: border-color 0.15s, background 0.15s;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
-.player-name-field input::placeholder {
-    color: rgba(255,255,255,0.35);
+#game-stat-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(254, 202, 87, 0.5);
 }
-.player-name-field input:focus {
-    border-color: rgba(126,217,87,0.7);
-    background: rgba(255,255,255,0.1);
-}
+#game-stat-btn:active { transform: scale(0.98); }
+.game-stat-icon { font-size: 17px; }
 
 /* Resume button. Hidden unless a saved game exists in localStorage; shown
    above the mode buttons so a returning player can jump straight back in. */
-#continue-saved {
+/* Resume popup: shown over the picker when a saved game exists. Continue (top)
+   resumes and consumes the save; New Game (bottom) discards it. */
+#resume-overlay {
     display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 28; /* above the difficulty picker (20) */
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 14px;
-    padding: 13px 18px;
-    border-radius: 22px;
-    border: 3px solid rgba(125, 223, 255, 0.7);
-    background: rgba(125, 223, 255, 0.12);
+    padding: 20px;
+    background: rgba(6, 10, 20, 0.62);
+    border-radius: 14px;
+}
+#resume-overlay.visible { display: flex; }
+
+/* Branded card: space-blue gradient, soft border, layered shadow with a faint
+   yellow brand glow, so the popup reads as a contained box. */
+.resume-inner {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+    padding: 28px 24px;
+    border-radius: 20px;
+    background: radial-gradient(circle at 50% 20%, #34507a 0%, #1c2742 70%, #131c30 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(254, 202, 87, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.resume-msg {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.4;
+}
+.resume-btn {
+    padding: 14px 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
     color: #fff;
     font-family: inherit;
-    font-size: clamp(15px, 2.6vw, 18px);
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     cursor: pointer;
     transition: background 0.15s, transform 0.1s, border-color 0.15s;
 }
+.resume-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.resume-btn:active { transform: scale(0.97); }
+.resume-btn-primary {
+    background: linear-gradient(135deg, #7ed957, #57c785);
+    border-color: transparent;
+    color: #0c1f15;
+}
+.resume-btn-primary:hover { background: linear-gradient(135deg, #8ee066, #63d491); }
 
-#continue-saved.show  { display: flex; }
-#continue-saved:hover { background: rgba(125, 223, 255, 0.22); border-color: rgba(125, 223, 255, 0.95); }
-#continue-saved:active { transform: scale(0.97); }
-.continue-icon { font-size: 0.85em; }
+.resume-or {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+.resume-or::before,
+.resume-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.18);
+}
 
 .difficulty-buttons {
     display: flex;
@@ -926,6 +981,17 @@ body.fullscreen #dev-panel { display: flex; }
 }
 #perks-overlay.visible { display: flex; }
 
+/* Fill the overlay and become the flex column so the grid below can take the
+   leftover space and scroll. Without this the grid's `flex: 1` has no flex
+   parent, so it grows to fit every perk and never scrolls. */
+.perks-inner {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .perks-header {
     display: flex;
     align-items: center;
@@ -952,6 +1018,61 @@ body.fullscreen #dev-panel { display: flex; }
     transition: background 0.15s;
 }
 #perks-close:hover { background: rgba(255, 255, 255, 0.18); }
+
+/* Top-level tabs in the overlay header: Game Statistic | Perks. */
+.main-tabs {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    margin-right: 12px;
+}
+.main-tab {
+    flex: 1;
+    padding: 10px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.main-tab.active {
+    background: linear-gradient(135deg, rgba(254, 202, 87, 0.28), rgba(254, 202, 87, 0.12));
+    border-color: rgba(254, 202, 87, 0.6);
+    color: #fff;
+}
+
+/* Each main tab's content fills the leftover space; only the active one shows. */
+.main-panel {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+.main-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-panel.active { padding-top: 6px; }
+.stat-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.stat-line-label {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.75);
+}
+.stat-line-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #FECA57;
+}
 
 .perks-tabs {
     display: flex;
@@ -986,8 +1107,32 @@ body.fullscreen #dev-panel { display: flex; }
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding-right: 6px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 10px;
     align-content: start;
+    /* Firefox: brand-yellow thumb on a transparent track. */
+    scrollbar-color: #FECA57 transparent;
+}
+
+/* Branded scrollbar (Chrome/Safari/Edge): transparent track, yellow thumb,
+   thicker, no up/down arrow buttons. */
+.perks-grid::-webkit-scrollbar {
+    width: 12px;
+}
+.perks-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+.perks-grid::-webkit-scrollbar-thumb {
+    background: #FECA57;
+    border-radius: 8px;
+    border: 2px solid transparent; /* small inset gap; track shows through */
+    background-clip: padding-box;
+}
+.perks-grid::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .perk-tile {
