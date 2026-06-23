@@ -54,6 +54,27 @@
   text-transform: capitalize;
 }
 
+.stats-check-btn {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--primary-green) 45%, transparent);
+  background: color-mix(in srgb, var(--primary-green) 12%, transparent);
+  color: var(--primary-green);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stats-check-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary-green) 20%, transparent);
+  border-color: var(--primary-green);
+}
+.stats-check-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .stats-live-count {
   display: inline-block;
   margin-left: 8px;

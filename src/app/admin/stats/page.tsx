@@ -6,6 +6,7 @@ import ClearLocalButton from "./ClearLocalButton";
 import DeleteLogButton from "./DeleteLogButton";
 import PlayerRow from "./PlayerRow";
 import AutoRefresh from "./AutoRefresh";
+import CheckLiveButton from "./CheckLiveButton";
 
 // Read-only window onto the anonymous gameplay stats collected by /api/stats.
 // Lives under /admin, so proxy.ts makes it 404 in production: you view it by
@@ -24,9 +25,23 @@ type StatEvent = {
   durationMs: number;
   ts: number;
   ip: string;
+  sessionId: string | null;
   playerId: string | null;
   playerName: string | null;
   client: ClientInfo | null;
+};
+
+type SessionRow = {
+  sessionId: string;
+  playerId: string | null;
+  mode: string | null;
+  result: "won" | "lost" | "quit" | "playing";
+  score: number;
+  startTs: number;
+  endTs: number | null;
+  durationMs: number;
+  ip: string;
+  ts: number; // sort key
 };
 
 type ClientInfo = {
@@ -99,6 +114,7 @@ async function loadEvents(): Promise<{ events: StatEvent[]; error: string | null
         durationMs: Number(v.durationMs ?? 0),
         ts: Number(v.ts ?? 0),
         ip: String(v.ip ?? v.ipPrefix ?? "—"),
+        sessionId: v.sessionId ? String(v.sessionId) : null,
         playerId: v.playerId ? String(v.playerId) : null,
         playerName: v.playerName ? String(v.playerName) : null,
         client: readClient(v.client),
@@ -123,6 +139,69 @@ async function loadLabels(): Promise<Map<string, string>> {
     // No labels collection yet, or read failed: fall back to nicknames.
   }
   return labels;
+}
+
+// Time of the last admin "Check live players" request, and each player's pong
+// (their answer). Used to prune unresponsive players from Currently Playing.
+async function loadVerifyAt(): Promise<number> {
+  try {
+    const doc = await adminDb.collection("meta").doc("live_check").get();
+    return doc.exists ? Number(doc.get("at")) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+async function loadPongs(): Promise<Map<string, number>> {
+  const pongs = new Map<string, number>();
+  try {
+    const snap = await adminDb.collection("presence").get();
+    snap.docs.forEach((d) => {
+      const pid = String(d.data().playerId ?? "");
+      if (pid) pongs.set(pid, Number(d.data().lastPong) || 0);
+    });
+  } catch {
+    // no presence collection yet
+  }
+  return pongs;
+}
+
+// Pair start + end events by sessionId into one row per round, so the table can
+// show the start date and the quit/end date side by side.
+function summariseSessions(events: StatEvent[]): SessionRow[] {
+  const byId = new Map<string, SessionRow>();
+  for (const e of events) {
+    if (e.event !== "start" && e.event !== "game_over" && e.event !== "quit") continue;
+    if (!e.sessionId) continue;
+    let s = byId.get(e.sessionId);
+    if (!s) {
+      s = {
+        sessionId: e.sessionId,
+        playerId: e.playerId,
+        mode: e.mode,
+        result: "playing",
+        score: 0,
+        startTs: 0,
+        endTs: null,
+        durationMs: 0,
+        ip: e.ip,
+        ts: 0,
+      };
+      byId.set(e.sessionId, s);
+    }
+    if (e.playerId) s.playerId = e.playerId;
+    if (e.mode) s.mode = e.mode;
+    if (e.ip && e.ip !== "—") s.ip = e.ip;
+    if (e.event === "start") {
+      s.startTs = e.ts;
+    } else {
+      s.endTs = e.ts;
+      s.score = e.score;
+      s.durationMs = e.durationMs;
+      s.result = e.event === "quit" ? "quit" : e.outcome === "won" ? "won" : "lost";
+    }
+    s.ts = Math.max(s.startTs, s.endTs ?? 0);
+  }
+  return [...byId.values()].sort((a, b) => b.ts - a.ts).slice(0, 30);
 }
 
 function summarisePlayers(
@@ -267,30 +346,46 @@ export default async function AdminStatsPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const [{ events, error }, labels] = await Promise.all([
+  const [{ events, error }, labels, verifyAt, pongs] = await Promise.all([
     loadEvents(),
     loadLabels(),
+    loadVerifyAt(),
+    loadPongs(),
   ]);
   const games = summarise(events);
   const players = summarisePlayers(events, labels);
-  // "Currently playing" = the player's most recent event is a start, meaning
-  // they entered a round and have not ended or quit it. Derived purely from the
-  // events already stored, no extra writes.
-  const currentlyPlaying = players.filter((p) => p.lastEvent === "start");
 
-  // Resolve a friendly label for a session row from its player id.
+  // "Currently playing" = the player's most recent event is a start and they
+  // have not left (a quit is only logged when they close the tab / leave the
+  // site). Switching tabs does not change this.
+  //
+  // Staleness guard (no extra writes): if a quit can never fire (phone dies, OS
+  // restart, all tabs closed at once) the start would otherwise linger forever,
+  // so the start must also be recent.
+  //
+  // Live check: when "Check live players" is clicked it stamps verifyAt; playing
+  // clients answer with a pong. After a short grace, anyone who started before
+  // the check and did not pong since is pruned.
+  const PLAYING_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+  const RESPONSE_GRACE_MS = 25 * 1000; // time for clients to answer a check
+  const now = Date.now();
+  const verifyEnforced = verifyAt > 0 && now - verifyAt >= RESPONSE_GRACE_MS;
+  const currentlyPlaying = players.filter((p) => {
+    if (p.lastEvent !== "start") return false;
+    if (now - p.lastSeen >= PLAYING_WINDOW_MS) return false;
+    if (!verifyEnforced) return true;
+    // started after the check (new) or answered it (alive) → keep; else prune.
+    return Math.max(p.lastSeen, pongs.get(p.playerId) ?? 0) >= verifyAt;
+  });
+
+  // Resolve a friendly label from a player id.
   const nameById = new Map(players.map((p) => [p.playerId, p.name]));
-  const sessionPlayer = (e: StatEvent): string => {
-    if (!e.playerId) return "—";
-    return nameById.get(e.playerId) || shortId(e.playerId);
+  const playerName = (playerId: string | null): string => {
+    if (!playerId) return "—";
+    return nameById.get(playerId) || shortId(playerId);
   };
 
-  const sessions = events
-    .filter(
-      (e) =>
-        e.event === "start" || e.event === "game_over" || e.event === "quit",
-    )
-    .slice(0, 30);
+  const sessions = summariseSessions(events);
 
   return (
     <div className="admin-content">
@@ -306,10 +401,13 @@ export default async function AdminStatsPage() {
       <AutoRefresh seconds={20} />
 
       <div className="stats-game-block">
-        <h2 className="stats-game-title">
-          Currently Playing
-          <span className="stats-live-count">{currentlyPlaying.length}</span>
-        </h2>
+        <div className="stats-header-row">
+          <h2 className="stats-game-title">
+            Currently Playing
+            <span className="stats-live-count">{currentlyPlaying.length}</span>
+          </h2>
+          <CheckLiveButton />
+        </div>
         {currentlyPlaying.length === 0 ? (
           <p className="admin-section-sub">No one is in a round right now.</p>
         ) : (
@@ -446,18 +544,18 @@ export default async function AdminStatsPage() {
         <div className="stats-game-block">
           <h2 className="stats-game-title">Recent sessions</h2>
           <p className="admin-section-sub">
-            Each round as it happened: &quot;start&quot; when a player entered, then
-            &quot;won&quot;/&quot;lost&quot; if it ended, or &quot;quit&quot; with the score at the moment they
-            left mid-round.
+            One row per round: when the player started and when they ended (won,
+            lost, or quit mid-round). &quot;Started&quot; and &quot;Ended&quot; sit side by side.
           </p>
           <table className="stats-table">
             <thead>
               <tr>
-                <th>When</th>
                 <th>Player</th>
                 <th>Mode</th>
                 <th>Result</th>
                 <th>Score</th>
+                <th>Started</th>
+                <th>Ended</th>
                 <th>Played for</th>
                 <th>IP</th>
                 <th aria-label="Delete"></th>
@@ -465,32 +563,25 @@ export default async function AdminStatsPage() {
             </thead>
             <tbody>
               {sessions.map((s) => (
-                <tr key={s.id}>
-                  <td>{fmtTime(s.ts)}</td>
-                  <td>{sessionPlayer(s)}</td>
+                <tr key={s.sessionId}>
+                  <td>{playerName(s.playerId)}</td>
                   <td>{s.mode ?? "—"}</td>
                   <td>
                     <span
                       className={`stats-badge stats-badge--${
-                        s.event === "start"
-                          ? "start"
-                          : s.event === "quit"
-                            ? "quit"
-                            : s.outcome ?? "lost"
+                        s.result === "playing" ? "start" : s.result
                       }`}
                     >
-                      {s.event === "start"
-                        ? "start"
-                        : s.event === "quit"
-                          ? "quit"
-                          : s.outcome ?? "ended"}
+                      {s.result === "playing" ? "playing" : s.result}
                     </span>
                   </td>
                   <td>{s.score.toLocaleString()}</td>
+                  <td>{s.startTs ? fmtTime(s.startTs) : "—"}</td>
+                  <td>{s.endTs ? fmtTime(s.endTs) : "—"}</td>
                   <td>{fmtDuration(s.durationMs)}</td>
                   <td className="stats-ip">{s.ip}</td>
                   <td className="stats-del-cell">
-                    <DeleteLogButton id={s.id} />
+                    <DeleteLogButton sessionId={s.sessionId} />
                   </td>
                 </tr>
               ))}

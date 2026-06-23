@@ -18,7 +18,24 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
  */
 export const runtime = "nodejs";
 
-const ALLOWED_EVENTS = new Set(["open", "start", "game_over", "quit"]);
+const ALLOWED_EVENTS = new Set(["open", "start", "game_over", "quit", "pong"]);
+
+// Firestore doc ids can't contain "/". Player ids are client-generated, so bound + sanitise.
+function safeDocId(id: string): string {
+  return id.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 200) || "unknown";
+}
+
+// GET is public + read-only: playing clients poll it to learn whether the admin
+// has requested a live check. Returns the latest verify timestamp; clients that
+// see a newer one answer with a single "pong". No database writes here.
+export async function GET() {
+  try {
+    const doc = await adminDb.collection("meta").doc("live_check").get();
+    return NextResponse.json({ verifyAt: doc.exists ? Number(doc.get("at")) || 0 : 0 });
+  } catch {
+    return NextResponse.json({ verifyAt: 0 });
+  }
+}
 const ALLOWED_OUTCOMES = new Set(["lost", "won", "quit"]);
 const MAX_SCORE = 100_000; // real scores are merge counts (~hundreds); ceiling is sanity only
 const MAX_DURATION_MS = 6 * 60 * 60 * 1000; // 6h; anything longer is junk
@@ -103,6 +120,23 @@ export async function POST(req: NextRequest) {
   const durationMs = asInt(data.durationMs, 0, MAX_DURATION_MS);
   const client = cleanClient(data.client);
 
+  // A "pong" answers an admin live-check: refresh the player's presence doc
+  // (one per player, overwritten) and stop. It is never logged as an event, so
+  // it does not affect the player's "latest event" (start) or the stats.
+  if (event === "pong") {
+    if (playerId) {
+      try {
+        await adminDb
+          .collection("presence")
+          .doc(safeDocId(playerId))
+          .set({ playerId, game, lastPong: Date.now() });
+      } catch {
+        // best effort
+      }
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // 4. Store one document per event. The full IP is kept for the admin
   //    dashboard + abuse triage; it is admin-only and never exposed publicly.
   try {
@@ -146,6 +180,13 @@ export async function PUT(req: NextRequest) {
     data = (await req.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
+  }
+
+  // Admin "Check live players": stamp a verify time. Playing clients see it on
+  // their next poll and answer with a pong; non-responders get pruned.
+  if (data.action === "verify") {
+    await adminDb.collection("meta").doc("live_check").set({ at: Date.now() });
+    return NextResponse.json({ ok: true, at: Date.now() });
   }
 
   const playerId =
@@ -200,6 +241,19 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ deleted: 1 });
   }
 
+  // ?sessionId=<id> deletes a whole session (its start + end rows).
+  const sessionId = params.get("sessionId");
+  if (sessionId) {
+    const owned = await adminDb
+      .collection("game_stats")
+      .where("sessionId", "==", sessionId)
+      .get();
+    const batch = adminDb.batch();
+    owned.docs.forEach((d) => batch.delete(d.ref));
+    if (owned.size) await batch.commit();
+    return NextResponse.json({ deleted: owned.size });
+  }
+
   // ?playerId=<id> deletes every log for that player plus their name label.
   const playerId = params.get("playerId");
   if (playerId) {
@@ -222,6 +276,7 @@ export async function DELETE(req: NextRequest) {
     }
     if (pending) await batch.commit();
     await adminDb.collection("player_labels").doc(playerId).delete().catch(() => {});
+    await adminDb.collection("presence").doc(safeDocId(playerId)).delete().catch(() => {});
     return NextResponse.json({ deleted });
   }
 

@@ -3,17 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Deletes a single stats log row by its Firestore doc id.
-export default function DeleteLogButton({ id }: { id: string }) {
+// Deletes a stats log: a single row by doc id, or a whole session by sessionId.
+export default function DeleteLogButton({
+  id,
+  sessionId,
+}: {
+  id?: string;
+  sessionId?: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   async function remove() {
+    const query = sessionId
+      ? `sessionId=${encodeURIComponent(sessionId)}`
+      : `id=${encodeURIComponent(id ?? "")}`;
     setBusy(true);
     try {
-      const res = await fetch(`/api/stats?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/stats?${query}`, { method: "DELETE" });
       if (res.ok) router.refresh();
     } finally {
       setBusy(false);
@@ -26,8 +33,8 @@ export default function DeleteLogButton({ id }: { id: string }) {
       className="stats-row-del"
       onClick={remove}
       disabled={busy}
-      aria-label="Delete this log"
-      title="Delete this log"
+      aria-label="Delete this session"
+      title="Delete this session"
     >
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path

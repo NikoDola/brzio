@@ -202,23 +202,51 @@ export function reportGameEnd(outcome, score, mode) {
   });
 }
 
-// Best-effort snapshot when the player leaves mid-round (tab close, app switch,
-// screen lock). visibilitychange is the only signal that fires reliably on
-// mobile. Capped to one quit per round so repeated alt-tabbing cannot spam
-// writes. getSnapshot() returns the live game state so we record the score
-// they left off at.
-const QUIT_MIN_MS = 5000; // a hide before this, at score 0, is a glance, not a quit
+// Records a quit only when the player truly leaves the site (closes the tab or
+// navigates away), capped to one per round. getSnapshot() returns the live game
+// state so we record the score they left off at.
+const VERIFY_POLL_MS = 15000; // how often a playing client checks for a live-check
 
 export function initAnalytics(getSnapshot) {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "hidden") return;
+  // A quit is logged ONLY when the player actually leaves: closes the tab or
+  // navigates away from the site. `pagehide` fires on unload/navigation, NOT on
+  // a tab switch or a brief glance away, so switching tabs writes nothing and
+  // there is no write on return. One database write, only on a real exit.
+  window.addEventListener("pagehide", () => {
     const snap = getSnapshot();
     if (!snap || !snap.active || endReported || quitReported) return;
-    const durationMs = startedAt ? Date.now() - startedAt : 0;
-    // Ignore a hide right after starting with no progress: that is someone
-    // glancing away (e.g. switching tabs), not a real mid-round quit.
-    if (snap.score <= 0 && durationMs < QUIT_MIN_MS) return;
     quitReported = true;
-    send("quit", { score: snap.score, mode: snap.mode, durationMs }, true);
+    send(
+      "quit",
+      {
+        score: snap.score,
+        mode: snap.mode,
+        durationMs: startedAt ? Date.now() - startedAt : 0,
+      },
+      true, // beacon: survives the page being torn down
+    );
   });
+
+  // Manual live-check support. While actively playing, the client polls (a
+  // READ, no write) to see if the admin requested a check. When it sees a newer
+  // request it answers with a single "pong" (the only write, and only then). A
+  // dead/closed client never polls, so it never answers and gets pruned.
+  let lastVerifyAt = null; // null until the first poll establishes a baseline
+  async function pollLiveCheck() {
+    const snap = getSnapshot();
+    if (!snap || !snap.active) return; // only while in a round
+    try {
+      const res = await fetch(ENDPOINT, { method: "GET" });
+      const at = Number((await res.json()).verifyAt) || 0;
+      if (lastVerifyAt === null) {
+        lastVerifyAt = at; // first read is just a baseline, don't answer old checks
+      } else if (at > lastVerifyAt) {
+        lastVerifyAt = at;
+        send("pong", {});
+      }
+    } catch {
+      // ignore: a failed poll just means no answer this cycle
+    }
+  }
+  setInterval(pollLiveCheck, VERIFY_POLL_MS);
 }
