@@ -5,6 +5,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import ClearLocalButton from "./ClearLocalButton";
 import DeleteLogButton from "./DeleteLogButton";
 import PlayerRow from "./PlayerRow";
+import AutoRefresh from "./AutoRefresh";
 
 // Read-only window onto the anonymous gameplay stats collected by /api/stats.
 // Lives under /admin, so proxy.ts makes it 404 in production: you view it by
@@ -46,6 +47,8 @@ type PlayerSummary = {
   rounds: number; // start events
   bestScore: number;
   lastSeen: number;
+  lastEvent: string; // most recent event type (start = currently playing)
+  lastMode: string | null; // mode of the most recent event
   ips: string[]; // distinct, most-recent first
   client: ClientInfo | null; // most recent device/browser context
 };
@@ -143,6 +146,9 @@ function summarisePlayers(
         rounds: 0,
         bestScore: 0,
         lastSeen: 0,
+        // First time we see this player is their newest event (newest-first).
+        lastEvent: e.event,
+        lastMode: e.mode,
         ips: [],
         client: null,
         nickAt: 0,
@@ -172,6 +178,8 @@ function summarisePlayers(
         rounds: p.rounds,
         bestScore: p.bestScore,
         lastSeen: p.lastSeen,
+        lastEvent: p.lastEvent,
+        lastMode: p.lastMode,
         ips: p.ips,
         client: p.client,
       };
@@ -265,6 +273,10 @@ export default async function AdminStatsPage() {
   ]);
   const games = summarise(events);
   const players = summarisePlayers(events, labels);
+  // "Currently playing" = the player's most recent event is a start, meaning
+  // they entered a round and have not ended or quit it. Derived purely from the
+  // events already stored, no extra writes.
+  const currentlyPlaying = players.filter((p) => p.lastEvent === "start");
 
   // Resolve a friendly label for a session row from its player id.
   const nameById = new Map(players.map((p) => [p.playerId, p.name]));
@@ -290,6 +302,42 @@ export default async function AdminStatsPage() {
         Anonymous play data. Showing the most recent {READ_LIMIT.toLocaleString()} events.
         No personal data is stored.
       </p>
+
+      <AutoRefresh seconds={20} />
+
+      <div className="stats-game-block">
+        <h2 className="stats-game-title">
+          Currently Playing
+          <span className="stats-live-count">{currentlyPlaying.length}</span>
+        </h2>
+        {currentlyPlaying.length === 0 ? (
+          <p className="admin-section-sub">No one is in a round right now.</p>
+        ) : (
+          <table className="stats-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Mode</th>
+                <th>Started</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentlyPlaying.map((p) => (
+                <tr key={p.playerId}>
+                  <td>
+                    <span className="stats-live-dot" aria-hidden="true" />
+                    {p.name || shortId(p.playerId)}
+                  </td>
+                  <td>{p.lastMode ?? "—"}</td>
+                  <td>{fmtTime(p.lastSeen)}</td>
+                  <td className="stats-ip">{p.ips[0] ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {error && (
         <div className="stats-empty">

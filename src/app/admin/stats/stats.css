@@ -54,6 +54,35 @@
   text-transform: capitalize;
 }
 
+.stats-live-count {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary-green) 18%, transparent);
+  color: var(--primary-green);
+}
+
+.stats-live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--primary-green);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-green) 60%, transparent);
+  animation: stats-live-pulse 1.6s ease-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes stats-live-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-green) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
 .stats-empty {
   background: var(--surface);
   border: 1px solid var(--line-strong);
