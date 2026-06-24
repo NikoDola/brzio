@@ -86,60 +86,94 @@ body {
 }
 
 #game-stage {
-    position: relative; /* anchors the absolutely-positioned difficulty overlay */
-    display: grid;
-    /* Desktop: SCORE | CANVAS | NEXT — side panels sit beside the playfield. */
-    grid-template-columns: auto 1fr auto;
-    grid-template-areas: "score canvas next";
-    align-items: start;
-    width: 100%;
-    gap: 12px;
-}
-
-#game-stage > #score-col     { grid-area: score; }
-#game-stage > #canvas-wrapper { grid-area: canvas; }
-#game-stage > #next-panel    { grid-area: next; }
-
-/* Score panel + perk collection card stacked in the left column. */
-#score-col {
+    position: relative; /* anchors the absolutely-positioned overlays */
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
+    align-items: center;
+    gap: 10px;
+    /* The HUD bar and canvas share ONE width so they line up, and the layout is
+       identical on desktop and mobile. The canvas fits the viewport in both
+       orientations; the height budget leaves room for the bar + legend + controls. */
+    --canvas-w: min(calc(100vw - 24px), calc((100vh - 235px) * 840 / 927), 460px);
 }
 
-.panel {
-    flex: 1;
+/* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
+#hud-bar {
+    display: flex;
+    width: var(--canvas-w);
+    gap: 8px;
+}
+
+.hud-cell {
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 62px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 12px;
-    padding: 8px 14px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
+    padding: 6px 4px;
+    color: #fff;
+    font-family: inherit;
+}
+
+/* Any interactive HUD cell (perks, settings) shows the hand cursor. Lives on
+   the class so a new clickable cell can never forget it. */
+button.hud-cell { cursor: pointer; }
+
+.hud-value {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1;
 }
 
 .panel-label {
-    font-size: 10px;
-    letter-spacing: 3px;
-    opacity: 0.45;
+    font-size: 9px;
+    letter-spacing: 2px;
+    opacity: 0.5;
     font-weight: 600;
+    text-align: center;
 }
 
-#score {
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: 1px;
+/* Next-planet preview shrunk to fit the bar (internal canvas stays 70x70). */
+#hud-bar #next-canvas { width: 36px; height: 36px; display: block; }
+
+/* Shakes meter: a "water fill" that rises from the bottom of the cell as the
+   percentage grows, recoloured by JS (red → orange → yellow → green). The label
+   and value sit above the fill. */
+#shakes-panel { position: relative; overflow: hidden; }
+.shakes-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    background: #e0556b;
+    opacity: 0.85;
+    transition: height 0.7s ease, background-color 0.5s ease;
+    z-index: 0;
+    pointer-events: none;
 }
-
-#next-canvas { display: block; }
-
-.next-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+#shakes-panel .panel-label,
+#shakes-panel .hud-value {
+    position: relative;
+    z-index: 1;
+}
+/* Full + usable: glow green and invite a click. */
+#shakes-panel.armed {
+    cursor: pointer;
+    border-color: rgba(52, 199, 123, 0.8);
+    animation: shakes-armed 1.2s ease-in-out infinite;
+}
+@keyframes shakes-armed {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(52, 199, 123, 0.5), 0 0 8px rgba(52, 199, 123, 0.35); }
+    50% { box-shadow: 0 0 0 2px rgba(52, 199, 123, 0.9), 0 0 16px rgba(52, 199, 123, 0.6); }
 }
 
 /* Choose-power arrows: pinned just below the red danger line, centered as a
@@ -430,7 +464,7 @@ body.fullscreen #dev-panel { display: flex; }
     border-radius: 14px;
     overflow: hidden;
     box-shadow: 0 16px 64px rgba(0,0,0,0.7);
-    width: 100%;
+    width: var(--canvas-w);         /* shared with the HUD bar so they line up */
     aspect-ratio: 840 / 927;        /* matches canvas internal resolution */
 }
 
@@ -929,24 +963,16 @@ body.fullscreen #dev-panel { display: flex; }
 /* ── PERKS: collection card ────────────────────────────────────────────────
    Sits under the merges panel. Clicking opens the perks overlay. Not a bag —
    a sparkle + count. */
+/* The perks cell is a .hud-cell like the others (uniform look); it just adds
+   the clickable affordance. */
 #perk-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 8px 10px;
-    background: rgba(125, 223, 255, 0.08);
-    border: 1px solid rgba(125, 223, 255, 0.28);
-    border-radius: 12px;
-    color: #fff;
-    font-family: inherit;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
 #perk-card:hover {
-    background: rgba(125, 223, 255, 0.16);
-    border-color: rgba(125, 223, 255, 0.5);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 #perk-card:active { transform: scale(0.96); }
 
@@ -967,7 +993,8 @@ body.fullscreen #dev-panel { display: flex; }
 }
 
 /* ── PERKS: full-stage overlay ────────────────────────────────────────────*/
-#perks-overlay {
+#perks-overlay,
+#settings-overlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -979,7 +1006,134 @@ body.fullscreen #dev-panel { display: flex; }
     font-family: 'Fredoka', 'Segoe UI', sans-serif;
     padding: 16px 18px 20px;
 }
-#perks-overlay.visible { display: flex; }
+#perks-overlay.visible,
+#settings-overlay.visible { display: flex; }
+
+/* ── SETTINGS: gear cell + single scrolling panel ─────────────────────── */
+#settings-btn { color: rgba(255, 255, 255, 0.8); }
+#settings-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+.settings-icon { display: block; }
+
+.settings-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.settings-section { margin-bottom: 22px; }
+.settings-section-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #FECA57;
+    font-weight: 700;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.settings-row-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.settings-hint {
+    margin: 8px 2px 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.4;
+}
+
+/* Toggle switch */
+.toggle {
+    flex-shrink: 0;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.18);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+    padding: 0;
+}
+.toggle .toggle-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s;
+}
+.toggle.is-on { background: var(--primary-green, #34C77B); }
+.toggle.is-on .toggle-knob { transform: translateX(20px); }
+
+.settings-input {
+    width: 80px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    text-align: center;
+    outline: none;
+}
+.settings-input:disabled { opacity: 0.45; }
+
+.settings-mini-btn {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.settings-mini-btn:hover { background: rgba(255, 255, 255, 0.16); }
+
+.settings-cta {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: not-allowed;
+}
+
+.limit-msg {
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 138, 138, 0.14);
+    border: 1px solid rgba(255, 138, 138, 0.4);
+    color: #ffb3b3;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.limit-msg[hidden] { display: none; }
 
 /* Fill the overlay and become the flex column so the grid below can take the
    leftover space and scroll. Without this the grid's `flex: 1` has no flex
@@ -1102,11 +1256,12 @@ body.fullscreen #dev-panel { display: flex; }
 
 .perks-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr); /* 2 across, both desktop and mobile */
     gap: 14px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden; /* vertical scroll only, never horizontal */
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     padding-right: 10px;
@@ -1114,6 +1269,9 @@ body.fullscreen #dev-panel { display: flex; }
     /* Firefox: brand-yellow thumb on a transparent track. */
     scrollbar-color: #FECA57 transparent;
 }
+
+/* Let tiles shrink to the column so wide content can't force a sideways scroll. */
+.perks-grid > * { min-width: 0; }
 
 /* Branded scrollbar (Chrome/Safari/Edge): transparent track, yellow thumb,
    thicker, no up/down arrow buttons. */
@@ -1340,22 +1498,12 @@ html.dev-mode #dev-panel {
 }
 
 /* ── MOBILE TWEAKS ─────────────────────────────────────────────────────── */
+/* The HUD-bar + canvas layout is the SAME on desktop and mobile (see
+   #game-stage / --canvas-w). These queries only adjust the surrounding chrome:
+   where the how-to/fullscreen controls sit, and page padding. */
 @media (max-width: 700px) {
     /* Stack vertically: game first, then the controls row underneath it. */
     body { padding: 12px 8px; flex-direction: column; justify-content: flex-start; align-items: center; }
-    #score { font-size: 22px; }
-    .panel { padding: 6px 10px; }
-
-    /* Shorter PERKS card: lay it out as a row and drop the ✦ star so the
-       score column isn't tall, leaving room for the legend + controls below. */
-    #perk-card {
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 6px 10px;
-    }
-    .perk-card-icon { display: none; }
 
     /* How-to + fullscreen flow BELOW the game container as a centred row, so
        they never overlap the playfield on phones. */
@@ -1382,77 +1530,18 @@ html.dev-mode #dev-panel {
         transform: translateX(-50%);
         width: min(300px, calc(100vw - 24px));
     }
-
-    /* Two-row stack: SCORE | NEXT on top, canvas spans both columns below. */
-    #game-stage {
-        grid-template-columns: 1fr 1fr;
-        grid-template-areas:
-            "score next"
-            "canvas canvas";
-    }
-
-    /* Size the playfield by the height LEFT OVER after the score row, legend
-       and the controls row, so the controls always fit below it inside the
-       portrait iframe and never overlap. On tall screens the width cap wins. */
-    #canvas-wrapper {
-        width: auto;
-        justify-self: center;
-        height: min(calc((100vw - 16px) * 927 / 840), calc(100vh - 250px));
-        aspect-ratio: 840 / 927;
-    }
 }
 
-/* ── DESKTOP: Score + Next flank the canvas, top-aligned ──────────────── */
 @media (min-width: 701px) {
-    /* Size the whole column by viewport HEIGHT so the playfield plus the
-       planet legend always fit (the body is overflow:hidden, so anything
-       taller than the viewport gets clipped). No body padding here, otherwise
-       a full-height column would spill past 100vh and clip the legend. */
+    /* No body padding so a full-height column doesn't spill past 100vh and
+       clip the legend (body is overflow:hidden). */
     body { padding: 0; align-items: center; }
 
-    /* Wide enough to hold both side panels + the canvas + gaps without the
-       stage overflowing (which would eat the gap and let Next touch the
-       canvas). */
     #game-container {
         max-width: 760px;
         height: 100vh;
         justify-content: center;
         gap: 10px;
-    }
-
-    /* Score | Canvas | Next side by side. align-items: start pins the side
-       panels to the TOP of the playfield rather than centering them. Canvas
-       auto-sizes to its height-derived width. */
-    #game-stage {
-        grid-template-columns: auto auto auto;
-        grid-template-areas: "score canvas next";
-        width: auto;
-        column-gap: 16px;
-        align-items: start;
-    }
-
-    #canvas-wrapper {
-        width: auto;
-        height: min(calc(100vh - 120px), 560px);
-        aspect-ratio: 840 / 927;
-    }
-
-    /* Fixed-width side panels — prevents canvas from resizing as score grows */
-    #score-panel {
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        width: 90px;
-        flex-shrink: 0;
-        overflow: hidden;
-    }
-
-    #next-panel {
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        width: 100px;
-        flex-shrink: 0;
     }
 
     #dev-panel { padding: 0; }

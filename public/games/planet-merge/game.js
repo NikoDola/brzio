@@ -236,6 +236,16 @@ const stars = Array.from({ length: STAR_COUNT }, () => ({
    single Audio instance each is enough. */
 const SOUNDS_DIR = "assets/sounds";
 
+/* Global mute, toggled in Settings (persisted). Checked by every play path. */
+const SOUND_KEY = "pm_sound";
+let soundOn = (() => {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+})();
+
 function makePool(file, size, volume) {
   const pool = Array.from({ length: size }, () => {
     const a = new Audio(`${SOUNDS_DIR}/${file}`);
@@ -245,6 +255,7 @@ function makePool(file, size, volume) {
   });
   let idx = 0;
   return () => {
+    if (!soundOn) return;
     const a = pool[idx];
     idx = (idx + 1) % size;
     try {
@@ -268,6 +279,7 @@ const targetLockSfx = makeSfx("target-lock.mp3", 0.6);
 const selectSfx = makeSfx("select-sound.mp3", 0.6);
 const perkSfx = makeSfx("peark.mp3", 0.7);
 function playOnce(sfx) {
+  if (!soundOn) return;
   try {
     sfx.currentTime = 0;
     sfx.play().catch(() => {});
@@ -658,6 +670,27 @@ function recordGamePlayed() {
   saveNum(GAMES_KEY, gamesPlayed);
 }
 
+// Today's play time (resets at midnight) for the parent-control daily limit.
+const TODAY_KEY = "pm_play_today";
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+function loadTodayMs() {
+  try {
+    const d = JSON.parse(localStorage.getItem(TODAY_KEY) || "{}");
+    return d.date === todayStamp() ? Number(d.ms) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+let todayPlayMs = loadTodayMs();
+function addTodayMs(ms) {
+  todayPlayMs = loadTodayMs() + ms; // reload so a date rollover resets cleanly
+  try {
+    localStorage.setItem(TODAY_KEY, JSON.stringify({ date: todayStamp(), ms: todayPlayMs }));
+  } catch {}
+}
+
 // Play-time clock: counts wall-clock time only while a round is active. Banked
 // on game end and on leaving (visibilitychange), resumed when the tab returns.
 let playClockStart = 0;
@@ -666,9 +699,11 @@ function startPlayClock() {
 }
 function bankPlayTime() {
   if (!playClockStart) return;
-  totalPlayMs += Date.now() - playClockStart;
+  const elapsed = Date.now() - playClockStart;
+  totalPlayMs += elapsed;
   playClockStart = 0;
   saveNum(TIME_KEY, totalPlayMs);
+  addTodayMs(elapsed);
 }
 
 function fmtPlayTime(ms) {
@@ -679,11 +714,104 @@ function fmtPlayTime(ms) {
 }
 
 function updateStatsUI() {
-  if (statGamesPlayedEl) statGamesPlayedEl.textContent = gamesPlayed;
-  if (statBestScoreEl) statBestScoreEl.textContent = highScore;
-  if (statTimePlayedEl) statTimePlayedEl.textContent = fmtPlayTime(totalPlayMs);
-  if (statBestChainEl) statBestChainEl.textContent = bestChain;
+  const games = String(gamesPlayed);
+  const best = String(highScore);
+  const time = fmtPlayTime(totalPlayMs);
+  const chain = String(bestChain);
+  if (statGamesPlayedEl) statGamesPlayedEl.textContent = games;
+  if (statBestScoreEl) statBestScoreEl.textContent = best;
+  if (statTimePlayedEl) statTimePlayedEl.textContent = time;
+  if (statBestChainEl) statBestChainEl.textContent = chain;
+  // Mirror into the Settings > Statistic section (same numbers).
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  set("set-stat-games", games);
+  set("set-stat-best", best);
+  set("set-stat-time", time);
+  set("set-stat-chain", chain);
 }
+
+/* ── SHAKES meter ─────────────────────────────────────────────────────────
+   A bar that fills on merges. +1% per merge; once a per-drop combo reaches 3
+   in a row each merge gives +5%, the 5th gives +10%, and every merge after the
+   5th gives +5%. It rises like a slow water fill and recolours red → orange →
+   yellow → green as it climbs. Resets each new game. */
+const shakesFillEl = document.getElementById("shakes-fill");
+const shakesValueEl = document.getElementById("shakes-value");
+const shakesPanelEl = document.getElementById("shakes-panel");
+let shakePct = 0;
+let shakeArmed = false; // usable once the meter has filled to 100%
+let shakeStreak = 1; // multiplier; clicking again mid-shake ramps it 1.3x
+let lastShakeAt = 0;
+const SHAKE_WINDOW_MS = 700; // "still shaking" window for the streak
+const SHAKE_COST = 5; // % spent per shake-click
+
+function shakeIncrement(chain) {
+  if (chain >= 6) return 5;
+  if (chain === 5) return 10;
+  if (chain >= 3) return 5; // 3 or 4 in a row
+  return 1; // 1 or 2
+}
+function shakeColor(pct) {
+  if (pct >= 100) return "#34C77B"; // green, full
+  if (pct >= 66) return "#FECA57"; // yellow
+  if (pct >= 33) return "#F0883E"; // orange
+  return "#E0556B"; // red
+}
+function updateShakeUI() {
+  if (shakesValueEl) shakesValueEl.textContent = `${Math.round(shakePct)}%`;
+  if (shakesFillEl) {
+    shakesFillEl.style.height = `${shakePct}%`;
+    shakesFillEl.style.backgroundColor = shakeColor(shakePct);
+  }
+  // Arm at full; stay armed until spent to empty, then it must refill.
+  if (shakePct >= 100) shakeArmed = true;
+  else if (shakePct <= 0) shakeArmed = false;
+  if (shakesPanelEl) shakesPanelEl.classList.toggle("armed", shakeArmed);
+}
+function addShake(amount) {
+  if (shakePct >= 100) return;
+  shakePct = Math.min(100, shakePct + amount);
+  updateShakeUI();
+}
+function resetShake() {
+  shakePct = 0;
+  shakeArmed = false;
+  shakeStreak = 1;
+  updateShakeUI();
+}
+
+// Jolt every planet a random direction. The same jolt is divided down by mass
+// (shakeMassFalloff), so heavy planets move less. Strength ramps with the streak.
+function applyShake(strength) {
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== "shape") continue;
+    const ang = Math.random() * Math.PI * 2;
+    const mag = strength / Math.pow(body.mass || 1, TUNING.shakeMassFalloff);
+    Body.setVelocity(body, {
+      x: body.velocity.x + Math.cos(ang) * mag,
+      y: body.velocity.y + Math.sin(ang) * mag,
+    });
+    Body.setAngularVelocity(body, body.angularVelocity + (Math.random() - 0.5) * 0.12);
+  }
+  wakeAllShapes();
+}
+
+shakesPanelEl?.addEventListener("click", () => {
+  if (!shakeArmed || shakePct < SHAKE_COST) return;
+  if (difficulty === null || gameOver || winActive) return;
+  const now = performance.now();
+  // Click again while it's still shaking → 1.3x stronger; otherwise reset.
+  shakeStreak = now - lastShakeAt < SHAKE_WINDOW_MS ? shakeStreak * 1.3 : 1;
+  lastShakeAt = now;
+  applyShake(TUNING.shakeStrength * shakeStreak);
+  shakePct = Math.max(0, shakePct - SHAKE_COST);
+  updateShakeUI();
+});
+
+updateShakeUI();
 
 // Explanation-clip playback. One clip plays at a time; clicking an audio
 // perk (or its button) toggles play/pause.
@@ -776,6 +904,137 @@ function setMainTab(name) {
 
 document.querySelectorAll(".main-tab").forEach((t) =>
   t.addEventListener("click", () => setMainTab(t.dataset.main)),
+);
+
+/* ── SETTINGS overlay (gear cell in the HUD) ──────────────────────────── */
+const settingsBtn = document.getElementById("settings-btn");
+const settingsOverlayEl = document.getElementById("settings-overlay");
+const settingsCloseEl = document.getElementById("settings-close");
+
+// Sound on/off.
+const soundToggle = document.getElementById("sound-toggle");
+function renderSoundToggle() {
+  if (!soundToggle) return;
+  soundToggle.classList.toggle("is-on", soundOn);
+  soundToggle.setAttribute("aria-checked", String(soundOn));
+}
+soundToggle?.addEventListener("click", () => {
+  soundOn = !soundOn;
+  try {
+    localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+  } catch {}
+  renderSoundToggle();
+  if (soundOn) playSelect(); // tiny confirmation blip
+});
+
+// Parent control: a daily play-time limit, protected by an optional 4-digit PIN.
+const LIMIT_ON_KEY = "pm_limit_on";
+const LIMIT_MIN_KEY = "pm_limit_min";
+const PIN_KEY = "pm_parent_pin";
+let limitOn = (() => {
+  try {
+    return localStorage.getItem(LIMIT_ON_KEY) === "1";
+  } catch {
+    return false;
+  }
+})();
+let limitMin = loadNum(LIMIT_MIN_KEY) || 30;
+let parentPin = (() => {
+  try {
+    return localStorage.getItem(PIN_KEY) || "";
+  } catch {
+    return "";
+  }
+})();
+let parentUnlocked = !parentPin; // no PIN means the controls are open
+
+const limitToggle = document.getElementById("limit-toggle");
+const limitMinutes = document.getElementById("limit-minutes");
+const pinStatus = document.getElementById("pin-status");
+const pinBtn = document.getElementById("pin-btn");
+
+function renderParentControls() {
+  if (limitToggle) {
+    limitToggle.classList.toggle("is-on", limitOn);
+    limitToggle.setAttribute("aria-checked", String(limitOn));
+    limitToggle.disabled = !parentUnlocked;
+  }
+  if (limitMinutes) {
+    limitMinutes.value = String(limitMin);
+    limitMinutes.disabled = !parentUnlocked;
+  }
+  if (pinStatus) pinStatus.textContent = parentPin ? "Parent PIN set" : "No parent PIN set";
+  if (pinBtn) pinBtn.textContent = !parentPin ? "Set PIN" : parentUnlocked ? "Lock" : "Unlock";
+}
+
+// Demand the PIN before changing anything, if one is set.
+function ensureUnlocked() {
+  if (parentUnlocked) return true;
+  const entry = prompt("Enter the 4-digit parent PIN");
+  if (entry === parentPin) {
+    parentUnlocked = true;
+    renderParentControls();
+    return true;
+  }
+  if (entry !== null) alert("Wrong PIN.");
+  return false;
+}
+
+limitToggle?.addEventListener("click", () => {
+  if (!ensureUnlocked()) return;
+  limitOn = !limitOn;
+  try {
+    localStorage.setItem(LIMIT_ON_KEY, limitOn ? "1" : "0");
+  } catch {}
+  renderParentControls();
+});
+limitMinutes?.addEventListener("change", () => {
+  if (!parentUnlocked) {
+    renderParentControls();
+    return;
+  }
+  limitMin = Math.min(600, Math.max(5, parseInt(limitMinutes.value, 10) || 30));
+  saveNum(LIMIT_MIN_KEY, limitMin);
+  renderParentControls();
+});
+pinBtn?.addEventListener("click", () => {
+  if (!parentPin) {
+    const p = prompt("Set a 4-digit parent PIN");
+    if (p && /^\d{4}$/.test(p)) {
+      parentPin = p;
+      parentUnlocked = true;
+      try {
+        localStorage.setItem(PIN_KEY, p);
+      } catch {}
+    } else if (p !== null) {
+      alert("PIN must be exactly 4 digits.");
+    }
+  } else if (parentUnlocked) {
+    parentUnlocked = false; // lock again
+  } else {
+    ensureUnlocked();
+  }
+  renderParentControls();
+});
+
+// Daily-limit enforcement: blocks STARTING a new round once today's play time is
+// up (an in-progress round is never cut off). Checked in startGame.
+const limitMsgEl = document.getElementById("limit-msg");
+function dailyLimitReached() {
+  return limitOn && limitMin > 0 && loadTodayMs() >= limitMin * 60000;
+}
+function showLimitMsg(show) {
+  if (limitMsgEl) limitMsgEl.hidden = !show;
+}
+
+settingsBtn?.addEventListener("click", () => {
+  updateStatsUI();
+  renderSoundToggle();
+  renderParentControls();
+  settingsOverlayEl?.classList.add("visible");
+});
+settingsCloseEl?.addEventListener("click", () =>
+  settingsOverlayEl?.classList.remove("visible"),
 );
 
 perkCardEl?.addEventListener("click", () => {
@@ -925,6 +1184,10 @@ const massPowerEl = document.getElementById("mass-power");
 const massPowerVal = document.getElementById("mass-power-val");
 const impactStrengthEl = document.getElementById("impact-strength");
 const impactStrengthVal = document.getElementById("impact-strength-val");
+const shakeStrengthEl = document.getElementById("shake-strength");
+const shakeStrengthVal = document.getElementById("shake-strength-val");
+const shakeFalloffEl = document.getElementById("shake-falloff");
+const shakeFalloffVal = document.getElementById("shake-falloff-val");
 const physicsResetBtn = document.getElementById("physics-reset-btn");
 const physicsApplyJsonBtn = document.getElementById("physics-apply-json-btn");
 const physicsConfigJsonEl = document.getElementById("physics-config-json");
@@ -1098,6 +1361,7 @@ Events.on(engine, "collisionActive", ({ pairs }) => {
 function registerChain(x, y) {
   chainCount++;
   recordBestChain(chainCount);
+  addShake(shakeIncrement(chainCount));
 
   if (chainCount < 2) return;
 
@@ -1684,6 +1948,7 @@ function resetGameState() {
 
   score = 0;
   scoreEl.textContent = "0";
+  resetShake();
   curLvl = firstDrop();
   nxtLvl = pickLvl();
   dropX = W / 2;
@@ -1734,6 +1999,11 @@ function refreshDifficultyLocks() {
 
 function startGame(diff) {
   if (!isUnlocked(diff)) return;
+  if (dailyLimitReached()) {
+    showLimitMsg(true);
+    return;
+  }
+  showLimitMsg(false);
   clearWinState();
   difficulty = diff;
   reportGameStart(diff);
@@ -1930,6 +2200,7 @@ function restoreGame(data) {
 
   score = data.score || 0;
   scoreEl.textContent = score;
+  resetShake();
   curLvl = data.curLvl ?? firstDrop();
   nxtLvl = data.nxtLvl ?? pickLvl();
   dropX = W / 2;
@@ -2192,6 +2463,14 @@ function syncPhysicsEditor() {
   massPowerVal.textContent = TUNING.massPower.toFixed(1);
   impactStrengthEl.value = String(TUNING.impactStrength);
   impactStrengthVal.textContent = `${TUNING.impactStrength.toFixed(2)}×`;
+  if (shakeStrengthEl) {
+    shakeStrengthEl.value = String(TUNING.shakeStrength);
+    shakeStrengthVal.textContent = TUNING.shakeStrength.toFixed(1);
+  }
+  if (shakeFalloffEl) {
+    shakeFalloffEl.value = String(TUNING.shakeMassFalloff);
+    shakeFalloffVal.textContent = TUNING.shakeMassFalloff.toFixed(2);
+  }
   physicsConfigJsonEl.value = physicsConfigJson();
 }
 
@@ -2211,6 +2490,22 @@ impactStrengthEl.addEventListener("input", () => {
   // Impact strength is read live by collisionStart; no body re-density needed.
   TUNING.impactStrength = Number(impactStrengthEl.value);
   syncPhysicsEditor();
+});
+
+shakeStrengthEl?.addEventListener("input", () => {
+  TUNING.shakeStrength = Number(shakeStrengthEl.value);
+  syncPhysicsEditor();
+});
+shakeFalloffEl?.addEventListener("input", () => {
+  TUNING.shakeMassFalloff = Number(shakeFalloffEl.value);
+  syncPhysicsEditor();
+});
+
+// Dev: instantly fill the SHAKES meter (arms it) so the shake can be tested
+// without grinding merges first.
+document.getElementById("fill-shakes-btn")?.addEventListener("click", () => {
+  shakePct = 100;
+  updateShakeUI();
 });
 
 physicsApplyJsonBtn.addEventListener("click", () => {

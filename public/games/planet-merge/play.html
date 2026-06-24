@@ -17,7 +17,7 @@
       // Block wheel events from bubbling out and scrolling the parent page,
       // EXCEPT inside scrollable UI like the perks grid, which must scroll.
       window.addEventListener('wheel', (e) => {
-        if (e.target.closest && e.target.closest('.perks-grid')) return;
+        if (e.target.closest && e.target.closest('.perks-grid, .settings-body')) return;
         e.preventDefault();
       }, { passive: false });
     </script>
@@ -26,16 +26,30 @@
     <canvas id="bg-starfield" aria-hidden="true"></canvas>
     <div id="game-container">
         <div id="game-stage">
-            <div id="score-col">
-                <div class="panel" id="score-panel">
-                    <div class="panel-label">MERGES</div>
-                    <div id="score">0</div>
-                </div>
-                <button id="perk-card" type="button" aria-label="Open perks">
-                    <span class="perk-card-icon">✦</span>
-                    <span class="perk-card-label">PERKS</span>
-                    <span class="perk-card-count"><span id="perk-count">0</span>/<span id="perk-total">0</span></span>
+            <div id="hud-bar">
+                <button class="hud-cell" id="settings-btn" type="button" aria-label="Settings">
+                    <svg class="settings-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
                 </button>
+                <div class="hud-cell" id="score-panel">
+                    <div class="panel-label">SCORE</div>
+                    <div class="hud-value" id="score">0</div>
+                </div>
+                <div class="hud-cell" id="shakes-panel">
+                    <div class="shakes-fill" id="shakes-fill"></div>
+                    <div class="panel-label">SHAKES</div>
+                    <div class="hud-value" id="shakes-value">0%</div>
+                </div>
+                <button class="hud-cell" id="perk-card" type="button" aria-label="Open perks">
+                    <span class="panel-label">PERKS</span>
+                    <span class="hud-value"><span id="perk-count">0</span>/<span id="perk-total">0</span></span>
+                </button>
+                <div class="hud-cell" id="next-panel">
+                    <div class="panel-label" id="next-label">NEXT</div>
+                    <canvas id="next-canvas" width="70" height="70"></canvas>
+                </div>
             </div>
             <div id="canvas-wrapper">
                 <canvas id="game-canvas"></canvas>
@@ -62,16 +76,11 @@
                     </div>
                 </div>
             </div>
-            <div class="panel" id="next-panel">
-                <div class="panel-label" id="next-label">NEXT</div>
-                <div class="next-row">
-                    <canvas id="next-canvas" width="70" height="70"></canvas>
-                </div>
-            </div>
             <div id="difficulty-overlay" class="visible">
                 <div class="difficulty-inner">
                     <h1 class="difficulty-title">Planet Merge</h1>
                     <p class="difficulty-sub">Choose your adventure!</p>
+                    <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
                     <div class="difficulty-buttons">
                         <button class="diff-btn diff-easy" type="button" data-diff="easy">
                             <span class="diff-icon diff-icon-stack">
@@ -148,6 +157,57 @@
                     <button id="resume-new" class="resume-btn" type="button">New Game</button>
                 </div>
             </div>
+            <div id="settings-overlay">
+                <div class="perks-inner">
+                    <div class="perks-header">
+                        <h2 class="perks-title">Settings</h2>
+                        <button id="settings-close" type="button" aria-label="Close">✕</button>
+                    </div>
+                    <div class="settings-body">
+                        <section class="settings-section">
+                            <h3 class="settings-section-title">Sound</h3>
+                            <div class="settings-row">
+                                <span class="settings-row-label">Game sound</span>
+                                <button id="sound-toggle" class="toggle is-on" type="button" role="switch" aria-checked="true" aria-label="Toggle game sound">
+                                    <span class="toggle-knob"></span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="settings-section">
+                            <h3 class="settings-section-title">Parent Control</h3>
+                            <div class="settings-row">
+                                <span class="settings-row-label">Limit daily play time</span>
+                                <button id="limit-toggle" class="toggle" type="button" role="switch" aria-checked="false" aria-label="Toggle daily time limit">
+                                    <span class="toggle-knob"></span>
+                                </button>
+                            </div>
+                            <div class="settings-row">
+                                <span class="settings-row-label">Minutes per day</span>
+                                <input id="limit-minutes" class="settings-input" type="number" min="5" max="600" step="5" value="30">
+                            </div>
+                            <div class="settings-row">
+                                <span class="settings-row-label" id="pin-status">No parent PIN set</span>
+                                <button id="pin-btn" class="settings-mini-btn" type="button">Set PIN</button>
+                            </div>
+                            <p class="settings-hint">A 4-digit PIN keeps kids from changing the limit. Optional, recommended.</p>
+                        </section>
+
+                        <section class="settings-section">
+                            <h3 class="settings-section-title">Profile</h3>
+                            <button class="settings-cta" type="button" disabled>Sign in with Google (coming soon)</button>
+                        </section>
+
+                        <section class="settings-section">
+                            <h3 class="settings-section-title">Statistic</h3>
+                            <div class="stat-line"><span class="stat-line-label">Games played</span><span class="stat-line-value" id="set-stat-games">0</span></div>
+                            <div class="stat-line"><span class="stat-line-label">Best score</span><span class="stat-line-value" id="set-stat-best">0</span></div>
+                            <div class="stat-line"><span class="stat-line-label">Time played</span><span class="stat-line-value" id="set-stat-time">0m</span></div>
+                            <div class="stat-line"><span class="stat-line-label">Best merge streak</span><span class="stat-line-value" id="set-stat-chain">0</span></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Merge-order legend: every planet smallest → largest, built from
@@ -213,7 +273,21 @@
                             <input id="impact-strength" type="range" min="0" max="2" value="1" step="0.05">
                             <span id="impact-strength-val">1.00×</span>
                         </div>
-                        <div class="dev-hint">Mass Power 2 = current. Set 3 for volume (heavy big planets, flicky small ones).</div>
+                        <div class="dev-row">
+                            <span class="dev-label">Shake Str</span>
+                            <input id="shake-strength" type="range" min="0" max="25" value="6" step="0.5">
+                            <span id="shake-strength-val">6.0</span>
+                        </div>
+                        <div class="dev-row">
+                            <span class="dev-label">Shake Mass&darr;</span>
+                            <input id="shake-falloff" type="range" min="0" max="1.5" value="0.5" step="0.05">
+                            <span id="shake-falloff-val">0.50</span>
+                        </div>
+                        <div class="dev-row">
+                            <span class="dev-label">Shakes</span>
+                            <button id="fill-shakes-btn" class="dev-pill" type="button">Fill up shakes</button>
+                        </div>
+                        <div class="dev-hint">Mass Power 2 = current. Shake Str = jolt size; Shake Mass&darr; = how much heavier planets resist (0 ignores mass, 1 = ÷mass).</div>
                         <div class="dev-row">
                             <span class="dev-label">JSON</span>
                             <button id="physics-reset-btn" class="dev-pill" type="button">RESET</button>
