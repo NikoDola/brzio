@@ -373,7 +373,7 @@ export function drawUnlockGlows(ctx, glows, getBody, getOutlineSets, bodyLvl, to
 export function drawPopups(ctx, popups, totalMs) {
     for (let i = popups.length - 1; i >= 0; i--) {
         const p   = popups[i];
-        const dur = p.big ? 1200 : 850;
+        const dur = p.dur ?? (p.big ? 1200 : 850);
         const age = totalMs - p.t;
         if (age > dur) { popups.splice(i, 1); continue; }
 

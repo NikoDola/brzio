@@ -1436,18 +1436,24 @@ function registerChain(x, y) {
   // just show the running chain number scaled up. Hard mode disables powers
   // entirely, so its popups stay as plain chain counts.
   const powersEnabled = difficulty !== "hard";
-  let text, fontSize, color;
+  let text, fontSize, color, dur;
   if (powersEnabled && chainCount === DESTROY_UNLOCK) {
     text = "Destroy Power Unlocked!";
     fontSize = 30;
     color = "#ff6e6e";
+    dur = 2400;
   } else if (powersEnabled && chainCount === CHOOSE_UNLOCK) {
     text = "Choose Planet Unlocked!";
     fontSize = 28;
     color = "#7ddfff";
+    dur = 1700;
   } else {
     text = String(chainCount);
-    fontSize = Math.min(8 + chainCount * 8, 56);
+    // Text swells AND lingers longer with the streak so bigger combos feel
+    // bigger. Both peak at 5 in a row; 6, 7, ... hold at that biggest/longest.
+    const step = Math.min(chainCount, 5); // 2..5 grow, then hold
+    fontSize = [0, 0, 34, 44, 54, 64][step];
+    dur = [0, 0, 1150, 1500, 1850, 2400][step];
     color = "#FFFFFF";
   }
 
@@ -1458,6 +1464,7 @@ function registerChain(x, y) {
     text,
     fontSize,
     color,
+    dur,
     shadowColor: "rgba(0, 80, 140, 0.85)",
     big: false,
   });

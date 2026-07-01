@@ -40,7 +40,8 @@
       "Bash(node scripts/_add-brand-colors-post.mjs)",
       "Bash(npx eslint *)",
       "Bash(node -e \"const p=JSON.parse\\(require\\('fs'\\).readFileSync\\('src/content/posts.json','utf8'\\)\\);const bp=p.find\\(x=>x.slug==='brand-colors'\\);console.log\\('Found:',!!bp\\);console.log\\('Type:',bp?.type,'| Published:',bp?.published,'| Title:',bp?.title\\);console.log\\('Content length:',bp?.content.length,'chars'\\);console.log\\('Has compare slider:',bp?.content.includes\\('data-compare'\\)\\);console.log\\('Has split:',bp?.content.includes\\('bp-split'\\)\\);console.log\\('Has highlight:',bp?.content.includes\\('bp-highlight'\\)\\);console.log\\('Has grid:',bp?.content.includes\\('bp-grid'\\)\\);console.log\\('Has banner:',bp?.content.includes\\('bp-banner'\\)\\);console.log\\('Has quote:',bp?.content.includes\\('bp-quote'\\)\\);\")",
-      "Bash(node --check public/games/planet-merge/game.js)"
+      "Bash(node --check public/games/planet-merge/game.js)",
+      "Bash(node --check public/games/planet-merge/renderer.js)"
     ]
   }
 }
