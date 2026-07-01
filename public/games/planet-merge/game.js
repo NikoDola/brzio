@@ -17,6 +17,8 @@ import {
   separateOverlapping,
   applyTuningToBodies,
   getOutlineSets,
+  setShieldArch,
+  archPoint,
 } from "./physics.js";
 import { TUNING } from "./tuning.js";
 import {
@@ -739,14 +741,33 @@ function updateStatsUI() {
    5th gives +5%. It rises like a slow water fill and recolours red → orange →
    yellow → green as it climbs. Resets each new game. */
 const shakesFillEl = document.getElementById("shakes-fill");
+const shakesLabelEl = document.getElementById("shakes-label");
 const shakesValueEl = document.getElementById("shakes-value");
 const shakesPanelEl = document.getElementById("shakes-panel");
 let shakePct = 0;
 let shakeArmed = false; // usable once the meter has filled to 100%
-let shakeStreak = 1; // multiplier; clicking again mid-shake ramps it 1.3x
+let shakeStreak = 1; // multiplier; clicking again ramps it 1.3x (capped)
 let lastShakeAt = 0;
 const SHAKE_WINDOW_MS = 700; // "still shaking" window for the streak
 const SHAKE_COST = 5; // % spent per shake-click
+
+const SHAKE_MAX_STREAK = 3; // ramp cap so mashing can't run away
+const SHAKE_MAX_UP = 5; // clamp default (the helper takes explicit caps below)
+const SHAKE_MAX_SIDE = 12;
+
+// The one SHAKES behaviour: only SETTLED planets (slow, resting on another
+// planet, NOT the bare floor) pop straight up, and the less mass stacked on top
+// the higher it flies. Airborne planets are skipped (no mid-air re-boost).
+const POP_MAX_UP = 12; // pop height ceiling (stays in view)
+const POP_MAX_SIDE = 6;
+const POP_LOAD = 0.05; // how much mass-on-top dampens the pop height
+const SETTLE_SPEED = 3; // a planet moving faster than this counts as airborne
+
+// While shaking, a rainbow arch shields the top: planets bounce off it and the
+// game-over danger check is suspended, so a shake can never cost you the game.
+let protectUntil = 0;
+let protectActive = false;
+const PROTECT_MS = 4000; // protection window, refreshed on each shake
 
 function shakeIncrement(chain) {
   if (chain >= 6) return 5;
@@ -761,15 +782,22 @@ function shakeColor(pct) {
   return "#E0556B"; // red
 }
 function updateShakeUI() {
-  if (shakesValueEl) shakesValueEl.textContent = `${Math.round(shakePct)}%`;
-  if (shakesFillEl) {
-    shakesFillEl.style.height = `${shakePct}%`;
-    shakesFillEl.style.backgroundColor = shakeColor(shakePct);
-  }
   // Arm at full; stay armed until spent to empty, then it must refill.
   if (shakePct >= 100) shakeArmed = true;
   else if (shakePct <= 0) shakeArmed = false;
   if (shakesPanelEl) shakesPanelEl.classList.toggle("armed", shakeArmed);
+  // Armed: a "Time for / Shake" call-to-action. Otherwise the SHAKES % meter.
+  if (shakeArmed) {
+    if (shakesLabelEl) shakesLabelEl.textContent = "Time for";
+    if (shakesValueEl) shakesValueEl.textContent = "Shake";
+  } else {
+    if (shakesLabelEl) shakesLabelEl.textContent = "SHAKES";
+    if (shakesValueEl) shakesValueEl.textContent = `${Math.round(shakePct)}%`;
+  }
+  if (shakesFillEl) {
+    shakesFillEl.style.height = `${shakePct}%`;
+    shakesFillEl.style.backgroundColor = shakeColor(shakePct);
+  }
 }
 function addShake(amount) {
   if (shakePct >= 100) return;
@@ -780,21 +808,56 @@ function resetShake() {
   shakePct = 0;
   shakeArmed = false;
   shakeStreak = 1;
+  protectUntil = 0;
+  protectActive = false;
+  setShieldArch(false);
   updateShakeUI();
 }
 
-// Jolt every planet a random direction. The same jolt is divided down by mass
-// (shakeMassFalloff), so heavy planets move less. Strength ramps with the streak.
-function applyShake(strength) {
+// Per-planet impulse magnitude: heavier planets resist (shakeMassFalloff).
+function shakeMass(body) {
+  return 1 / Math.pow(body.mass || 1, TUNING.shakeMassFalloff);
+}
+// Escape-proofing: keep every planet's speed inside the playfield. Upward is
+// capped hard (no ceiling); horizontal is capped to contain + avoid tunneling.
+function clampShakeVelocity(body, maxUp = SHAKE_MAX_UP, maxSide = SHAKE_MAX_SIDE) {
+  let { x: vx, y: vy } = body.velocity;
+  if (vx > maxSide) vx = maxSide;
+  else if (vx < -maxSide) vx = -maxSide;
+  if (vy < -maxUp) vy = -maxUp; // limit how fast they rise
+  Body.setVelocity(body, { x: vx, y: vy });
+}
+
+// POP: only planets that are settled (slow + supported from below) jump. The
+// height is divided down by the mass stacked on top, so an exposed top planet
+// flies high while a buried one barely lifts. Supported means resting on the
+// floor OR on another planet. Only a planet in the air with nothing under it is
+// skipped, so it can't be re-popped (and can't pile up + escape).
+function applyPop(intensity) {
+  const base = TUNING.shakeStrength * intensity;
+  const floorY = H - WALL; // top surface of the floor
   for (const body of Composite.allBodies(world)) {
     if (body.label !== "shape") continue;
-    const ang = Math.random() * Math.PI * 2;
-    const mag = strength / Math.pow(body.mass || 1, TUNING.shakeMassFalloff);
-    Body.setVelocity(body, {
-      x: body.velocity.x + Math.cos(ang) * mag,
-      y: body.velocity.y + Math.sin(ang) * mag,
-    });
-    Body.setAngularVelocity(body, body.angularVelocity + (Math.random() - 0.5) * 0.12);
+    if (Math.hypot(body.velocity.x, body.velocity.y) > SETTLE_SPEED) continue; // airborne
+    const lvl = bodyLvl.get(body.id);
+    const rB = lvl !== undefined ? r(lvl) : 20;
+    let supported = body.position.y + rB >= floorY - 6; // sitting on the ground
+    let massAbove = 0;
+    for (const other of Composite.allBodies(world)) {
+      if (other === body || other.label !== "shape") continue;
+      const dx = Math.abs(other.position.x - body.position.x);
+      const lo = bodyLvl.get(other.id);
+      const rO = lo !== undefined ? r(lo) : 20;
+      if (dx > rB + rO) continue; // not in this column
+      const dy = other.position.y - body.position.y;
+      if (dy < 0) massAbove += other.mass; // above → weighs it down
+      else if (dy < rB + rO + 4) supported = true; // just below → holds it up
+    }
+    if (!supported) continue; // floating with nothing under it: can't pop
+    const up = base / (1 + massAbove * POP_LOAD); // less on top → higher
+    Body.setVelocity(body, { x: (Math.random() * 2 - 1) * up * 0.3, y: -up });
+    Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.08);
+    clampShakeVelocity(body, POP_MAX_UP, POP_MAX_SIDE);
   }
   wakeAllShapes();
 }
@@ -803,10 +866,14 @@ shakesPanelEl?.addEventListener("click", () => {
   if (!shakeArmed || shakePct < SHAKE_COST) return;
   if (difficulty === null || gameOver || winActive) return;
   const now = performance.now();
-  // Click again while it's still shaking → 1.3x stronger; otherwise reset.
-  shakeStreak = now - lastShakeAt < SHAKE_WINDOW_MS ? shakeStreak * 1.3 : 1;
+  // Click again while it's still shaking → 1.3x stronger, capped so it can't run away.
+  shakeStreak =
+    now - lastShakeAt < SHAKE_WINDOW_MS
+      ? Math.min(shakeStreak * 1.3, SHAKE_MAX_STREAK)
+      : 1;
   lastShakeAt = now;
-  applyShake(TUNING.shakeStrength * shakeStreak);
+  applyPop(shakeStreak);
+  protectUntil = now + PROTECT_MS; // raise the shield / suspend danger while shaking
   shakePct = Math.max(0, shakePct - SHAKE_COST);
   updateShakeUI();
 });
@@ -1677,7 +1744,7 @@ function drawWinAnimation() {
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
-  if (!canDrop || gameOver || winActive || perksOpen()) return;
+  if (!canDrop || gameOver || winActive || perksOpen() || protectActive) return;
   // Every drop starts a fresh chain — powers are earned by chains spawned
   // from ONE drop's cascade, never by accumulation across drops.
   resetChain();
@@ -1705,6 +1772,7 @@ function drop() {
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
 function checkOver() {
+  if (protectActive) return; // shielded while shaking: no game over
   for (const body of Composite.allBodies(world)) {
     if (body.label !== "shape") continue;
     const id = body.id;
@@ -1740,6 +1808,18 @@ function endGame() {
 function frame(ts) {
   const dt = Math.min(ts - lastTs, 32);
   lastTs = ts;
+
+  // Shake shield: raise the rainbow arch (and suspend the danger check) while a
+  // shake is in progress; drop it once the window passes or the game ends.
+  const wantProtect =
+    performance.now() < protectUntil &&
+    !gameOver &&
+    difficulty !== null &&
+    !winActive;
+  if (wantProtect !== protectActive) {
+    protectActive = wantProtect;
+    setShieldArch(protectActive);
+  }
 
   if (!gameOver && difficulty !== null && !winActive) {
     // 2 physics substeps per game tick (8ms each) instead of 1×16ms.
@@ -1793,16 +1873,32 @@ function frame(ts) {
 
 
 
-  /* Danger line */
+  /* Danger line — or, while shaking, the rainbow shield arch that replaces it. */
   ctx.save();
-  ctx.strokeStyle = "rgba(255,80,80,0.5)";
-  ctx.setLineDash([6, 5]);
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(WALL, DANGER_Y);
-  ctx.lineTo(W - WALL, DANGER_Y);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  if (protectActive) {
+    const rainbow = ["#ff3b3b", "#ff9f1c", "#ffd23f", "#3bd16f", "#3b9bff", "#9b5cff"];
+    const STEPS = 48;
+    ctx.lineWidth = 6;
+    ctx.lineCap = "round";
+    for (let i = 0; i < STEPS; i++) {
+      const a = archPoint(i / STEPS);
+      const b = archPoint((i + 1) / STEPS);
+      ctx.strokeStyle = rainbow[Math.floor((i / STEPS) * rainbow.length) % rainbow.length];
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = "rgba(255,80,80,0.5)";
+    ctx.setLineDash([6, 5]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(WALL, DANGER_Y);
+    ctx.lineTo(W - WALL, DANGER_Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.restore();
 
   /* Effects → bodies → score popups (draw order matters) */
@@ -2507,6 +2603,7 @@ document.getElementById("fill-shakes-btn")?.addEventListener("click", () => {
   shakePct = 100;
   updateShakeUI();
 });
+
 
 physicsApplyJsonBtn.addEventListener("click", () => {
   try {

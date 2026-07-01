@@ -175,6 +175,28 @@ button.hud-cell { cursor: pointer; }
     0%, 100% { box-shadow: 0 0 0 1px rgba(52, 199, 123, 0.5), 0 0 8px rgba(52, 199, 123, 0.35); }
     50% { box-shadow: 0 0 0 2px rgba(52, 199, 123, 0.9), 0 0 16px rgba(52, 199, 123, 0.6); }
 }
+/* Armed CTA: "Time for" over "Shake", readable (not the tiny meter label), and a
+   quick shake of the text every ~3s so the player notices they can use it. */
+#shakes-panel.armed .panel-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: none;
+    opacity: 0.95;
+    color: #fff;
+}
+#shakes-panel.armed .hud-value { font-size: 18px; }
+#shakes-panel.armed .panel-label,
+#shakes-panel.armed .hud-value {
+    animation: time-for-shake 3s ease-in-out infinite;
+}
+@keyframes time-for-shake {
+    0%, 84%, 100% { transform: translateX(0) rotate(0); }
+    86% { transform: translate(-2px, -1px) rotate(-5deg); }
+    88% { transform: translate(2px, 1px) rotate(5deg); }
+    90% { transform: translate(-2px, -1px) rotate(-5deg); }
+    92% { transform: translate(2px, 1px) rotate(5deg); }
+    94% { transform: translateX(0) rotate(0); }
+}
 
 /* Choose-power arrows: pinned just below the red danger line, centered as a
    pair with a small gap. Static targets so the player can click without the

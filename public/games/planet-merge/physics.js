@@ -30,6 +30,41 @@ World.add(world, [
 ]);
 
 
+/* ── SHAKE SHIELD ARCH ───────────────────────────────────────────────────
+   A temporary, bouncy ceiling arching from wall to wall, switched on while the
+   player is shaking. Planets flung upward bounce off it instead of escaping the
+   open top, and game.js suspends the danger check while it's up. It sits ABOVE
+   the drop row so it never interferes with normal play. Drawn (game.js) as a
+   rainbow along this same curve. */
+const ARCH_END_Y = 72;  // y at the side walls
+const ARCH_PEAK_Y = 26; // y at the centre (lower y = higher)
+export function archPoint(t) {
+    const x = WALL + (W - 2 * WALL) * t;
+    const u = t * 2 - 1;                                  // -1..1 across the span
+    const y = ARCH_PEAK_Y + (ARCH_END_Y - ARCH_PEAK_Y) * (u * u); // parabola
+    return { x, y };
+}
+
+let shieldSegs = [];
+export function setShieldArch(on) {
+    if (on) {
+        if (shieldSegs.length) return;
+        const N = 16, opts = { isStatic: true, label: 'shield', friction: 0.2, restitution: 0.5 };
+        for (let i = 0; i < N; i++) {
+            const a = archPoint(i / N), b = archPoint((i + 1) / N);
+            const seg = Bodies.rectangle((a.x + b.x) / 2, (a.y + b.y) / 2,
+                Math.hypot(b.x - a.x, b.y - a.y) + 4, 8, opts);
+            Body.setAngle(seg, Math.atan2(b.y - a.y, b.x - a.x));
+            shieldSegs.push(seg);
+        }
+        World.add(world, shieldSegs);
+    } else if (shieldSegs.length) {
+        World.remove(world, shieldSegs);
+        shieldSegs = [];
+    }
+}
+
+
 /* ── BODY-TRACKING STATE ─────────────────────────────────────────────────
    Exported so game.js and renderer.js can read them, but only mutated
    via spawn() / despawn() below.                                          */

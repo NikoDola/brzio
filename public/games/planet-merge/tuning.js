@@ -25,11 +25,11 @@ export const TUNING = {
     impactStrength: 1.0,
     // Per-planet density multiplier, indexed by level. 1 = unchanged.
     massMult:       SHAPES.map(() => 1),
-    // SHAKES power-up: random jolt per planet on each shake-click. Higher =
-    // bigger jolt. Heavier planets move less; shakeMassFalloff controls how much
-    // (0 = mass ignored, 1 = impulse ∝ 1/mass). Live-tunable in the dev panel.
-    shakeStrength:    6,
-    shakeMassFalloff: 0.5,
+    // SHAKES power-up ("Pop"): how hard settled planets jump. Higher = bigger
+    // jump. shakeMassFalloff makes heavier planets move less (0 = mass ignored,
+    // 1 = impulse ∝ 1/mass). Live-tunable in the dev panel.
+    shakeStrength:    9.5,
+    shakeMassFalloff: 0.1,
 };
 
 // Anchor on the smallest planet so massPower never moves the Star's mass.
