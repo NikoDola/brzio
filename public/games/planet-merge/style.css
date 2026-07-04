@@ -609,32 +609,11 @@ body.fullscreen #dev-panel { display: flex; }
 #restart-btn:hover  { opacity: 0.88; transform: scale(1.03); }
 #restart-btn:active { transform: scale(0.96); }
 
-#change-difficulty-btn {
-    background: transparent;
-    color: rgba(255,255,255,0.65);
-    border: 2px solid rgba(255,255,255,0.18);
-    padding: 8px 22px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-#change-difficulty-btn:hover {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    border-color: rgba(255,255,255,0.3);
-}
-
-/* ── DIFFICULTY PICKER ─────────────────────────────────────────────────
-   Full-canvas overlay shown on first load and re-openable from the game-over
-   screen. Big rounded buttons, planet icons, color-coded per difficulty.
-   Font is Fredoka via Google Fonts (loaded in play.html). */
-/* The overlay is just a scrim that covers the game board; the visible card is
-   .difficulty-inner, sized to its content so it hugs the buttons. */
-#difficulty-overlay {
+/* ── START SCREEN ──────────────────────────────────────────────────────
+   Full-canvas overlay shown on first load and re-opened between runs. One big
+   Play button (no more mode picker) plus the parental time-limit message and a
+   Game Statistic link. Font is Fredoka via Google Fonts (loaded in play.html). */
+#start-overlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -643,30 +622,79 @@ body.fullscreen #dev-panel { display: flex; }
     border-radius: 14px;
     align-items: center;
     justify-content: center;
-    padding: 20px;
     font-family: 'Fredoka', 'Segoe UI', sans-serif;
 }
 
-#difficulty-overlay.visible { display: flex; }
+#start-overlay.visible { display: flex; }
 
-.difficulty-inner {
+.start-inner {
+    box-sizing: border-box;
     width: 100%;
-    max-width: 480px;
+    height: 100%;
+    overflow: hidden;
     text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 28px 26px;
-    border-radius: 22px;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    border-radius: 14px;
     background: radial-gradient(circle at 50% 20%, #34507a 0%, #1c2742 70%, #131c30 100%);
     border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow:
-        0 24px 64px rgba(0, 0, 0, 0.6),
-        0 0 30px rgba(254, 202, 87, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-.difficulty-title {
+/* Centered title + Play + Statistic group (the band spans the full card width
+   above this). */
+.start-content {
+    width: 100%;
+    max-width: 480px;
+    box-sizing: border-box;
+    padding: 0 26px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Decorative sliding planet band above the title. All planets scroll left→right
+   on a seamless loop and clip at the card edges (start-inner overflow: hidden). */
+.start-planets {
+    width: 100%;
+    height: 104px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.start-planets-track {
+    display: flex;
+    width: max-content; /* 24 items (12 planets x2); half the track = one set */
+    height: 100%;
+    animation: start-planets-slide 30s linear infinite;
+}
+@keyframes start-planets-slide {
+    from { transform: translateX(-50%); }
+    to   { transform: translateX(0); }
+}
+.start-planet {
+    position: relative;
+    flex: 0 0 104px; /* slot width; planet is 96px so they sit close together */
+    height: 100%;
+}
+.start-planet img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 96px;
+    height: 96px;
+    transform: translate(-50%, -50%);
+    object-fit: contain;
+}
+/* The body carries the drop shadow; the casual face rides on top, aligned. */
+.start-planet img:first-child {
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+}
+
+.start-title {
     font-size: clamp(30px, 6vw, 44px);
     font-weight: 700;
     color: #FECA57;
@@ -675,12 +703,34 @@ body.fullscreen #dev-panel { display: flex; }
     margin: 0;
 }
 
-.difficulty-sub {
+.start-sub {
     font-size: clamp(14px, 2.5vw, 17px);
     font-weight: 500;
     color: rgba(255,255,255,0.72);
     margin-bottom: 14px;
 }
+
+/* One big Play button. Planet icon on the left, label on the right. */
+#play-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 16px 48px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: linear-gradient(135deg, #ffd23f, #f0932b);
+    color: #2a1a05;
+    font-family: inherit;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(240, 147, 43, 0.4);
+    transition: transform 0.1s, box-shadow 0.15s;
+}
+#play-btn:hover  { transform: translateY(-3px) scale(1.03); }
+#play-btn:active { transform: scale(0.97); transition: transform 0.05s; }
 
 /* Game Statistic button under the mode buttons. Deliberately thinner than a
    mode button (less vertical padding). Opens the stats/perks overlay. */
@@ -787,200 +837,134 @@ body.fullscreen #dev-panel { display: flex; }
     background: rgba(255, 255, 255, 0.18);
 }
 
-.difficulty-buttons {
+/* ── LEVEL-UP TOAST ────────────────────────────────────────────────────────
+   A banner that slides down from the top when the score crosses a level
+   threshold, holds, then slides back up. Built dynamically in game.js
+   (showLevelToast) and auto-dismisses — it never pauses the game. Sits at the
+   top so it never collides with a centre perk toast. */
+.level-toast {
+    position: fixed;
+    left: 50%;
+    top: 16px;
+    z-index: 1000;
+    transform: translate(-50%, -160%);
+    opacity: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-}
-
-.diff-btn {
-    display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 14px 18px;
-    border-radius: 22px;
-    border: 4px solid;
-    background: rgba(255,255,255,0.06);
-    cursor: pointer;
-    font-family: inherit;
-    color: #fff;
-    text-align: left;
-    width: 100%;
-    transition: transform 0.15s ease, background 0.15s, box-shadow 0.2s;
-}
-
-.diff-btn:hover  { transform: translateY(-3px) scale(1.02); }
-.diff-btn:active { transform: scale(0.96); transition: transform 0.05s; }
-
-.diff-easy   { border-color: #7ed957; box-shadow: 0 6px 0 rgba(126,217,87,0.25); }
-.diff-easy:hover   { background: rgba(126,217,87,0.18); box-shadow: 0 10px 24px rgba(126,217,87,0.45); }
-
-.diff-normal { border-color: #7ddfff; box-shadow: 0 6px 0 rgba(125,223,255,0.25); }
-.diff-normal:hover { background: rgba(125,223,255,0.18); box-shadow: 0 10px 24px rgba(125,223,255,0.45); }
-
-.diff-hard   { border-color: #ff8a8a; box-shadow: 0 6px 0 rgba(255,138,138,0.25); }
-.diff-hard:hover   { background: rgba(255,138,138,0.18); box-shadow: 0 10px 24px rgba(255,138,138,0.45); }
-
-.diff-icon {
-    width: 58px;
-    height: 58px;
-    flex-shrink: 0;
-    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
-    pointer-events: none;
-}
-
-/* Stacked picker icon: bare body + casual face overlay, the same two layers
-   the renderer composites in-game (renderer.js drawBody). Both SVGs share the
-   200x200 viewBox, so filling the same box aligns them exactly. */
-.diff-icon-stack {
-    position: relative;
-    display: inline-block;
-}
-.diff-icon-stack img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.diff-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     gap: 4px;
+    padding: 14px 30px;
+    min-width: 220px;
+    border-radius: 16px;
+    background: linear-gradient(160deg, #2a2038, #17101f);
+    border: 2px solid rgba(255, 210, 63, 0.75);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 210, 63, 0.3);
     pointer-events: none;
+    transition: transform 0.5s cubic-bezier(0.4, 1.4, 0.5, 1), opacity 0.4s ease;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+    text-align: center;
 }
+.level-toast.show { transform: translate(-50%, 0); opacity: 1; }
 
-.diff-label {
-    font-size: clamp(20px, 3.5vw, 26px);
-    font-weight: 700;
-    line-height: 1;
-}
-
-.diff-blurb {
-    font-size: clamp(11px, 1.8vw, 13px);
-    font-weight: 500;
-    opacity: 0.78;
-    line-height: 1.25;
-}
-
-@media (max-width: 480px) {
-    .diff-icon { width: 48px; height: 48px; }
-    .diff-btn  { padding: 12px 14px; gap: 12px; }
-}
-
-/* ── LOCKED MODES ──────────────────────────────────────────────────────────
-   A mode is locked until the previous one is cleared (two Suns vanish). Locked
-   buttons grey out, surface a lock badge, and swap their blurb for a hint. */
-.diff-lock {
-    display: none;
+.level-toast-title {
     font-size: 26px;
-    flex-shrink: 0;
-    filter: grayscale(0.2) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-    pointer-events: none;
+    font-weight: 700;
+    color: #ffd23f;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
-
-.diff-lock-hint {
-    display: none;
-    font-size: clamp(11px, 1.8vw, 13px);
+.level-toast-now {
+    font-size: 15px;
     font-weight: 600;
-    color: #ffd97a;
-    line-height: 1.25;
-    pointer-events: none;
+    color: #fff;
+}
+.level-toast-next {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
 }
 
-.diff-btn.locked {
-    cursor: not-allowed;
-    border-color: rgba(255,255,255,0.18) !important;
-    box-shadow: none !important;
-    opacity: 0.55;
-    filter: grayscale(0.85);
+/* ── LEVEL-UP CARD VISUAL ──────────────────────────────────────────────────
+   Optional icon above the level title: a plain planet (Level 2 = Stars) or a
+   "banned" icon (a planet / power drawn behind a no-smoking-style red ring +
+   diagonal slash) for the levels that TAKE something away. */
+.level-toast-visual {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    margin-bottom: 4px;
 }
-
-/* Locked buttons stay flat — no hover lift, no colour wash. */
-.diff-btn.locked:hover {
-    transform: none;
-    background: rgba(255,255,255,0.06);
-    box-shadow: none !important;
-}
-
-.diff-btn.locked .diff-blurb { display: none; }
-.diff-btn.locked .diff-lock-hint { display: block; }
-.diff-btn.locked .diff-lock { display: block; }
-
-/* ── MODE-CLEAR / WIN OVERLAY ──────────────────────────────────────────────
-   Shown after the white wipe (drawn on the canvas) finishes. Opaque white so
-   it covers the canvas with no flash back to the playfield. */
-#win-overlay {
-    display: none;
+.level-toast-visual .planet-icon,
+.level-toast-behind {
     position: absolute;
     inset: 0;
-    z-index: 30;
-    flex-direction: column;
+}
+.level-toast-behind {
+    display: flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
-    border-radius: 14px;
-    font-family: 'Fredoka', 'Segoe UI', sans-serif;
 }
-
-#win-overlay.visible {
-    display: flex;
-    animation: win-pop 0.35s ease both;
+.level-toast-svg {
+    width: 84%;
+    height: 84%;
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
+.level-toast-svg.eliminate { color: #ff6e6e; stroke: currentColor; }
+.level-toast-svg.choose    { color: #7ddfff; stroke: currentColor; }
+.level-toast-svg.shake     { color: #ffd23f; stroke: currentColor; }
+/* Rainbow arch keeps its per-band stroke colours (set inline on each path). */
+.level-toast-svg.rainbow   { stroke-width: 2.6; }
 
-@keyframes win-pop {
-    from { opacity: 0; transform: scale(0.96); }
-    to   { opacity: 1; transform: scale(1); }
-}
-
-.win-inner {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    padding: 0 24px;
-}
-
-.win-badge {
-    font-size: 64px;
-    line-height: 1;
-    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.25));
-}
-
-.win-title {
-    font-size: clamp(28px, 5vw, 40px);
-    font-weight: 700;
-    color: #1a2540;
-    letter-spacing: 1px;
-    margin: 0;
-}
-
-.win-message {
-    font-size: clamp(16px, 2.6vw, 20px);
+/* Small transient message near the shakes panel, e.g. telling the player the
+   shakes have gone automatic at Level 7. Fades in and out; never blocks input. */
+.shake-notice {
+    position: fixed;
+    left: 50%;
+    bottom: 92px;
+    transform: translate(-50%, 12px);
+    max-width: 80vw;
+    background: rgba(20, 28, 48, 0.95);
+    border: 1px solid rgba(255, 210, 63, 0.6);
+    color: #ffe9a8;
+    font-size: 14px;
     font-weight: 600;
-    color: #3a5680;
-    margin: 0;
+    text-align: center;
+    padding: 10px 16px;
+    border-radius: 12px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 60;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    transition: opacity 0.25s ease, transform 0.25s ease;
 }
+.shake-notice.show { opacity: 1; transform: translate(-50%, 0); }
 
-#win-continue {
-    margin-top: 6px;
-    background: linear-gradient(135deg, #7ddfff, #4a8af0);
-    color: #fff;
-    border: none;
-    padding: 13px 44px;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: transform 0.1s, opacity 0.15s;
+/* The prohibition sign sits ON TOP; dim the icon behind so the red reads. */
+.level-toast-visual.banned .level-toast-behind { opacity: 0.8; }
+.level-toast-ban {
+    position: absolute;
+    inset: -3px;
+    border: 5px solid #ff3b3b;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 59, 59, 0.55);
+    pointer-events: none;
 }
-
-#win-continue:hover  { opacity: 0.9; transform: scale(1.03); }
-#win-continue:active { transform: scale(0.96); }
+/* Diagonal slash across the ring, corner to corner (a 45°-rotated bar whose
+   length equals the ring diameter lands its ends right on the ring). */
+.level-toast-ban::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5px;
+    height: 100%;
+    background: #ff3b3b;
+    border-radius: 3px;
+    transform: translate(-50%, -50%) rotate(45deg);
+}
 
 /* ── PERKS: collection card ────────────────────────────────────────────────
    Sits under the merges panel. Clicking opens the perks overlay. Not a bag —

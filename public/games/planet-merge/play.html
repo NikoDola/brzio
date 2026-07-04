@@ -33,10 +33,6 @@
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
                 </button>
-                <div class="hud-cell" id="score-panel">
-                    <div class="panel-label">SCORE</div>
-                    <div class="hud-value" id="score">0</div>
-                </div>
                 <div class="hud-cell" id="shakes-panel">
                     <div class="shakes-fill" id="shakes-fill"></div>
                     <div class="panel-label" id="shakes-label">SHAKES</div>
@@ -63,63 +59,27 @@
                 </div>
                 <div id="game-over-overlay">
                     <h2>Game Over</h2>
-                    <div class="final-line">Merges: <span id="final-score">0</span></div>
+                    <div class="final-line">Score: <span id="final-score">0</span></div>
                     <button id="restart-btn">Play Again</button>
-                    <button id="change-difficulty-btn" type="button">Change Mode</button>
-                </div>
-                <div id="win-overlay">
-                    <div class="win-inner">
-                        <div class="win-badge">🪐</div>
-                        <h2 class="win-title">Mode Cleared!</h2>
-                        <p class="win-message" id="win-message"></p>
-                        <button id="win-continue" type="button">Continue</button>
-                    </div>
                 </div>
             </div>
-            <div id="difficulty-overlay" class="visible">
-                <div class="difficulty-inner">
-                    <h1 class="difficulty-title">Planet Merge</h1>
-                    <p class="difficulty-sub">Choose your adventure!</p>
-                    <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
-                    <div class="difficulty-buttons">
-                        <button class="diff-btn diff-easy" type="button" data-diff="easy">
-                            <span class="diff-icon diff-icon-stack">
-                                <img src="assets/images/planet_moon_body.svg" alt="">
-                                <img src="assets/images/planet_moon_casual.svg" alt="">
-                            </span>
-                            <div class="diff-text">
-                                <div class="diff-label">Easy</div>
-                                <div class="diff-blurb">No tiny stars. Venus drops too!</div>
-                                <div class="diff-lock-hint"></div>
-                            </div>
-                            <span class="diff-lock" aria-hidden="true">🔒</span>
+            <div id="start-overlay" class="visible">
+                <div class="start-inner">
+                    <div class="start-planets" aria-hidden="true">
+                        <div class="start-planets-track" id="start-planets-track"></div>
+                    </div>
+                    <div class="start-content">
+                        <h1 class="start-title">Planet Merge</h1>
+                        <p class="start-sub">Merge planets, chase the chain, climb the levels!</p>
+                        <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
+                        <button id="play-btn" type="button">
+                            <span class="play-label">Play</span>
                         </button>
-                        <button class="diff-btn diff-normal" type="button" data-diff="normal">
-                            <span class="diff-icon diff-icon-stack">
-                                <img src="assets/images/planet_mars_body.svg" alt="">
-                                <img src="assets/images/planet_mars_casual.svg" alt="">
-                            </span>
-                            <div class="diff-text">
-                                <div class="diff-label">Normal</div>
-                                <div class="diff-blurb">The classic planet mix</div>
-                                <div class="diff-lock-hint"></div>
-                            </div>
-                            <span class="diff-lock" aria-hidden="true">🔒</span>
-                        </button>
-                        <button class="diff-btn diff-hard" type="button" data-diff="hard">
-                            <img class="diff-icon" src="assets/images/planet_sun.svg" alt="">
-                            <div class="diff-text">
-                                <div class="diff-label">Hard</div>
-                                <div class="diff-blurb">No superpowers. Just skill!</div>
-                                <div class="diff-lock-hint"></div>
-                            </div>
-                            <span class="diff-lock" aria-hidden="true">🔒</span>
+                        <button id="game-stat-btn" type="button">
+                            <span class="game-stat-icon" aria-hidden="true">📊</span>
+                            Game Statistic
                         </button>
                     </div>
-                    <button id="game-stat-btn" type="button">
-                        <span class="game-stat-icon" aria-hidden="true">📊</span>
-                        Game Statistic
-                    </button>
                 </div>
             </div>
             <div id="perks-overlay">

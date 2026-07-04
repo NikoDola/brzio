@@ -9,25 +9,65 @@ import { SHAPES, r, polyCorr } from './config.js';
 /* ── ASSET IMAGES ────────────────────────────────────────────────────────
    Each SHAPES entry can declare an `asset` filename in assets/images/.
    Requires a local HTTP server (file:// blocks image loading).
-   If an asset is missing or fails to load, drawProcedural is used.        */
+   If an asset is missing or fails to load, drawProcedural is used.
+
+   PERFORMANCE: SVG Images are never drawn in per-frame paths. Browsers
+   re-rasterize vector images on nearly every drawImage call, which was the
+   game's biggest frame cost (every body + face overlay, every frame). Each
+   SVG is instead baked ONCE on load into an offscreen canvas and the hot
+   paths blit that bitmap. Baked at max(2*r(lvl), BAKE_MIN) px so small
+   planets stay crisp when a preview draws them bigger than their in-game
+   size (the NEXT thumbnail renders up to ~59px).                          */
+const BAKE_MIN = 64;
+const bakeSize = (lvl) => Math.max(r(lvl) * 2, BAKE_MIN);
+
+/** Rasterize a loaded SVG Image into an offscreen canvas. Scaling this
+ *  bitmap to the target rect per frame is cheap; rasterizing the SVG
+ *  itself per frame is not. */
+function bakeBitmap(img, lvl) {
+    const s = bakeSize(lvl);
+    const c = document.createElement('canvas');
+    c.width = c.height = s;
+    c.getContext('2d').drawImage(img, 0, 0, s, s);
+    return c;
+}
+
+/** Solid-black copy of a baked bitmap (alpha preserved). Lets the score
+ *  shadow skip ctx.filter entirely: canvas filters force an intermediate
+ *  surface plus a pixel pass on every draw, far too slow for a per-frame
+ *  path. */
+function bakeSilhouette(bmp) {
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    const g = c.getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, c.width, c.height);
+    return c;
+}
+
 const _assetLoadCbs = [];
 /** Register a callback fired each time a planet SVG finishes loading.
  *  Used so static previews (e.g. the NEXT thumbnail) can redraw once their
- *  artwork is available — the main game loop redraws every frame anyway. */
+ *  artwork is available (the main game loop redraws every frame anyway). */
 export function onAssetLoad(cb) { _assetLoadCbs.push(cb); }
 
-const assetImgs = SHAPES.map((s, i) => {
-    if (!s.asset) return null;
+const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
+const shadowBmps = SHAPES.map(() => null);  // lvl → baked black silhouette
+SHAPES.forEach((s, i) => {
+    if (!s.asset) return;
     const img = new Image();
     img.src = `assets/images/${s.asset}`;
-    img.onload  = () => _assetLoadCbs.forEach((cb) => cb(i));
+    img.onload = () => {
+        bodyBmps[i] = bakeBitmap(img, i);
+        shadowBmps[i] = bakeSilhouette(bodyBmps[i]);
+        _assetLoadCbs.forEach((cb) => cb(i));
+    };
     img.onerror = () => console.warn(`[renderer] failed to load assets/images/${s.asset}`);
-    return img;
 });
-const hasImg = (lvl) => {
-    const img = assetImgs[lvl];
-    return img && img.complete && img.naturalWidth > 0;
-};
+const hasImg = (lvl) => !!bodyBmps[lvl];
 
 
 /* ── FACE EXPRESSIONS ─────────────────────────────────────────────────────
@@ -46,17 +86,22 @@ const hasImg = (lvl) => {
 const EXPR_HURT_MS = 1000;  // flinch for a second the instant it's struck
 const EXPR_SAD_MS  = 2000;  // then sulks for two seconds, then back to casual
 
-const exprImgs = SHAPES.map((s, i) => {
+const exprBmps = SHAPES.map((s, i) => {
     if (!s.asset || !s.expressions) return null;
     const base = s.asset.replace(/\.svg$/i, '').replace(/_body$/, '');
-    const load = (suffix) => {
+    // Slots fill in as each face SVG loads and bakes; a missing file just
+    // leaves its slot null (planet shows the bare body until art exists).
+    const slot = { casual: null, hurt: null, sad: null };
+    for (const mood of ['casual', 'hurt', 'sad']) {
         const img = new Image();
-        img.src = `assets/images/${base}_${suffix}.svg`;
-        img.onload  = () => _assetLoadCbs.forEach((cb) => cb(i));
-        img.onerror = () => {};  // art may not exist yet — fall back to bare body
-        return img;
-    };
-    return { casual: load('casual'), hurt: load('hurt'), sad: load('sad') };
+        img.src = `assets/images/${base}_${mood}.svg`;
+        img.onload  = () => {
+            slot[mood] = bakeBitmap(img, i);
+            _assetLoadCbs.forEach((cb) => cb(i));
+        };
+        img.onerror = () => {};  // art may not exist yet: fall back to bare body
+    }
+    return slot;
 });
 
 /** Which face a planet should show right now, from its hit timestamp. Pure
@@ -69,9 +114,6 @@ function currentExpr(body, totalMs) {
     if (dt < EXPR_HURT_MS + EXPR_SAD_MS) return 'sad';
     return 'casual';
 }
-
-const ready = (img) => img && img.complete && img.naturalWidth > 0;
-
 
 /* ── COLOUR UTIL ─────────────────────────────────────────────────────── */
 function lighten(hex, amt) {
@@ -178,13 +220,13 @@ export function drawBody(ctx, body, bodyLvl, totalMs = 0) {
         ctx.translate(body.position.x, body.position.y);
         ctx.rotate(vAngle);
         if (ro) ctx.translate(ro.x, ro.y);    // align image w/ collider when silhouette is off-centre
-        ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
         // Face overlay on top of the body, same rect so it tracks position
         // and rotation. Drawn after the body, inside the same transform.
-        const faces = exprImgs[lvl];
+        const faces = exprBmps[lvl];
         if (faces) {
             const face = faces[currentExpr(body, totalMs)];
-            if (ready(face)) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
+            if (face) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
         }
         ctx.restore();
     } else {
@@ -227,17 +269,57 @@ export function drawPreview(ctx, lvl, cx, cy, angle, rad) {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angle);
-        ctx.drawImage(assetImgs[lvl], -rad, -rad, rad * 2, rad * 2);
+        ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
         // A planet waiting to drop (or in the NEXT panel) has no hit state,
-        // so it always wears its casual face — same overlay as a live body.
-        const faces = exprImgs[lvl];
-        if (faces && ready(faces.casual)) {
+        // so it always wears its casual face, same overlay as a live body.
+        const faces = exprBmps[lvl];
+        if (faces && faces.casual) {
             ctx.drawImage(faces.casual, -rad, -rad, rad * 2, rad * 2);
         }
         ctx.restore();
         return;
     }
     drawProcedural(ctx, lvl, cx, cy, angle, rad);
+}
+
+
+/* ── SCORE BEHIND THE DROP ───────────────────────────────────────────── */
+/**
+ * Big total score painted in the sky, with the dropping planet's shadow falling
+ * ONLY on the digits (masked by the score text), never on the container.
+ * `fx` is a reused offscreen canvas; the mask needs an isolated buffer so
+ * `source-atop` clips the shadow to the text alone. Drawn behind the real planet.
+ */
+export function drawScoreShadow(ctx, fx, scoreText, lvl, planetX, dropY, rad) {
+    const f = fx.getContext('2d');
+    f.clearRect(0, 0, fx.width, fx.height);
+    const cx = fx.width / 2; // score is pinned to the centre and never moves
+
+    // The score, big and faded, fixed in the centre of the sky band.
+    f.save();
+    f.font = `900 128px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
+    f.textAlign = 'center';
+    f.textBaseline = 'middle';
+    f.fillStyle = 'rgba(255,255,255,0.22)';
+    f.fillText(scoreText, cx, dropY);
+    f.restore();
+
+    // The +10% black silhouette follows the live planet, drawn source-atop so it
+    // lands ONLY where the score text is (the text is the mask). As the planet
+    // slides across, its shadow sweeps over the fixed number. The silhouette is
+    // pre-baked at load (bakeSilhouette); per-frame ctx.filter is a known slow
+    // path and must not come back here. Skipped (lvl < 0) while no planet is
+    // waiting, so the number stays put with no shadow.
+    if (lvl >= 0 && shadowBmps[lvl]) {
+        const sr = rad * 1.1;
+        f.save();
+        f.globalCompositeOperation = 'source-atop';
+        f.globalAlpha = 0.3;
+        f.drawImage(shadowBmps[lvl], planetX - sr, dropY - sr, sr * 2, sr * 2);
+        f.restore();
+    }
+
+    ctx.drawImage(fx, 0, 0);
 }
 
 

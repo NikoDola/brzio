@@ -1,0 +1,89 @@
+/* ════════════════════════════════════════════════════════════════════════
+   planet-icons.js  —  shared "draw a planet as a small DOM icon" helpers
+   ════════════════════════════════════════════════════════════════════════
+
+   Used by the merge-order legend (this file), the perk tiles (perks.js), and
+   the level-up toast cards (levels.js), so they all render the exact same
+   body + casual-face combo instead of three slightly different versions. */
+import { SHAPES } from "./config.js";
+
+/* Casual-face overlay path for a planet that has expressions, or null. Mirrors
+   the renderer's filename derivation: drop `.svg` and the `_body` suffix from
+   the body asset, then append `_casual.svg`. Used by the static DOM displays
+   (legend, perk icons, level toasts) so they show the same face the canvas draws. */
+export function casualFaceSrc(lvl) {
+  const s = SHAPES[lvl];
+  if (!s || !s.expressions || !s.asset) return null;
+  const stem = s.asset.replace(/\.svg$/i, "").replace(/_body$/, "");
+  return `assets/images/${stem}_casual.svg`;
+}
+
+/* A planet's body+face icon markup: bare body with the casual face overlaid. */
+export function planetIconHTML(lvl) {
+  const s = SHAPES[lvl];
+  const face = casualFaceSrc(lvl);
+  return `<span class="planet-icon"><img src="assets/images/${s.asset}" alt="">${
+    face ? `<img class="planet-face" src="${face}" alt="">` : ""
+  }</span>`;
+}
+
+/* ── Merge-order legend ──────────────────────────────────────────────────
+   Built from SHAPES: smallest → largest, each icon 5% bigger than the last.
+   Generated (not hardcoded) so it always matches the real planet chain. */
+const planetLegendEl = document.getElementById("planet-legend");
+
+function buildPlanetLegend() {
+  if (!planetLegendEl) return;
+  const BASE = 22; // px, the smallest planet (first in SHAPES)
+  const STEP = 1.05; // each planet 5% larger than the one before it
+  SHAPES.forEach((s, i) => {
+    const px = Math.round(BASE * Math.pow(STEP, i));
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.dataset.lvl = i;
+
+    const icon = document.createElement("div");
+    icon.className = "planet-icon";
+    icon.style.width = `${px}px`;
+    icon.style.height = `${px}px`;
+
+    const img = document.createElement("img");
+    img.src = `assets/images/${s.asset}`;
+    img.alt = s.name;
+    icon.appendChild(img);
+
+    const faceSrc = casualFaceSrc(i);
+    if (faceSrc) {
+      const face = document.createElement("img");
+      face.className = "planet-face";
+      face.src = faceSrc;
+      face.alt = "";
+      icon.appendChild(face);
+    }
+
+    item.appendChild(icon);
+    planetLegendEl.appendChild(item);
+  });
+}
+buildPlanetLegend();
+
+// Hidden until the round starts (the start screen is the first screen).
+planetLegendEl?.classList.add("hidden");
+
+export function showLegend() {
+  planetLegendEl?.classList.remove("hidden");
+}
+export function hideLegend() {
+  planetLegendEl?.classList.add("hidden");
+}
+
+/* Level 1 never drops Stars, so the chain effectively starts at the Moon —
+   hide the Star from the legend until Stars join the roster (Level 2). */
+export function applyLegendMode(droppableLvls) {
+  if (!planetLegendEl) return;
+  const starsDrop = droppableLvls.includes(0);
+  planetLegendEl.querySelectorAll(".legend-item").forEach((item) => {
+    const lvl = Number(item.dataset.lvl);
+    item.classList.toggle("legend-hidden", lvl === 0 && !starsDrop);
+  });
+}

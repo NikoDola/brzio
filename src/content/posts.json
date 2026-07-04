@@ -10,18 +10,24 @@
       {
         "type": "section",
         "heading": "How to play",
-        "body": "Pick a mode when you load the game: Easy skips the tiny Stars and drops Venus straight into the rotation; Normal is the classic mix; Hard plays the classic mix but turns off the chain-based superpowers, so it's pure stacking skill.\n\nMove your cursor across the top of the playfield to aim. Click (or tap, on mobile) to drop the waiting planet. When two of the same planet touch, they merge into the next size up.\n\nThe planet you're holding is shown by the crosshair at the top. The planet coming after it lives in the NEXT panel on the side. Drop the wrong one in the wrong spot and the stack creeps upward. If any planet settles above the red danger line for more than a moment, the run ends.\n\nThere's no timer and no level. The whole game is one long balancing act between dropping aggressively for chain reactions and dropping carefully so your stack doesn't drift skyward."
+        "body": "Move your cursor across the top of the playfield to aim. Click (or tap, on mobile) to drop the waiting planet. When two of the same planet touch, they merge into the next size up.\n\nThe planet you're holding is shown by the crosshair at the top. The planet coming after it lives in the NEXT panel on the side. Drop the wrong one in the wrong spot and the stack creeps upward. If any planet settles above the red danger line for more than a moment, the run ends.\n\nIt's one endless run that ramps across seven levels as your score climbs. Level 1 drops the small bodies plus Venus, with both superpowers available. Level 2 adds Stars to the pool. Level 3 stops Venus dropping. Level 4 turns off the Eliminate power, and Level 5 turns off Choose. Level 6 takes the rainbow shield off your shakes, so shaking turns risky. Level 7, the last one, is the auto earthquake: the shakes start firing on their own. Every level-up pops a card at the top of the screen telling you exactly what changed."
       },
       {
         "type": "highlight",
         "variant": "green",
         "heading": "Chains and superpowers",
-        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Planet\". A pair of arrows appears below the danger line so you can swap the planet you're holding for any droppable before letting it fall.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero."
+        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Planet\". A pair of arrows appears below the danger line so you can swap the planet you're holding for any droppable before letting it fall.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero.\n\nThe later levels take these away one at a time. Eliminate switches off at Level 4, and Choose switches off at Level 5, so the final stretch is pure stacking skill."
+      },
+      {
+        "type": "highlight",
+        "variant": "rose",
+        "heading": "Shakes and the rainbow shield",
+        "body": "Merging also fills the SHAKES meter on the side. When it fills up, tap it to shake the board: every resting planet pops upward, and the lighter the load stacked on top of it, the higher it flies. It's a way to unstick a messy pile or nudge two planets together. Tap again while it's still shaking and the next jolt hits a little harder.\n\nWhile you're shaking, a rainbow arch guards the top of the playfield and the danger line switches off, so a shake can never end your run, at least at first. Level 6 takes the rainbow away, and from then on a careless shake can pop a planet over the line and cost you the game. Level 7 goes all the way: the button locks and the shakes fire by themselves. Every drop can set off a random burst of 1 to 6 shakes, so the board never sits still for long."
       },
       {
         "type": "section",
         "heading": "The droppables",
-        "body": "Only the five smallest bodies fall from the top. Anything larger is born from a merge."
+        "body": "The small bodies fall from the top, and in the early levels Venus drops in with them. Everything else is born from a merge. The drop pool shifts as you level up: Stars are held back until Level 2, and Venus stops dropping at Level 3."
       },
       {
         "type": "card-grid",
@@ -50,7 +56,7 @@
           {
             "src": "/games/planet-merge/assets/images/planet_mars.svg",
             "heading": "5. Mars",
-            "body": "The red wanderer, last of the droppables. Two Mars planets fuse into a Venus."
+            "body": "The red wanderer. Two Mars planets fuse into a Venus."
           }
         ]
       },
@@ -66,7 +72,7 @@
           {
             "src": "/games/planet-merge/assets/images/planet_venus.svg",
             "heading": "6. Venus",
-            "body": "Earth's twin in size. Two Venuses merge into Earth."
+            "body": "Earth's twin in size. Two Venuses merge into Earth. It also falls from the top during the first couple of levels, before it's held back."
           },
           {
             "src": "/games/planet-merge/assets/images/planet_earth.svg",
@@ -104,7 +110,7 @@
       {
         "type": "section",
         "heading": "The vibe",
-        "body": "Quiet space, soft glow, planets with faces. The whole game runs in a small dark window, with no chrome and no menus competing for attention. Score sits in the corner, the next planet hides in the side panel, and the playfield does all the talking.\n\nPhysics is deliberately a little arcadey. Heavy planets get a real shove when something light hits them, so chain reactions feel weighty even when the dropping planet is a tiny star. Sleeping bodies wake the instant anything below them merges, so a tower in the middle of a chain reaction collapses naturally instead of leaving floating planets in mid-air.\n\nNo timer pressure, no progression unlocks. Sit with one run, see how far you can take it, restart whenever."
+        "body": "Quiet space, soft glow, planets with faces. The whole game runs in a small dark window, with no chrome and no menus competing for attention. Score sits in the corner, the next planet hides in the side panel, and the playfield does all the talking.\n\nPhysics is deliberately a little arcadey. Heavy planets get a real shove when something light hits them, so chain reactions feel weighty even when the dropping planet is a tiny star. Sleeping bodies wake the instant anything below them merges, so a tower in the middle of a chain reaction collapses naturally instead of leaving floating planets in mid-air.\n\nNo timer pressure. The difficulty ramps on its own as your score climbs, but there's nothing to grind and nothing to unlock. Sit with one run, see how far you can take it, restart whenever."
       },
       {
         "type": "quote",
@@ -117,6 +123,6 @@
     "published": true,
     "gameSlug": "planet-merge",
     "createdAt": "2026-05-17T00:00:00.000Z",
-    "updatedAt": "2026-05-18T00:00:00.000Z"
+    "updatedAt": "2026-07-02T00:00:00.000Z"
   }
 ]
