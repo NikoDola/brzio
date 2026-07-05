@@ -11,8 +11,11 @@ export const LAYOUT = {
     W:            840,    // canvas width  (px)  — 2× original
     H:            927,    // canvas height (px)  — +30% from original, then +15%
     WALL:         20,     // wall thickness (px) — +40%
-    DROP_Y:       81,     // y-centre of the shape sitting at the top, ready to drop (+40%)
-    DANGER_Y:     133,    // red line — any settled shape above this ends the game (+40%)
+    DROP_GAP:     20,      // gap between the red player marker bottom and the top of the waiting planet
+    PLAYER_MARKER_W: 170, // 15% smaller than the original 200px placeholder
+    PLAYER_MARKER_H: 119, // keeps the same 10:7 ratio
+    SCORE_Y:      81,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
+    WALL_TOP:     133,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
     BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180
     VANISH_BONUS: 4096,   // bonus score when two Suns touch and vanish (2x a Sun)
 };
@@ -27,8 +30,10 @@ export const BALANCE = {
     CHOOSE_UNLOCK:         3,     // merges in one chain to earn "pick your next planet"
     DESTROY_UNLOCK:        5,     // merges in one chain to earn the Eliminate power
 
+    NO_ROOM_MS:            900,   // full board must persist this long before it ends the run (rides out mid-chain crowding)
+
     // Shakes meter (see shakes.js)
-    SHAKE_COST:            5,     // % of the meter spent per shake click
+    SHAKE_COST:            10,    // % of the meter spent per shake click (10 clicks per full bar)
     SHAKE_WINDOW_MS:       700,   // "still shaking" window that ramps the streak
     SHAKE_MAX_STREAK:      3,     // streak multiplier cap so mashing can't run away
     SHAKE_MAX_UP:          5,     // velocity clamp, upward (px/tick)

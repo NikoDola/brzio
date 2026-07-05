@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════
-   levels.js  —  the difficulty ladder, the droppable roster, and the
+   levels.js: the difficulty ladder, the droppable roster, and the
    level-up toast
    ════════════════════════════════════════════════════════════════════════
 
@@ -161,10 +161,12 @@ export function firstDrop() {
 export function resetLevel() {
   level = 1;
   rebuildDropTable();
+  updateLevelHud();
 }
 export function restoreLevel(savedLevel) {
   level = savedLevel || 1;
   rebuildDropTable();
+  updateLevelHud();
 }
 
 /* ── LEVEL-UP TOAST ──────────────────────────────────────────────────────
@@ -188,6 +190,10 @@ export function checkLevelUp(score) {
     rebuildDropTable();
     applyLegendMode(droppableLvls);
     levelToastQueue.push(curLevel());
+  }
+  if (leveled) {
+    updateLevelHud();
+    if (levelInfoOpen()) renderLevelCard(); // card is live, keep it honest
   }
   if (leveled && !levelToastPlaying) playNextLevelToast();
 }
@@ -279,3 +285,80 @@ function showLevelToast(lv, done) {
     setTimeout(finish, 500);
   }, 2600);
 }
+
+/* ── LEVEL HUD CELL + CURRENT-LEVEL CARD ─────────────────────────────────
+   The LEVEL cell sits between Settings and SHAKES in the HUD and shows the
+   current level number. Clicking it opens #level-overlay: a card that spells
+   out the live LEVELS row as bullets (what drops, which powers still work,
+   rainbow shield, manual vs automatic shakes) plus the next threshold.
+   game.js checks levelInfoOpen() in drop() so the spacebar can't fire a
+   planet under the card. */
+const levelPanelEl = document.getElementById("level-panel");
+const levelValueEl = document.getElementById("level-value");
+const levelOverlayEl = document.getElementById("level-overlay");
+const levelTitleEl = document.getElementById("level-title");
+const levelBodyEl = document.getElementById("level-body");
+const levelCloseEl = document.getElementById("level-close");
+
+export const levelInfoOpen = () => !!levelOverlayEl?.classList.contains("visible");
+
+function updateLevelHud() {
+  if (levelValueEl) levelValueEl.textContent = String(level);
+}
+
+/* One card bullet: green check when a mechanic is on, red cross when the
+   level has taken it away. */
+function ruleHTML(on, onText, offText) {
+  return `<li class="level-rule ${on ? "on" : "off"}">
+      <span class="level-rule-mark" aria-hidden="true">${on ? "✓" : "✗"}</span>
+      <span>${on ? onText : offText}</span>
+    </li>`;
+}
+
+function renderLevelCard() {
+  if (!levelBodyEl) return;
+  const lv = curLevel();
+  if (levelTitleEl) levelTitleEl.textContent = `Level ${level}`;
+  const icons = lv.drops
+    .map((l) => `<span class="level-drop-icon" title="${SHAPES[l].name}">${planetIconHTML(l)}</span>`)
+    .join("");
+  const nextRow = LEVELS[level]; // undefined on the final level
+  const nextLine = nextRow
+    ? `${lv.next} (at ${nextRow.from.toLocaleString()} points)`
+    : lv.next;
+  levelBodyEl.innerHTML = `
+    <div class="level-drops-label">Dropping now</div>
+    <div class="level-drops-icons">${icons}</div>
+    <ul class="level-rules">
+      ${ruleHTML(
+        lv.choose !== false,
+        "Choose power: a 3 merge chain lets you pick your next planet",
+        "Choose power: turned off at this level",
+      )}
+      ${ruleHTML(
+        lv.eliminate !== false,
+        "Eliminate power: a 5 merge chain lets you wipe out one planet type",
+        "Eliminate power: turned off at this level",
+      )}
+      ${ruleHTML(
+        lv.rainbow !== false,
+        "Rainbow shield: shaking is safe, the run can't end mid-shake",
+        "Rainbow shield: gone, a careless shake can end the run",
+      )}
+      ${ruleHTML(
+        lv.autoShake !== true,
+        "Shake button: merges fill the meter, tap SHAKES to fire one",
+        "Shake button: locked, earthquakes fire on their own after drops",
+      )}
+    </ul>
+    <div class="level-next">${nextLine}</div>`;
+}
+
+levelPanelEl?.addEventListener("click", () => {
+  renderLevelCard();
+  levelOverlayEl?.classList.add("visible");
+});
+levelCloseEl?.addEventListener("click", () =>
+  levelOverlayEl?.classList.remove("visible"),
+);
+updateLevelHud();

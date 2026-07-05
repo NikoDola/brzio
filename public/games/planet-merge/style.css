@@ -93,8 +93,15 @@ body {
     gap: 10px;
     /* The HUD bar and canvas share ONE width so they line up, and the layout is
        identical on desktop and mobile. The canvas fits the viewport in both
-       orientations; the height budget leaves room for the bar + legend + controls. */
-    --canvas-w: min(calc(100vw - 24px), calc((100vh - 235px) * 840 / 927), 460px);
+       orientations; the height budget leaves room for the bar + legend.
+       All three terms carry a flat 15% bump (the ask: "make the container
+       bigger"). The side-margin term (100vw - 16px) is a hard physical
+       limit though, so on narrow portrait phones that term still wins and
+       the gain is whatever margin there was to reclaim, a few percent, not
+       15%, there just isn't more screen width to give it. Desktop/tablet
+       viewports are wide enough that the height or cap term wins instead,
+       where the full 15% comes through. */
+    --canvas-w: min(calc(100vw - 16px), calc((100vh - 160px) * 1.15 * 840 / 927), 529px);
 }
 
 /* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
@@ -204,9 +211,8 @@ button.hud-cell { cursor: pointer; }
    (left arrow) and `left` (right arrow) so the gap stays constant. */
 .current-arrow {
     position: absolute;
-    /* Centred on the drop row (DROP_Y 81/927 ≈ 8.7%) so the arrows flank the
-       planet waiting to drop: ‹ planet ›. 28px = half the 56px arrow height. */
-    top: calc(8.7% - 28px);
+    /* Centred near the drop row controls. 28px = half the 56px arrow height. */
+    top: calc(31.29% - 28px);
     display: none;
     background: rgba(125, 223, 255, 0.18);
     border: 1px solid rgba(125, 223, 255, 0.6);
@@ -239,7 +245,7 @@ button.hud-cell { cursor: pointer; }
    same y-band as the arrows so the trio reads as one widget. */
 #choose-label {
     position: absolute;
-    top: 18%;
+    top: 40.59%;
     left: 50%;
     transform: translateX(-50%);
     height: 56px; /* matches .current-arrow height for vertical alignment */
@@ -300,17 +306,6 @@ button.hud-cell { cursor: pointer; }
 .fs-btn.is-fullscreen .fs-icon-enter { display: none; }
 .fs-btn.is-fullscreen .fs-icon-exit  { display: block; }
 
-/* ── HOW-TO-PLAY POPOUT ────────────────────────────────────────────────
-   Controller button bottom-right (just left of the fullscreen toggle) that
-   opens a how-to-play + controls panel above it. Fixed to the viewport so it
-   stays put in fullscreen and never sits over the planets. */
-#howto-popout {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
 /* Save progress button. Matches the how-to button so the two read as a pair. */
 #save-btn {
     display: flex;
@@ -345,57 +340,10 @@ button.hud-cell { cursor: pointer; }
     line-height: 1.15;
 }
 
-#howto-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 5px 9px;
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 10px;
-    color: rgba(255, 255, 255, 0.82);
-    font-family: inherit;
-    cursor: pointer;
-    line-height: 1;
-    transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s;
-}
-
-#howto-btn:hover  { background: rgba(0, 0, 0, 0.6); color: #fff; border-color: rgba(255, 255, 255, 0.28); }
-#howto-btn:active { transform: scale(0.94); }
-
-.howto-btn-icon { font-size: 18px; line-height: 1; }
-
-.howto-btn-label {
-    font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    text-align: center;
-    text-transform: uppercase;
-    opacity: 0.85;
-    line-height: 1.15;
-}
-
-#howto-panel {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    right: 0;
-    width: min(280px, calc(100vw - 70px)); /* keep clear of the left edge given the 58px right offset */
-    background: linear-gradient(160deg, #1c2c4e, #0e1730);
-    border: 1px solid rgba(125, 223, 255, 0.4);
-    border-radius: 14px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(125, 223, 255, 0.18);
-    padding: 16px 18px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-#howto-panel[hidden] { display: none; }
-
-/* One panel, two copies: mouse/keyboard text on pointer devices, touch text on
-   touch screens. Default to the desktop variant; the coarse-pointer query below
-   swaps to the mobile variant. */
+/* One block, two copies: mouse/keyboard text on pointer devices, touch text on
+   touch screens. Lives inside the Settings "How to Play" section. Default to
+   the desktop variant; the coarse-pointer query below swaps to the mobile
+   variant. */
 .howto-variant {
     display: flex;
     flex-direction: column;
@@ -483,9 +431,13 @@ body.fullscreen #dev-panel { display: flex; }
 
 #canvas-wrapper {
     position: relative;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 16px 64px rgba(0,0,0,0.7);
+    /* No border-radius/box-shadow/background here on purpose: this box spans
+       the FULL canvas, including the open area above the container's cut
+       walls. Rounding or shadowing it drew a visible "capsule" behind the
+       drop zone, where there should be nothing but stars. The container's
+       own rounded-bottom shape and border are drawn on the canvas itself
+       (game.js's frame()), only from WALL_TOP down, so nothing bounds the
+       open top. */
     width: var(--canvas-w);         /* shared with the HUD bar so they line up */
     aspect-ratio: 840 / 927;        /* matches canvas internal resolution */
 }
@@ -493,7 +445,6 @@ body.fullscreen #dev-panel { display: flex; }
 #game-canvas {
     display: block;
     cursor: crosshair;
-    border-radius: 14px;
     width: 100%;                    /* CSS scales display; internal pixels stay 840×927 */
     height: 100%;
     touch-action: none;             /* prevent page scroll while dragging on canvas */
@@ -1000,7 +951,8 @@ body.fullscreen #dev-panel { display: flex; }
 
 /* ── PERKS: full-stage overlay ────────────────────────────────────────────*/
 #perks-overlay,
-#settings-overlay {
+#settings-overlay,
+#level-overlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -1013,7 +965,8 @@ body.fullscreen #dev-panel { display: flex; }
     padding: 16px 18px 20px;
 }
 #perks-overlay.visible,
-#settings-overlay.visible { display: flex; }
+#settings-overlay.visible,
+#level-overlay.visible { display: flex; }
 
 /* ── SETTINGS: gear cell + single scrolling panel ─────────────────────── */
 #settings-btn { color: rgba(255, 255, 255, 0.8); }
@@ -1141,6 +1094,73 @@ body.fullscreen #dev-panel { display: flex; }
 }
 .limit-msg[hidden] { display: none; }
 
+/* ── LEVEL: current-level info card (opened from the LEVEL hud cell) ────
+   Body content is rendered by levels.js from the live LEVELS row: the
+   droppable roster as icons, one ✓/✗ bullet per mechanic, and the next
+   threshold at the bottom. */
+.level-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.level-drops-label {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #FECA57;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.level-drops-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.level-drop-icon {
+    display: block;
+    width: 32px;
+    height: 32px;
+}
+.level-rules {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.level-rule {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.9);
+}
+.level-rule.off { color: rgba(255, 255, 255, 0.6); }
+.level-rule-mark {
+    flex-shrink: 0;
+    font-weight: 700;
+    width: 18px;
+    text-align: center;
+}
+.level-rule.on  .level-rule-mark { color: #34C77B; }
+.level-rule.off .level-rule-mark { color: #ff6e6e; }
+.level-next {
+    margin-top: 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(254, 202, 87, 0.10);
+    border: 1px solid rgba(254, 202, 87, 0.35);
+    color: #FECA57;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
 /* Fill the overlay and become the flex column so the grid below can take the
    leftover space and scroll. Without this the grid's `flex: 1` has no flex
    parent, so it grows to fit every perk and never scrolls. */
@@ -1165,7 +1185,9 @@ body.fullscreen #dev-panel { display: flex; }
     letter-spacing: 1px;
     margin: 0;
 }
-#perks-close {
+#perks-close,
+#settings-close,
+#level-close {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.18);
     color: #fff;
@@ -1177,7 +1199,9 @@ body.fullscreen #dev-panel { display: flex; }
     font-family: inherit;
     transition: background 0.15s;
 }
-#perks-close:hover { background: rgba(255, 255, 255, 0.18); }
+#perks-close:hover,
+#settings-close:hover,
+#level-close:hover { background: rgba(255, 255, 255, 0.18); }
 
 /* Top-level tabs in the overlay header: Game Statistic | Perks. */
 .main-tabs {
@@ -1505,37 +1529,20 @@ html.dev-mode #dev-panel {
 
 /* ── MOBILE TWEAKS ─────────────────────────────────────────────────────── */
 /* The HUD-bar + canvas layout is the SAME on desktop and mobile (see
-   #game-stage / --canvas-w). These queries only adjust the surrounding chrome:
-   where the how-to/fullscreen controls sit, and page padding. */
+   #game-stage / --canvas-w). This query only adjusts the surrounding chrome:
+   page padding, and pinning the HUD to the very top of the screen. */
 @media (max-width: 700px) {
-    /* Stack vertically: game first, then the controls row underneath it. */
+    /* Stack vertically and pin to the top. How to Play now lives inside
+       Settings (not a control down here), so there's nothing left to anchor
+       below the game; any leftover space just sits under it, which is fine. */
     body { padding: 12px 8px; flex-direction: column; justify-content: flex-start; align-items: center; }
 
-    /* How-to + fullscreen flow BELOW the game container as a centred row, so
-       they never overlap the playfield on phones. */
-    #game-controls {
-        position: static;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        width: 100%;
-        margin-top: 12px;
-        flex-shrink: 0;
-    }
-    /* relative (not static) so the how-to panel still anchors to this button. */
-    #howto-popout { position: relative; bottom: auto; right: auto; }
-    .fs-btn { position: static; }
-    /* Re-centre the how-to panel on the viewport (the button sits left of
-       centre in the row by (gap 10px + fs btn 38px)/2 = 24px) so it can't
-       clip off the screen edge on narrow phones. */
-    #howto-panel {
-        left: calc(50% + 24px);
-        right: auto;
-        transform: translateX(-50%);
-        width: min(300px, calc(100vw - 24px));
-    }
+    /* No fullscreen on phones: entering/exiting real fullscreen inside an
+       iframe is unreliable on mobile browsers and the game already fills the
+       available space, so the toggle is dropped for this breakpoint. With
+       How to Play moved into Settings, #game-controls has nothing left to
+       show here. */
+    #game-controls { display: none; }
 }
 
 @media (min-width: 701px) {

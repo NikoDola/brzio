@@ -1,6 +1,6 @@
 # Planet Merge
 
-A Suika-style merge game. You drop planets from the top, and two of the same kind touching each other merge into the next size up. Get two Suns to touch and they pop for a bonus. If your stack piles up past the red line near the top, the game ends.
+A Suika-style merge game. You drop planets from the top, and two of the same kind touching each other merge into the next size up. Get two Suns to touch and they pop for a bonus. The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded there's nowhere left to drop.
 
 Before diving in here, read [`../CLAUDE.md`](../CLAUDE.md). It covers the rules shared by every game on the site (iframe embedding, scroll locking, dev mode) and the site-wide writing rule: no em dashes, anywhere.
 
@@ -32,10 +32,23 @@ Each file has one job. Don't copy logic between them.
 | File | What it handles |
 |---|---|
 | [config.js](config.js) | Every planet's definition, layout numbers, and drop odds. **This is the file you edit to rebalance the game or add a planet.** |
+| [tuning.js](tuning.js) | Live-tunable physics numbers (planet weight, impact kick, shake strength), shared by physics.js and the dev panel. |
 | [physics.js](physics.js) | Everything Matter.js: the engine, the walls, tracking which body is which, building colliders from artwork, spawning and removing bodies. |
-| [renderer.js](renderer.js) | All the drawing on the canvas: planets, effects, the "next planet" preview. It only reads game state and paints it. It never changes anything. |
-| [game.js](game.js) | The brain. Game loop, input, merges, the chain counter, superpowers, restart, dev panel. This is the entry point. |
-| [play.html](play.html) | The page skeleton: the canvas, the score and next panels, the dev panel, the game-over screen. Loads Matter.js and poly-decomp before starting the game. |
+| [renderer.js](renderer.js) | All the drawing on the canvas: planets, faces, effects, the "next planet" preview. It only reads game state and paints it. It never changes anything. |
+| [game.js](game.js) | The brain and the entry point. Game loop, input, merges, the chain counter, superpowers, restart. |
+| [state.js](state.js) | The tiny shared `round` flags (playing, game over) every other module reads. |
+| [levels.js](levels.js) | The `LEVELS` ladder: the drop roster per level, power bans, the level-up toast, and the LEVEL hud cell with its current-level card. |
+| [shakes.js](shakes.js) | The SHAKES meter, the shake itself, the rainbow shield, and the auto earthquake. |
+| [perks.js](perks.js) | The `PERKS` list, the perks overlay, unlock toasts and animations. |
+| [stats.js](stats.js) | Lifetime stats (games, best score, play time, best chain) in localStorage. |
+| [settings.js](settings.js) | The Settings overlay: sound toggle wiring, parent PIN, daily play-time limit. |
+| [save-storage.js](save-storage.js) | Mid-run auto-save and the resume prompt. |
+| [audio.js](audio.js) | All sound effects and the mute flag. |
+| [background.js](background.js) | The full-page starfield behind the game. |
+| [planet-icons.js](planet-icons.js) | Shared DOM planet icons (legend, perk tiles, level toasts and cards). |
+| [dev-panel.js](dev-panel.js) | The `?dev=1` panel: auto-drop, sim speed, colliders, physics sliders, session stats. |
+| [analytics.js](analytics.js) | Reports opens and game starts/ends to the parent site. |
+| [play.html](play.html) | The page skeleton: the canvas, the hud bar, every overlay, the dev panel. Loads Matter.js and poly-decomp before starting the game. |
 | [style.css](style.css) | All the styling. |
 
 ---
@@ -48,7 +61,7 @@ A few key spots on that canvas:
 
 - The walls are 34px thick, so planets live between x=34 and x=806.
 - The planet waiting to drop sits at the top, at y=81.
-- The red dashed danger line is at y=133. If a planet settles above it and stays there for 1.6 seconds, the game ends.
+- The side walls only start at y=133 (`WALL_TOP` in config.js); above that the container is open air. The physics floor spans just the inner width, so a planet pushed over a wall has nothing to land on and falls out of the world. There is no danger line anymore.
 - A Sun (the biggest planet) has a radius of 216px. Every other planet's size is a fraction of that.
 
 ---
@@ -57,7 +70,7 @@ A few key spots on that canvas:
 
 All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest. Each one carries a few settings: whether it can be dropped from the top, how likely it is to be picked, whether its collider follows the artwork's outline, and which image file it uses.
 
-One thing that trips people up: **the list of planets that can actually drop is not decided by that per-planet flag.** It's decided by the `drops` list on each level in game.js. The flag only feeds an old function that the game no longer calls. In the live game, level 1 drops Moon, Pluto, Mercury, Mars, and Venus. Level 2 adds Stars. From level 3 on, Venus stops dropping. Every other planet only ever shows up by merging.
+One thing that trips people up: **the list of planets that can actually drop is not decided by that per-planet flag.** It's decided by the `drops` list on each level in levels.js. The flag only feeds an old function that the game no longer calls. In the live game, level 1 drops Moon, Pluto, Mercury, Mars, and Venus. Level 2 adds Stars. From level 3 on, Venus stops dropping. Every other planet only ever shows up by merging.
 
 To add a planet, just add it to `SHAPES`. The drop odds and the merge order sort themselves out.
 
@@ -159,7 +172,7 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 
 There's no easy, normal, or hard. There is one endless mode that gets harder as your **score** climbs. A boolean called `playing` tracks whether a round is active, and the start screen shows a single **Play** button.
 
-The difficulty ladder is a table called `LEVELS` near the top of game.js. Each row says: the score you need to reach it, which planets can drop, whether chains can still grant each power, and the text and artwork for its level-up popup. To stretch the ramp out, just add rows. Nothing else needs to change.
+The difficulty ladder is a table called `LEVELS` near the top of levels.js. Each row says: the score you need to reach it, which planets can drop, whether chains can still grant each power, and the text and artwork for its level-up popup. To stretch the ramp out, just add rows. Nothing else needs to change.
 
 The levels as shipped:
 
@@ -177,6 +190,12 @@ The level-up popup shows either a plain planet (level 2 shows Stars), a plain po
 
 Whenever the score changes, the game checks if you've crossed into a new level. If so it updates which planets drop, takes away any power the new level bans, and slides a level-up banner in from the top for a couple of seconds. It never pauses the game, and if a single chain vaults you past two levels at once, you get both banners.
 
+### The LEVEL cell and the current-level card
+
+The hud bar has a LEVEL cell between Settings and SHAKES showing the current level number. Clicking it opens a card (same overlay pattern as perks and settings) that spells out the live `LEVELS` row as bullets: which planets drop right now (as icons), whether the Choose and Eliminate powers still work, whether the rainbow shield is up, and whether shakes are manual or automatic, each with a green check or a red cross. A callout at the bottom shows what changes at the next level and the score it takes to get there.
+
+The whole thing lives in levels.js and re-renders from `curLevel()` every time it opens, so it can never drift from the ladder: edit a `LEVELS` row and the card follows. If a chain levels you up while the card is open, it re-renders in place. Dropping is blocked while the card is open (game.js checks `levelInfoOpen()` in `drop()`), the game itself keeps running.
+
 ### Scoring
 
 - Each merge is worth the points of the planet you merged (defined in config.js). Points double per size: Stars are worth 1, Moon 2, on up to the Sun at 2048.
@@ -185,22 +204,33 @@ Whenever the score changes, the game checks if you've crossed into a new level. 
 
 ### Two Suns (still endless, no win screen)
 
-When two Suns touch, they pop, you get a flat bonus, and the game keeps going. There's no victory screen. A run only ends when the stack tops the danger line, which brings up your score and a Play Again button.
+When two Suns touch, they pop, you get a flat bonus, and the game keeps going. There's no victory screen. A run only ends by losing, which brings up your score and a Play Again button.
+
+### How you lose (two ways, no danger line)
+
+The old "settle above the red line" rule is gone. Both lose checks live in game.js:
+
+1. **A planet falls out of the container** (`checkOver`). The side walls stop at `WALL_TOP`, so an overfull stack can push a planet over the rim; with the floor only spanning the inner width, it falls past the bottom of the canvas and the run ends. The shake shield (`isProtected`) suspends this check, and every planet gets a 1.6s grace after spawning.
+2. **The board is full** (`checkBoardFull`). Every possible drop spot across the width is blocked, and it stays that way for `NO_ROOM_MS` (config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle.
+
+Related: when a board planet overlaps the current drop spot, the waiting planet dims to 0.7 opacity, wears its hurt face, and a red cross covers it (`drawPreview` in renderer.js, flag computed by `dropBlockedAt` in game.js). Clicking there is refused, and a refused drop must NOT reset the chain counter.
 
 ### The Shake meter
 
-There's a SHAKES bar in the HUD that fills as you merge (faster during a good chain). When it hits 100% it arms, and clicking it does a "shake": every settled planet pops upward, higher the less weight is stacked on it. It costs a slice of the meter per click, and clicking again quickly makes the next one a bit stronger.
+There's a SHAKES bar in the HUD that fills as you merge (faster during a good chain). When it hits 100% it arms, and clicking it does a "shake": every settled planet pops upward, higher the less weight is stacked on it. Each click costs 10% of the meter (`SHAKE_COST` in config.js), and clicking again quickly makes the next one a bit stronger.
+
+One subtlety that used to be a bug: merges set off by the shake itself keep feeding the meter in odd increments, so it can land on a value below one click's cost. The last click always spends whatever remains, so the meter reaches exactly 0, disarms, and starts refilling. Never bring back a "must have at least SHAKE_COST" guard; that strands the meter at 3% armed and unclickable.
 
 Normally a shake also throws up a rainbow arch across the top and suspends the game-over check while it's active, so a shake can never cost you the run. That safety net is what levels 6 and 7 take away:
 
-- **Level 6** turns the rainbow off (`rainbow: false`). You can still shake, but there's no shield and no game-over pause, so a badly-timed shake can push a planet over the line and end the run.
+- **Level 6** turns the rainbow off (`rainbow: false`). You can still shake, but there's no shield and no game-over pause, so a badly-timed shake can throw a planet over the wall and out, ending the run.
 - **Level 7** turns on the auto earthquake (`autoShake: true`). The manual button stops working (it shows a brief notice instead), and drops randomly trigger shake bursts on their own. The auto-shake ignores the meter entirely, it's a hazard now, not something you spend.
 
 ---
 
 ## Perks (unlockable achievements)
 
-A simple achievement system. Everything runs off the `PERKS` list near the top of game.js, so adding one is just a new entry there plus a call to award it at the right moment.
+A simple achievement system. Everything runs off the `PERKS` list near the top of perks.js, so adding one is just a new entry there plus a call to award it at the right moment.
 
 - **Three tabs:** wins, merges, and losing. Each perk has an id, a tab, a title, a goal, and an icon, plus optional sound and level.
 - **What's there now:** the wins tab has one for 200 merges in a single run. The merges tab has one for every planet you can create by merging (so everything except the Star, which is only ever dropped). Those merge perks unlock only when the planet is born from a merge, never from dropping one. The losing tab rewards finishing a run under 100 and under 150 merges.

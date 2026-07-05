@@ -7,7 +7,7 @@ import { LAYOUT, SHAPES, r, polyCorr } from './config.js';
 import { densityFor } from './tuning.js';
 
 const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query } = Matter;   // Matter loaded via CDN <script>
-const { W, H, WALL } = LAYOUT;
+const { W, H, WALL, WALL_TOP } = LAYOUT;
 
 // Tell Matter where the poly-decomp library is (needed for concave bodies)
 if (typeof window !== 'undefined' && window.decomp && Common.setDecomp) {
@@ -22,11 +22,16 @@ if (typeof window !== 'undefined' && window.decomp && Common.setDecomp) {
 export const engine = Engine.create({ gravity: { y: 1.8 }, enableSleeping: true });
 export const world  = engine.world;
 
+// The container is a "U" with a cut-down rim: the side walls only start at
+// WALL_TOP, so an overfull stack can push planets over the edge. The floor
+// spans just the inner width; a planet that goes over a wall has nothing to
+// land on and falls out of the world (game.js's checkOver ends the run).
 const wallOpts = { isStatic: true, label: 'wall', friction: 0.6, restitution: 0.1 };
+const SIDE_H = H - WALL_TOP;
 World.add(world, [
-    Bodies.rectangle(W / 2,      H - WALL / 2, W,    WALL, { ...wallOpts, label: 'floor' }),  // floor
-    Bodies.rectangle(WALL / 2,   H / 2,        WALL, H,    wallOpts),  // left
-    Bodies.rectangle(W - WALL/2, H / 2,        WALL, H,    wallOpts),  // right
+    Bodies.rectangle(W / 2,      H - WALL / 2,        W - 2 * WALL, WALL,   { ...wallOpts, label: 'floor' }),  // floor (inner width only)
+    Bodies.rectangle(WALL / 2,   WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // left
+    Bodies.rectangle(W - WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // right
 ]);
 
 

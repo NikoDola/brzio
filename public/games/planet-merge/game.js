@@ -26,6 +26,7 @@ import {
   drawFlashes,
   drawPopups,
   drawUnlockGlows,
+  drawPlayerMarker,
   onAssetLoad,
 } from "./renderer.js";
 import {
@@ -50,8 +51,9 @@ import {
   resetLevel,
   restoreLevel,
   checkLevelUp,
+  levelInfoOpen,
 } from "./levels.js";
-import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawDangerLineOrShield } from "./shakes.js";
+import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield } from "./shakes.js";
 import {
   isAutoDropOn,
   getAutoDropX,
@@ -66,7 +68,7 @@ import {
 import { snapshotBodies, writeSave, loadSave, clearSave, resumeOverlayEl, checkResume } from "./save-storage.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
-const { W, H, WALL, DROP_Y, DANGER_Y, VANISH_BONUS } = LAYOUT;
+const { W, H, WALL, DROP_GAP, PLAYER_MARKER_H, SCORE_Y, WALL_TOP, VANISH_BONUS } = LAYOUT;
 
 /* ── CANVAS ──────────────────────────────────────────────────────────── */
 const canvas = document.getElementById("game-canvas");
@@ -483,6 +485,17 @@ function canvasCoords(clientX, clientY) {
   };
 }
 
+function clampedDropX(lvl = curLvl) {
+  const rad = r(lvl);
+  const minX = WALL + rad + 2;
+  const maxX = W - WALL - rad - 2;
+  return Math.max(minX, Math.min(maxX, dropX));
+}
+
+function dropYFor(lvl = curLvl) {
+  return WALL_TOP + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
+}
+
 /**
  * Try to spend a destroy charge by clicking on a planet. Returns true if a
  * planet was hit (and destroyed), false if the click missed — caller can then
@@ -560,7 +573,7 @@ function flushMerges() {
     // Wake the whole field so bodies stacked above the merge — even 3+
     // layers up, beyond any local radius — fall when their support goes.
     wakeAllShapes();
-    const sy = Math.max(DANGER_Y + newR + 6, my);
+    const sy = Math.max(WALL_TOP + newR + 6, my);
     const merged = spawn(mx, sy, newLvl, totalMs);
     Body.setVelocity(merged, { x: 0, y: -3 });
     // Bigger body at the midpoint may intersect a neighbour — push them apart.
@@ -623,15 +636,18 @@ function flushVanishes() {
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
-  if (!canDrop || round.gameOver || perksOpen() || isProtected()) return;
-  // Every drop starts a fresh chain — powers are earned by chains spawned
-  // from ONE drop's cascade, never by accumulation across drops.
-  resetChain();
+  if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return;
   const rad = r(curLvl);
   const minX = WALL + rad + 2;
   const maxX = W - WALL - rad - 2;
   const sx = Math.max(minX, Math.min(maxX, dropX));
-  spawn(sx, DROP_Y, curLvl, totalMs);
+  // A planet in the way at this spot: refuse (the preview shows the red cross).
+  // Refusing must NOT reset the chain, only a real drop starts a fresh one.
+  if (dropBlockedAt(sx, curLvl)) return;
+  // Every drop starts a fresh chain — powers are earned by chains spawned
+  // from ONE drop's cascade, never by accumulation across drops.
+  resetChain();
+  spawn(sx, dropYFor(curLvl), curLvl, totalMs);
   // Note: dropping a planet does NOT earn its perk — only merging UP to it
   // does (handled in flushMerges). So a chosen/dropped Mercury grants nothing.
   curLvl = nxtLvl;
@@ -651,6 +667,10 @@ function drop() {
 }
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
+// No danger line any more: the container is open at the top and the run ends
+// when a planet is pushed over a wall and falls OUT of the container (past the
+// bottom of the canvas). The second lose condition, a board so crowded there is
+// nowhere left to drop, lives in checkBoardFull() below.
 function checkOver() {
   if (isProtected()) return; // shielded while shaking: no game over
   for (const body of Composite.allBodies(world)) {
@@ -659,11 +679,62 @@ function checkOver() {
     const lvl = bodyLvl.get(id);
     if (lvl === undefined) continue;
     if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
-    if (body.position.y < DANGER_Y) {
+    if (body.position.y > H + 40) {
       endGame();
       return;
     }
   }
+}
+
+/* ── DROP ROOM ───────────────────────────────────────────────────────────
+   dropBlockedAt: a planet on the board overlaps the drop spot, so dropping
+   there would spawn inside it. drop() refuses and the preview shows the
+   blocked look (dimmed, red cross, hurt face). Board planets are treated as
+   circles; close enough for a hint and a refusal.
+
+   checkBoardFull: the second lose condition. When EVERY spot across the width
+   is blocked, there is nowhere left to drop; if that holds for NO_ROOM_MS the
+   run ends. The dwell time rides out a chain mid-cascade, where planets fly
+   everywhere for a moment but the board still has room once it settles. */
+function dropBlockedAt(sx, lvl) {
+  const rad = r(lvl);
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== "shape") continue;
+    const otherLvl = bodyLvl.get(body.id);
+    if (otherLvl === undefined) continue;
+    const dx = body.position.x - sx;
+    const dy = body.position.y - dropYFor(lvl);
+    const reach = rad + r(otherLvl) - 2; // small slack so a graze doesn't block
+    if (dx * dx + dy * dy < reach * reach) return true;
+  }
+  return false;
+}
+
+function boardFull() {
+  const rad = r(curLvl);
+  const minX = WALL + rad + 2;
+  const maxX = W - WALL - rad - 2;
+  const steps = 24;
+  for (let i = 0; i <= steps; i++) {
+    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, curLvl)) return false;
+  }
+  return true;
+}
+
+let noRoomMs = 0;
+function checkBoardFull(dt) {
+  // Only while the player could actually drop: cooldown chaos doesn't count,
+  // and the shake shield suspends losing just like it does for checkOver.
+  if (!canDrop || isProtected()) {
+    noRoomMs = 0;
+    return;
+  }
+  if (!boardFull()) {
+    noRoomMs = 0;
+    return;
+  }
+  noRoomMs += dt;
+  if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame();
 }
 
 function endGame() {
@@ -713,6 +784,7 @@ function frame(ts) {
       flushMerges();
       flushVanishes();
       checkOver();
+      checkBoardFull(PHYS_STEP);
       if (round.gameOver) break;
 
       if (isAutoDropOn() && canDrop) {
@@ -725,11 +797,19 @@ function frame(ts) {
     }
   }
 
-  /* Background */
+  /* Background: wipe to fully transparent first. The open area above the
+     container (the drop chute, and the corners where the walls are cut
+     away) is left untouched after this, on purpose, so the page's own
+     starfield canvas shows straight through with no seam, no border, no
+     tint. Only the container itself (from WALL_TOP down) gets painted. */
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = playfieldGradient;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(WALL, WALL_TOP, W - 2 * WALL, H - WALL_TOP);
 
-  /* Twinkling stars (behind everything else, in front of the gradient) */
+  /* Twinkling stars (behind everything else, in front of the gradient).
+     Spans the full canvas, including the open area above the container, so
+     it layers a second, faster-twinkling star field over the page's own
+     backdrop there. */
   ctx.fillStyle = "#fff6d6";
   for (const s of stars) {
     // sin -> [-1, 1] mapped to a soft [0.25, 1] multiplier so stars never
@@ -742,16 +822,28 @@ function frame(ts) {
   }
   ctx.globalAlpha = 1;
 
-  /* Walls */
+  /* Walls: a "U" with a cut-down rim. The sides only start at WALL_TOP
+     (matching the physics bodies), so the space above reads as open air a
+     planet can be pushed over. */
   ctx.fillStyle = "#1a2a4a";
-  ctx.fillRect(0, 0, WALL, H);
-  ctx.fillRect(W - WALL, 0, WALL, H);
-  ctx.fillRect(0, H - WALL, W, WALL);
+  ctx.fillRect(0, WALL_TOP, WALL, H - WALL_TOP);
+  ctx.fillRect(W - WALL, WALL_TOP, WALL, H - WALL_TOP);
+  ctx.fillRect(WALL, H - WALL, W - 2 * WALL, WALL);
+
+  /* A thin border tracing ONLY the container's real outline (flat top at
+     WALL_TOP, since the rim is cut there, not the whole canvas). This used
+     to come from a CSS box-shadow on the canvas wrapper, but that box
+     covered the full canvas rectangle, including the open top, and drew a
+     border there too. Keeping it in the draw call ties it to the actual
+     container shape. */
+  ctx.strokeStyle = "rgba(255,255,255,0.14)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, WALL_TOP, W - 2, H - WALL_TOP - 1);
 
 
-
-  /* Danger line — or, while shaking, the rainbow shield arch that replaces it. */
-  drawDangerLineOrShield(ctx);
+  /* Rainbow shield arch, only while a shake has it raised. (The red danger
+     line is gone: losing is about falling out of the container now.) */
+  drawShield(ctx);
 
   /* Effects → bodies → score popups (draw order matters) */
   drawFlashes(ctx, flashes, totalMs);
@@ -777,7 +869,15 @@ function frame(ts) {
     const maxX = W - WALL - rad - 2;
     const sx = Math.max(minX, Math.min(maxX, dropX));
     const hasWaiting = canDrop && destroyCharges === 0;
-    drawScoreShadow(ctx, scoreFx, String(score), hasWaiting ? curLvl : -1, sx, DROP_Y, rad);
+    drawScoreShadow(ctx, scoreFx, String(score), hasWaiting ? curLvl : -1, sx, SCORE_Y, rad);
+  }
+
+  // Placeholder for a future "player character" sprite that will look like
+  // it's holding and dropping planets. Just a red block for now, centered on
+  // the live aim point and sitting on the container's top edge. Drawn for the
+  // whole round so it keeps following during the drop cooldown.
+  if (!round.gameOver && round.playing) {
+    drawPlayerMarker(ctx, clampedDropX(), WALL_TOP);
   }
 
   /* Drop guide + shape waiting to fall (hidden while aiming the destroy power) */
@@ -787,17 +887,20 @@ function frame(ts) {
     const maxX = W - WALL - rad - 2;
     const sx = Math.max(minX, Math.min(maxX, dropX));
 
+    const blocked = dropBlockedAt(sx, curLvl);
     ctx.save();
     ctx.strokeStyle = "rgba(255,255,255,0.11)";
     ctx.setLineDash([4, 7]);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(sx, DANGER_Y + 2);
+    ctx.moveTo(sx, WALL_TOP + 2);
     ctx.lineTo(sx, H - WALL);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.globalAlpha = 0.88;
-    drawPreview(ctx, curLvl, sx, DROP_Y, 0, rad);
+    // Blocked spot: the waiting planet dims to 0.7, wears its hurt face, and a
+    // red cross covers it (drawPreview). Clicking here is refused by drop().
+    ctx.globalAlpha = blocked ? 0.7 : 0.88;
+    drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, blocked);
     ctx.restore();
   }
 
@@ -910,6 +1013,7 @@ function resetGameState() {
   cooldown = 0;
   totalMs = 0;
   physAcc = 0;
+  noRoomMs = 0;
   round.gameOver = false;
   resetDevDrops();
 
@@ -1100,6 +1204,7 @@ function restoreGame(data) {
   canDrop = true;
   cooldown = 0;
   totalMs = 0;
+  noRoomMs = 0;
   round.gameOver = false;
   resetDevDrops();
   resetChain();
@@ -1195,33 +1300,6 @@ function syncFullscreenState() {
 }
 document.addEventListener("fullscreenchange", syncFullscreenState);
 document.addEventListener("webkitfullscreenchange", syncFullscreenState);
-
-/* ── HOW-TO-PLAY POPOUT ─────────────────────────────────────────────────
-   Toggle the bottom-right how-to panel. Closes on a click outside the popout
-   or on Escape so it never lingers over the playfield. */
-const howtoBtn = document.getElementById("howto-btn");
-const howtoPanel = document.getElementById("howto-panel");
-
-function setHowtoOpen(open) {
-  if (!howtoBtn || !howtoPanel) return;
-  howtoPanel.hidden = !open;
-  howtoBtn.setAttribute("aria-expanded", String(open));
-}
-
-howtoBtn?.addEventListener("click", (e) => {
-  e.stopPropagation(); // don't let the document handler immediately re-close it
-  setHowtoOpen(howtoPanel.hidden);
-});
-
-document.addEventListener("click", (e) => {
-  if (howtoPanel && !howtoPanel.hidden && !e.target.closest("#howto-popout")) {
-    setHowtoOpen(false);
-  }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") setHowtoOpen(false);
-});
 
 /* ── BOOT ────────────────────────────────────────────────────────────── */
 // Dev panel "Drop" selector, specific-planet mode: snap current + next

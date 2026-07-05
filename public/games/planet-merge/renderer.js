@@ -3,7 +3,7 @@
    Pure functions: take data in, draw to a canvas context, return nothing.
    ════════════════════════════════════════════════════════════════════════ */
 
-import { SHAPES, r, polyCorr } from './config.js';
+import { LAYOUT, SHAPES, r, polyCorr } from './config.js';
 
 
 /* ── ASSET IMAGES ────────────────────────────────────────────────────────
@@ -264,22 +264,59 @@ function drawColliderOverlay(ctx, body) {
  * top of the canvas and the NEXT thumbnail). Falls back to drawProcedural
  * when the SVG asset hasn't loaded yet.
  */
-export function drawPreview(ctx, lvl, cx, cy, angle, rad) {
+export function drawPreview(ctx, lvl, cx, cy, angle, rad, blocked = false) {
     if (hasImg(lvl)) {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angle);
         ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
         // A planet waiting to drop (or in the NEXT panel) has no hit state,
-        // so it always wears its casual face, same overlay as a live body.
+        // so it wears its casual face, same overlay as a live body. When the
+        // drop spot is blocked by a planet underneath, it winces instead.
         const faces = exprBmps[lvl];
-        if (faces && faces.casual) {
-            ctx.drawImage(faces.casual, -rad, -rad, rad * 2, rad * 2);
-        }
+        const face = blocked ? faces && (faces.hurt || faces.casual)
+                             : faces && faces.casual;
+        if (face) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
+        if (blocked) drawBlockedCross(ctx, rad);
         ctx.restore();
         return;
     }
     drawProcedural(ctx, lvl, cx, cy, angle, rad);
+    if (blocked) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        drawBlockedCross(ctx, rad);
+        ctx.restore();
+    }
+}
+
+/* Red ✗ over a blocked drop preview ("you can't drop here"). Drawn at full
+   alpha so it reads clearly on top of the dimmed planet. */
+function drawBlockedCross(ctx, rad) {
+    const a = rad * 0.5;
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#ff4d4d';
+    ctx.lineWidth = Math.max(5, rad * 0.16);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-a, -a);
+    ctx.lineTo(a, a);
+    ctx.moveTo(a, -a);
+    ctx.lineTo(-a, a);
+    ctx.stroke();
+}
+
+
+/* ── PLAYER CHARACTER (placeholder) ───────────────────────────────────────
+ * Stand-in for a future sprite that will look like it's holding and dropping
+ * planets. Just a plain red 10:7 block for now. Its center is supplied by the
+ * caller so it can track the live aim point.
+ */
+export function drawPlayerMarker(ctx, cx, edgeY) {
+    const w = LAYOUT.PLAYER_MARKER_W, h = LAYOUT.PLAYER_MARKER_H;
+    const y = edgeY - h / 2; // straddles the edge line: half above, half below
+    ctx.fillStyle = '#e63946';
+    ctx.fillRect(cx - w / 2, y, w, h);
 }
 
 

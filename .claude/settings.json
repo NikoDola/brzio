@@ -13,7 +13,17 @@
       "Bash(node --check game.js)",
       "Bash(grep -n \"earnPerk\\(\\\\`merge-\" game.js)",
       "Bash(git fetch *)",
-      "Bash(git ls-remote *)"
+      "Bash(git ls-remote *)",
+      "Bash(node --check *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npx eslint *)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint *)",
+      "Bash(npm run test)",
+      "Bash(npm run test *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -s -o /dev/null -w *)"
     ]
   }
 }

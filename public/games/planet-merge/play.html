@@ -17,7 +17,7 @@
       // Block wheel events from bubbling out and scrolling the parent page,
       // EXCEPT inside scrollable UI like the perks grid, which must scroll.
       window.addEventListener('wheel', (e) => {
-        if (e.target.closest && e.target.closest('.perks-grid, .settings-body')) return;
+        if (e.target.closest && e.target.closest('.perks-grid, .settings-body, .level-body')) return;
         e.preventDefault();
       }, { passive: false });
     </script>
@@ -32,6 +32,10 @@
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
+                </button>
+                <button class="hud-cell" id="level-panel" type="button" aria-label="Current level rules">
+                    <span class="panel-label">LEVEL</span>
+                    <span class="hud-value" id="level-value">1</span>
                 </button>
                 <div class="hud-cell" id="shakes-panel">
                     <div class="shakes-fill" id="shakes-fill"></div>
@@ -125,6 +129,35 @@
                     </div>
                     <div class="settings-body">
                         <section class="settings-section">
+                            <h3 class="settings-section-title">How to Play</h3>
+                            <div class="howto-variant howto-desktop">
+                                <div class="howto-section">
+                                    <p>Move your mouse to aim, then click to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                                </div>
+                                <div class="howto-section">
+                                    <h3>Controls</h3>
+                                    <ul>
+                                        <li><b>Move mouse</b> aim the drop</li>
+                                        <li><b>Click</b> drop a planet</li>
+                                        <li><b>Spacebar</b> drop a planet</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="howto-variant howto-mobile">
+                                <div class="howto-section">
+                                    <p>Slide your finger to aim, then tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                                </div>
+                                <div class="howto-section">
+                                    <h3>Controls</h3>
+                                    <ul>
+                                        <li><b>Drag</b> aim the drop</li>
+                                        <li><b>Tap</b> drop a planet</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-section">
                             <h3 class="settings-section-title">Sound</h3>
                             <div class="settings-row">
                                 <span class="settings-row-label">Game sound</span>
@@ -166,6 +199,18 @@
                             <div class="stat-line"><span class="stat-line-label">Best merge streak</span><span class="stat-line-value" id="set-stat-chain">0</span></div>
                         </section>
                     </div>
+                </div>
+            </div>
+            <!-- Current-level card: opened from the LEVEL cell in the HUD.
+                 The body is rendered by levels.js each time it opens, so the
+                 bullets always match the live LEVELS row. -->
+            <div id="level-overlay">
+                <div class="perks-inner">
+                    <div class="perks-header">
+                        <h2 class="perks-title" id="level-title">Level 1</h2>
+                        <button id="level-close" type="button" aria-label="Close">✕</button>
+                    </div>
+                    <div class="level-body" id="level-body"></div>
                 </div>
             </div>
         </div>
@@ -260,54 +305,13 @@
             </div>
         </div>
     </div>
-    <!-- How-to-play + fullscreen controls. On desktop #game-controls is
-         display:contents so each child keeps its own fixed bottom-right
-         position. On mobile (see style.css) the wrapper becomes a normal-flow
-         row placed BELOW the game container, so the buttons never overlap the
-         playfield. -->
+    <!-- Fullscreen toggle. Fixed to the viewport bottom-right on desktop.
+         Hidden entirely on mobile (see style.css): fullscreen inside an
+         iframe is unreliable on phone browsers, and How to Play now lives in
+         the Settings overlay instead of a control here. -->
     <div id="game-controls">
     <!-- Progress auto-saves when the player leaves mid-game; the start screen's
          Continue button offers a one-time resume. No manual save button. -->
-    <!-- How-to-play popout: a small controller button. Opens a panel with
-         how-to-play + controls. -->
-    <div id="howto-popout">
-        <div id="howto-panel" role="dialog" aria-label="How to play and controls" hidden>
-            <!-- Desktop (mouse + keyboard) copy. Shown unless the device is a
-                 touch screen, where the mobile variant below takes over. -->
-            <div class="howto-variant howto-desktop">
-                <div class="howto-section">
-                    <h3>How to Play</h3>
-                    <p>Move your mouse to aim, then click to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
-                </div>
-                <div class="howto-section">
-                    <h3>Controls</h3>
-                    <ul>
-                        <li><b>Move mouse</b> aim the drop</li>
-                        <li><b>Click</b> drop a planet</li>
-                        <li><b>Spacebar</b> drop a planet</li>
-                    </ul>
-                </div>
-            </div>
-            <!-- Touch copy. Shown only on coarse-pointer (touch) devices. -->
-            <div class="howto-variant howto-mobile">
-                <div class="howto-section">
-                    <h3>How to Play</h3>
-                    <p>Slide your finger to aim, then tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
-                </div>
-                <div class="howto-section">
-                    <h3>Controls</h3>
-                    <ul>
-                        <li><b>Drag</b> aim the drop</li>
-                        <li><b>Tap</b> drop a planet</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-        <button id="howto-btn" type="button" aria-label="How to play and controls" aria-expanded="false">
-            <span class="howto-btn-icon" aria-hidden="true">🎮</span>
-            <span class="howto-btn-label">How to Play<br>&amp; Controls</span>
-        </button>
-    </div>
     <button id="fullscreen-btn" class="fs-btn" type="button" aria-label="Toggle fullscreen">
         <svg class="fs-icon fs-icon-enter" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 9V4h5"/>

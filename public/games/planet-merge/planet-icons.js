@@ -29,12 +29,19 @@ export function planetIconHTML(lvl) {
 
 /* ── Merge-order legend ──────────────────────────────────────────────────
    Built from SHAPES: smallest → largest, each icon 5% bigger than the last.
-   Generated (not hardcoded) so it always matches the real planet chain. */
+   Generated (not hardcoded) so it always matches the real planet chain.
+
+   Smaller on mobile (matches the stacked-controls breakpoint in style.css)
+   so the legend takes less vertical room and the how-to-play button below
+   it stays on screen without needing a scroll, which the page disables. */
 const planetLegendEl = document.getElementById("planet-legend");
+const mobileLegendQuery = window.matchMedia("(max-width: 700px)");
+let lastDroppableLvls = []; // reapplied after a resize-triggered rebuild
 
 function buildPlanetLegend() {
   if (!planetLegendEl) return;
-  const BASE = 22; // px, the smallest planet (first in SHAPES)
+  planetLegendEl.innerHTML = "";
+  const BASE = mobileLegendQuery.matches ? 15 : 22; // px, the smallest planet (first in SHAPES)
   const STEP = 1.05; // each planet 5% larger than the one before it
   SHAPES.forEach((s, i) => {
     const px = Math.round(BASE * Math.pow(STEP, i));
@@ -64,8 +71,14 @@ function buildPlanetLegend() {
     item.appendChild(icon);
     planetLegendEl.appendChild(item);
   });
+  applyLegendMode(lastDroppableLvls);
 }
 buildPlanetLegend();
+
+// Rebuild at the mobile/desktop size boundary (a rotated phone or a resized
+// desktop window can cross it mid-session); rebuilding clears the DOM, so
+// buildPlanetLegend reapplies the last known droppable roster afterward.
+mobileLegendQuery.addEventListener("change", buildPlanetLegend);
 
 // Hidden until the round starts (the start screen is the first screen).
 planetLegendEl?.classList.add("hidden");
@@ -81,6 +94,7 @@ export function hideLegend() {
    hide the Star from the legend until Stars join the roster (Level 2). */
 export function applyLegendMode(droppableLvls) {
   if (!planetLegendEl) return;
+  lastDroppableLvls = droppableLvls;
   const starsDrop = droppableLvls.includes(0);
   planetLegendEl.querySelectorAll(".legend-item").forEach((item) => {
     const lvl = Number(item.dataset.lvl);

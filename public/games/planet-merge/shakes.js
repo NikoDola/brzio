@@ -18,7 +18,7 @@ import { round } from "./state.js";
 import { getLevel, rainbowEnabled, autoShakeEnabled } from "./levels.js";
 
 const { Body, Composite } = Matter; // CDN global
-const { W, H, WALL, DANGER_Y } = LAYOUT;
+const { H, WALL } = LAYOUT;
 
 const shakesFillEl = document.getElementById("shakes-fill");
 const shakesLabelEl = document.getElementById("shakes-label");
@@ -157,7 +157,11 @@ shakesPanelEl?.addEventListener("click", () => {
     flashShakeNotice(`Level ${getLevel()}: the shakes are automatic now`);
     return;
   }
-  if (!shakeArmed || shakePct < BALANCE.SHAKE_COST) return;
+  // Any leftover below SHAKE_COST is still a valid (last) click: it spends the
+  // remainder and lands the meter on exactly 0. Without this, mid-shake merges
+  // topping the meter up by odd amounts could strand it at, say, 3%: armed,
+  // inviting a click, but doing nothing.
+  if (!shakeArmed || shakePct <= 0) return;
   const now = performance.now();
   // Click again while it's still shaking → 1.3x stronger, capped so it can't run away.
   shakeStreak =
@@ -206,33 +210,24 @@ export function tickShield() {
   }
 }
 
-// Draws the red dashed danger line, or, while shielded, the rainbow arch that
-// replaces it. Called every frame from game.js's draw pass.
-export function drawDangerLineOrShield(ctx) {
+// Draws the rainbow shield arch while a shake has it raised. Nothing is drawn
+// otherwise (the old red danger line is gone: losing is about falling out of
+// the container, not crossing a height). Called every frame from game.js.
+export function drawShield(ctx) {
+  if (!protectActive) return;
   ctx.save();
-  if (protectActive) {
-    const rainbow = ["#ff3b3b", "#ff9f1c", "#ffd23f", "#3bd16f", "#3b9bff", "#9b5cff"];
-    const STEPS = 48;
-    ctx.lineWidth = 6;
-    ctx.lineCap = "round";
-    for (let i = 0; i < STEPS; i++) {
-      const a = archPoint(i / STEPS);
-      const b = archPoint((i + 1) / STEPS);
-      ctx.strokeStyle = rainbow[Math.floor((i / STEPS) * rainbow.length) % rainbow.length];
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-    }
-  } else {
-    ctx.strokeStyle = "rgba(255,80,80,0.5)";
-    ctx.setLineDash([6, 5]);
-    ctx.lineWidth = 1.5;
+  const rainbow = ["#ff3b3b", "#ff9f1c", "#ffd23f", "#3bd16f", "#3b9bff", "#9b5cff"];
+  const STEPS = 48;
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  for (let i = 0; i < STEPS; i++) {
+    const a = archPoint(i / STEPS);
+    const b = archPoint((i + 1) / STEPS);
+    ctx.strokeStyle = rainbow[Math.floor((i / STEPS) * rainbow.length) % rainbow.length];
     ctx.beginPath();
-    ctx.moveTo(WALL, DANGER_Y);
-    ctx.lineTo(W - WALL, DANGER_Y);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
     ctx.stroke();
-    ctx.setLineDash([]);
   }
   ctx.restore();
 }
