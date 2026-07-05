@@ -55,7 +55,7 @@ Each file has one job. Don't copy logic between them.
 
 ## How positions work
 
-The game thinks in a fixed canvas that is **840 wide by 927 tall**, no matter what size the screen is. On smaller screens the canvas is just scaled down visually, but the game math always uses those fixed numbers. (They come from `LAYOUT.W` and `LAYOUT.H` in config.js.)
+The game thinks in a fixed canvas that is **840 wide by 1288 tall**, no matter what size the screen is. On smaller screens the canvas is just scaled down visually, but the game math always uses those fixed numbers. (They come from `LAYOUT.W` and `LAYOUT.H` in config.js.)
 
 A few key spots on that canvas:
 

@@ -68,7 +68,18 @@ import {
 import { snapshotBodies, writeSave, loadSave, clearSave, resumeOverlayEl, checkResume } from "./save-storage.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
-const { W, H, WALL, DROP_GAP, PLAYER_MARKER_H, SCORE_Y, WALL_TOP, VANISH_BONUS } = LAYOUT;
+const {
+  W,
+  H,
+  WALL,
+  DROP_GAP,
+  PLAYER_MARKER_H,
+  PLAYER_MARKER_NEXT_SLOT_SCALE,
+  PLAYER_MARKER_PLANET_BOTTOM_PAD,
+  SCORE_Y,
+  WALL_TOP,
+  VANISH_BONUS,
+} = LAYOUT;
 
 /* ── CANVAS ──────────────────────────────────────────────────────────── */
 const canvas = document.getElementById("game-canvas");
@@ -79,7 +90,7 @@ const ctx = canvas.getContext("2d");
 // Reused offscreen band for the big sky score + its masked shadow (drawScoreShadow).
 const scoreFx = document.createElement("canvas");
 scoreFx.width = W;
-scoreFx.height = 200; // covers the sky band (score + silhouette live around y=81)
+scoreFx.height = Math.ceil(WALL_TOP + PLAYER_MARKER_H + 40);
 
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
@@ -134,6 +145,15 @@ let curLvl = firstDrop(); // shape currently waiting to drop
 let nxtLvl = pickLvl(); // shape shown in the NEXT preview
 let dropX = W / 2; // x position of the drop crosshair
 let canDrop = true;
+
+const PLAYER_TILT_MAX = 0.18; // ~10 degrees
+const PLAYER_TILT_PER_PX = 0.018;
+const PLAYER_TILT_EASE = 0.22;
+let playerMarkerPrevX = W / 2;
+let playerMarkerTilt = 0;
+
+const NEXT_HANDOFF_MS = BALANCE.DROP_COOLDOWN_MS;
+let nextHandoff = null;
 
 /* ── PER-DROP CHAIN + SUPER-POWERS ──────────────────────────────────────
    `chainCount` counts merges that come from ONE drop's cascade. It resets
@@ -496,6 +516,57 @@ function dropYFor(lvl = curLvl) {
   return WALL_TOP + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
 }
 
+function updatePlayerTilt(markerX) {
+  const dx = markerX - playerMarkerPrevX;
+  const target = Math.max(-PLAYER_TILT_MAX, Math.min(PLAYER_TILT_MAX, dx * PLAYER_TILT_PER_PX));
+  playerMarkerTilt += (target - playerMarkerTilt) * PLAYER_TILT_EASE;
+  if (Math.abs(dx) < 0.01 && Math.abs(playerMarkerTilt) < 0.001) playerMarkerTilt = 0;
+  playerMarkerPrevX = markerX;
+  return playerMarkerTilt;
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function markerNextSlotRadius() {
+  return (PLAYER_MARKER_H * PLAYER_MARKER_NEXT_SLOT_SCALE) / 2;
+}
+
+function markerNextSlotY(rad = markerNextSlotRadius()) {
+  return PLAYER_MARKER_H / 2 - PLAYER_MARKER_H * PLAYER_MARKER_PLANET_BOTTOM_PAD - rad;
+}
+
+function startNextHandoff(lvl) {
+  const markerX = clampedDropX();
+  const fromRad = markerNextSlotRadius();
+  const localY = markerNextSlotY(fromRad);
+  nextHandoff = {
+    lvl,
+    startMs: totalMs,
+    fromX: markerX - Math.sin(playerMarkerTilt) * localY,
+    fromY: WALL_TOP + Math.cos(playerMarkerTilt) * localY,
+    fromRad,
+    toX: clampedDropX(lvl),
+    toY: dropYFor(lvl),
+    toRad: r(lvl),
+  };
+}
+
+function currentNextHandoff() {
+  if (!nextHandoff) return null;
+  const raw = Math.max(0, Math.min(1, (totalMs - nextHandoff.startMs) / NEXT_HANDOFF_MS));
+  if (raw >= 1) {
+    nextHandoff = null;
+    return null;
+  }
+  return { anim: nextHandoff, raw, eased: easeOutCubic(raw) };
+}
+
 /**
  * Try to spend a destroy charge by clicking on a planet. Returns true if a
  * planet was hit (and destroyed), false if the click missed — caller can then
@@ -650,7 +721,9 @@ function drop() {
   spawn(sx, dropYFor(curLvl), curLvl, totalMs);
   // Note: dropping a planet does NOT earn its perk — only merging UP to it
   // does (handled in flushMerges). So a chosen/dropped Mercury grants nothing.
-  curLvl = nxtLvl;
+  const incomingLvl = nxtLvl;
+  startNextHandoff(incomingLvl);
+  curLvl = incomingLvl;
   nxtLvl = pickLvl();
   canDrop = false;
   cooldown = BALANCE.DROP_COOLDOWN_MS;
@@ -861,46 +934,53 @@ function frame(ts) {
   if (destroyCharges > 0) drawDestroyTargets();
   drawPopups(ctx, popups, totalMs);
 
-  /* Big total score in the sky, always visible during a round. A waiting planet
-     casts its shadow on it; while a planet is mid-drop the number stays, shadow-free. */
+  const markerX = clampedDropX();
+  const markerTilt = updatePlayerTilt(markerX);
+  const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
+  const waitingBlocked = showingWaiting && dropBlockedAt(markerX, curLvl);
+  const handoff = currentNextHandoff();
+  const nextSlotScale = handoff ? handoff.eased : 1;
+
+  /* Big total score in the sky, always visible during a round. The player
+     marker skin casts the moving shadow on the digits. */
   if (!round.gameOver && round.playing) {
-    const rad = r(curLvl);
-    const minX = WALL + rad + 2;
-    const maxX = W - WALL - rad - 2;
-    const sx = Math.max(minX, Math.min(maxX, dropX));
-    const hasWaiting = canDrop && destroyCharges === 0;
-    drawScoreShadow(ctx, scoreFx, String(score), hasWaiting ? curLvl : -1, sx, SCORE_Y, rad);
+    drawScoreShadow(ctx, scoreFx, String(score), markerX, SCORE_Y, WALL_TOP, markerTilt);
   }
 
-  // Placeholder for a future "player character" sprite that will look like
-  // it's holding and dropping planets. Just a red block for now, centered on
-  // the live aim point and sitting on the container's top edge. Drawn for the
-  // whole round so it keeps following during the drop cooldown.
+  // SVG-backed player marker/skin, centered on the live aim point. It carries
+  // the NEXT planet while the current planet waits below it.
   if (!round.gameOver && round.playing) {
-    drawPlayerMarker(ctx, clampedDropX(), WALL_TOP);
+    drawPlayerMarker(ctx, markerX, WALL_TOP, markerTilt, nxtLvl, false, nextSlotScale);
   }
 
-  /* Drop guide + shape waiting to fall (hidden while aiming the destroy power) */
-  if (canDrop && !round.gameOver && destroyCharges === 0) {
-    const rad = r(curLvl);
-    const minX = WALL + rad + 2;
-    const maxX = W - WALL - rad - 2;
-    const sx = Math.max(minX, Math.min(maxX, dropX));
+  if (handoff) {
+    const { anim, eased: t } = handoff;
+    drawPreview(
+      ctx,
+      anim.lvl,
+      lerp(anim.fromX, anim.toX, t),
+      lerp(anim.fromY, anim.toY, t),
+      0,
+      lerp(anim.fromRad, anim.toRad, t),
+      false,
+    );
+  }
 
-    const blocked = dropBlockedAt(sx, curLvl);
+  /* Drop guide + current planet waiting to fall (hidden while aiming the destroy power). */
+  if (showingWaiting) {
+    const rad = r(curLvl);
+    const sx = markerX;
     ctx.save();
     ctx.strokeStyle = "rgba(255,255,255,0.11)";
     ctx.setLineDash([4, 7]);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(sx, WALL_TOP + 2);
+    ctx.moveTo(sx, WALL_TOP + PLAYER_MARKER_H / 2 + 2);
     ctx.lineTo(sx, H - WALL);
     ctx.stroke();
     ctx.setLineDash([]);
-    // Blocked spot: the waiting planet dims to 0.7, wears its hurt face, and a
-    // red cross covers it (drawPreview). Clicking here is refused by drop().
-    ctx.globalAlpha = blocked ? 0.7 : 0.88;
-    drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, blocked);
+    ctx.globalAlpha = waitingBlocked ? 0.7 : 0.88;
+    drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, waitingBlocked);
     ctx.restore();
   }
 
@@ -1009,6 +1089,9 @@ function resetGameState() {
   curLvl = firstDrop();
   nxtLvl = pickLvl();
   dropX = W / 2;
+  playerMarkerPrevX = dropX;
+  playerMarkerTilt = 0;
+  nextHandoff = null;
   canDrop = true;
   cooldown = 0;
   totalMs = 0;
@@ -1201,6 +1284,9 @@ function restoreGame(data) {
   curLvl = data.curLvl ?? firstDrop();
   nxtLvl = data.nxtLvl ?? pickLvl();
   dropX = W / 2;
+  playerMarkerPrevX = dropX;
+  playerMarkerTilt = 0;
+  nextHandoff = null;
   canDrop = true;
   cooldown = 0;
   totalMs = 0;
@@ -1307,6 +1393,7 @@ document.addEventListener("webkitfullscreenchange", syncFullscreenState);
 onDropModeChange((lvl) => {
   curLvl = lvl;
   nxtLvl = lvl;
+  nextHandoff = null;
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
 });
 

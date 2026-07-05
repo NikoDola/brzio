@@ -55,19 +55,38 @@ const _assetLoadCbs = [];
 export function onAssetLoad(cb) { _assetLoadCbs.push(cb); }
 
 const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
-const shadowBmps = SHAPES.map(() => null);  // lvl → baked black silhouette
 SHAPES.forEach((s, i) => {
     if (!s.asset) return;
     const img = new Image();
     img.src = `assets/images/${s.asset}`;
     img.onload = () => {
         bodyBmps[i] = bakeBitmap(img, i);
-        shadowBmps[i] = bakeSilhouette(bodyBmps[i]);
         _assetLoadCbs.forEach((cb) => cb(i));
     };
     img.onerror = () => console.warn(`[renderer] failed to load assets/images/${s.asset}`);
 });
 const hasImg = (lvl) => !!bodyBmps[lvl];
+
+let playerMarkerBmp = null;
+let playerMarkerShadowBmp = null;
+
+function bakePlayerMarker(img) {
+    const c = document.createElement('canvas');
+    c.width = LAYOUT.PLAYER_MARKER_W;
+    c.height = LAYOUT.PLAYER_MARKER_H;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c;
+}
+
+if (LAYOUT.PLAYER_MARKER_ASSET) {
+    const img = new Image();
+    img.src = `assets/images/${LAYOUT.PLAYER_MARKER_ASSET}`;
+    img.onload = () => {
+        playerMarkerBmp = bakePlayerMarker(img);
+        playerMarkerShadowBmp = bakeSilhouette(playerMarkerBmp);
+    };
+    img.onerror = () => console.warn(`[renderer] failed to load assets/images/${LAYOUT.PLAYER_MARKER_ASSET}`);
+}
 
 
 /* ── FACE EXPRESSIONS ─────────────────────────────────────────────────────
@@ -308,26 +327,41 @@ function drawBlockedCross(ctx, rad) {
 
 
 /* ── PLAYER CHARACTER (placeholder) ───────────────────────────────────────
- * Stand-in for a future sprite that will look like it's holding and dropping
- * planets. Just a plain red 10:7 block for now. Its center is supplied by the
- * caller so it can track the live aim point.
+ * Draws the 10:7 SVG holder skin. If the asset is missing or still loading,
+ * it falls back to the old red rectangle.
  */
-export function drawPlayerMarker(ctx, cx, edgeY) {
+export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBlocked = false, heldScale = 1) {
     const w = LAYOUT.PLAYER_MARKER_W, h = LAYOUT.PLAYER_MARKER_H;
-    const y = edgeY - h / 2; // straddles the edge line: half above, half below
-    ctx.fillStyle = '#e63946';
-    ctx.fillRect(cx - w / 2, y, w, h);
+    ctx.save();
+    ctx.translate(cx, edgeY);
+    ctx.rotate(angle);
+    if (playerMarkerBmp) {
+        ctx.drawImage(playerMarkerBmp, -w / 2, -h / 2, w, h);
+    } else {
+        ctx.fillStyle = '#e63946';
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+    }
+
+    if (heldLvl >= 0 && heldScale > 0.001) {
+        const heldRad = ((h * LAYOUT.PLAYER_MARKER_NEXT_SLOT_SCALE) / 2) * heldScale;
+        const heldY = h / 2 - h * LAYOUT.PLAYER_MARKER_PLANET_BOTTOM_PAD - heldRad;
+        ctx.save();
+        ctx.globalAlpha = heldBlocked ? 0.7 : 1;
+        drawPreview(ctx, heldLvl, 0, heldY, 0, heldRad, heldBlocked);
+        ctx.restore();
+    }
+
+    ctx.restore();
 }
 
 
 /* ── SCORE BEHIND THE DROP ───────────────────────────────────────────── */
 /**
- * Big total score painted in the sky, with the dropping planet's shadow falling
- * ONLY on the digits (masked by the score text), never on the container.
- * `fx` is a reused offscreen canvas; the mask needs an isolated buffer so
- * `source-atop` clips the shadow to the text alone. Drawn behind the real planet.
+ * Big total score painted in the sky, with the player marker's shadow falling
+ * only on the digits. `fx` is a reused offscreen canvas; the mask needs an
+ * isolated buffer so `source-atop` clips the shadow to the text alone.
  */
-export function drawScoreShadow(ctx, fx, scoreText, lvl, planetX, dropY, rad) {
+export function drawScoreShadow(ctx, fx, scoreText, markerX, scoreY, markerEdgeY, markerAngle = 0) {
     const f = fx.getContext('2d');
     f.clearRect(0, 0, fx.width, fx.height);
     const cx = fx.width / 2; // score is pinned to the centre and never moves
@@ -338,23 +372,23 @@ export function drawScoreShadow(ctx, fx, scoreText, lvl, planetX, dropY, rad) {
     f.textAlign = 'center';
     f.textBaseline = 'middle';
     f.fillStyle = 'rgba(255,255,255,0.22)';
-    f.fillText(scoreText, cx, dropY);
+    f.fillText(scoreText, cx, scoreY);
     f.restore();
 
-    // The +10% black silhouette follows the live planet, drawn source-atop so it
-    // lands ONLY where the score text is (the text is the mask). As the planet
-    // slides across, its shadow sweeps over the fixed number. The silhouette is
-    // pre-baked at load (bakeSilhouette); per-frame ctx.filter is a known slow
-    // path and must not come back here. Skipped (lvl < 0) while no planet is
-    // waiting, so the number stays put with no shadow.
-    if (lvl >= 0 && shadowBmps[lvl]) {
-        const sr = rad * 1.1;
-        f.save();
-        f.globalCompositeOperation = 'source-atop';
-        f.globalAlpha = 0.3;
-        f.drawImage(shadowBmps[lvl], planetX - sr, dropY - sr, sr * 2, sr * 2);
-        f.restore();
+    const w = LAYOUT.PLAYER_MARKER_W;
+    const h = LAYOUT.PLAYER_MARKER_H;
+    f.save();
+    f.globalCompositeOperation = 'source-atop';
+    f.globalAlpha = 0.3;
+    f.translate(markerX, markerEdgeY);
+    f.rotate(markerAngle);
+    if (playerMarkerShadowBmp) {
+        f.drawImage(playerMarkerShadowBmp, -w / 2, -h / 2, w, h);
+    } else {
+        f.fillStyle = '#000';
+        f.fillRect(-w / 2, -h / 2, w, h);
     }
+    f.restore();
 
     ctx.drawImage(fx, 0, 0);
 }

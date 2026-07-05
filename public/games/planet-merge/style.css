@@ -101,7 +101,7 @@ body {
        15%, there just isn't more screen width to give it. Desktop/tablet
        viewports are wide enough that the height or cap term wins instead,
        where the full 15% comes through. */
-    --canvas-w: min(calc(100vw - 16px), calc((100vh - 160px) * 1.15 * 840 / 927), 529px);
+    --canvas-w: min(calc(100vw - 16px), calc((100vh - 160px) * 1.15 * 840 / 1288), 529px);
 }
 
 /* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
@@ -389,7 +389,7 @@ button.hud-cell { cursor: pointer; }
 
 /* In fullscreen, drop the centered max-width cap so the canvas can grow to
    fit the screen, and size the wrapper by viewport height (canvas keeps its
-   840:927 aspect ratio). The side panels sit alongside as usual. */
+   840:1288 aspect ratio). The side panels sit alongside as usual. */
 body.fullscreen {
     padding: 0;
     height: 100vh;
@@ -413,7 +413,7 @@ body.fullscreen #game-stage {
 body.fullscreen #canvas-wrapper {
     height: calc(100vh - 150px);
     width: auto;
-    aspect-ratio: 840 / 927;
+    aspect-ratio: 840 / 1288;
 }
 
 body.fullscreen #dev-panel { display: flex; }
@@ -439,13 +439,13 @@ body.fullscreen #dev-panel { display: flex; }
        (game.js's frame()), only from WALL_TOP down, so nothing bounds the
        open top. */
     width: var(--canvas-w);         /* shared with the HUD bar so they line up */
-    aspect-ratio: 840 / 927;        /* matches canvas internal resolution */
+    aspect-ratio: 840 / 1288;       /* matches canvas internal resolution */
 }
 
 #game-canvas {
     display: block;
     cursor: crosshair;
-    width: 100%;                    /* CSS scales display; internal pixels stay 840×927 */
+    width: 100%;                    /* CSS scales display; internal pixels stay 840x1288 */
     height: 100%;
     touch-action: none;             /* prevent page scroll while dragging on canvas */
 }
