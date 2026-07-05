@@ -289,7 +289,7 @@ export function drawPreview(ctx, lvl, cx, cy, angle, rad, blocked = false) {
         ctx.translate(cx, cy);
         ctx.rotate(angle);
         ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
-        // A planet waiting to drop (or in the NEXT panel) has no hit state,
+        // A planet waiting to drop (or shown as the NEXT preview) has no hit state,
         // so it wears its casual face, same overlay as a live body. When the
         // drop spot is blocked by a planet underneath, it winces instead.
         const faces = exprBmps[lvl];

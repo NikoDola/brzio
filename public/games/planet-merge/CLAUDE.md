@@ -82,7 +82,7 @@ Every time you drop a planet, any merges it sets off (including chain reactions)
 
 Hit enough merges in one drop and you earn a power:
 
-- **3 merges in one drop** earns a "pick your next planet" charge. You'll see the arrows on the NEXT panel light up. Spend it on your next drop. This power gets switched off at level 5, where a 3-chain just shows you the number instead.
+- **3 merges in one drop** earns a "pick your next planet" charge. You'll see the choose arrows near the held planet light up. Spend it on your next drop. This power gets switched off at level 5, where a 3-chain just shows you the number instead.
 - **5 merges in one drop** earns the **Eliminate** power: click any planet on the board and every planet of that type gets wiped out. You'll see pulsing red crosshairs over everything you can target. This power gets switched off from level 4 on.
 
 If you're holding a charge and then cross into a level that bans that power, the charge is taken away right then. You can't smuggle a power into a level that forbids it.
