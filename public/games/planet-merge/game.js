@@ -195,6 +195,8 @@ const DEATH_REPLAY_HISTORY_MS = 2400;
 const DEATH_REPLAY_SAMPLE_MS = 80;
 const DEATH_REPLAY_DURATION_MS = 2900;
 const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.2;
+const BOARD_FULL_CHECK_MS = 96;
+const BOARD_FULL_ARM_FROM_BOTTOM_RATIO = 0.8;
 const SIDE_WALL_ESCAPE_SLACK = 4;
 const deathReplayHistory = new Map();
 const rimEscapedIds = new Set();
@@ -219,21 +221,27 @@ function formatScore(value) {
   return String(n);
 }
 
-function recordDeathReplayHistory() {
-  if (totalMs < nextDeathReplaySampleMs) return;
-  nextDeathReplaySampleMs = totalMs + DEATH_REPLAY_SAMPLE_MS;
-
-  const liveIds = new Set();
+function collectLiveShapes() {
   const shapes = [];
-  const armY = H - (H - WALL_TOP) * DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO;
-  let shouldRecord = false;
   for (const body of Composite.allBodies(world)) {
     if (body.label !== "shape") continue;
     const lvl = bodyLvl.get(body.id);
     if (lvl === undefined) continue;
+    shapes.push({ body, lvl, rad: r(lvl) });
+  }
+  return shapes;
+}
+
+function recordDeathReplayHistory(shapes = collectLiveShapes()) {
+  if (totalMs < nextDeathReplaySampleMs) return;
+  nextDeathReplaySampleMs = totalMs + DEATH_REPLAY_SAMPLE_MS;
+
+  const liveIds = new Set();
+  const armY = H - (H - WALL_TOP) * DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO;
+  let shouldRecord = false;
+  for (const { body, lvl, rad } of shapes) {
     liveIds.add(body.id);
-    shapes.push({ body, lvl });
-    if (body.position.y - r(lvl) <= armY || rimEscapedIds.has(body.id)) {
+    if (body.position.y - rad <= armY || rimEscapedIds.has(body.id)) {
       shouldRecord = true;
     }
   }
@@ -814,15 +822,12 @@ function markDestroyHelpSeen() {
 /** Pulsing red crosshair overlay on every destroyable body. Mirrors the
  *  filter in useDestroyPower so the highlighted set matches what's actually
  *  hittable: untargetable big planets get no crosshair. */
-function drawDestroyTargets() {
+function drawDestroyTargets(shapes = collectLiveShapes()) {
   const pulse = 0.55 + 0.45 * Math.sin(totalMs * 0.008);
   ctx.save();
   ctx.strokeStyle = `rgba(255, 105, 180, ${pulse})`; // pink
   ctx.lineWidth = 9;
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
-    const lvl = bodyLvl.get(body.id);
-    if (lvl === undefined) continue;
+  for (const { body, lvl } of shapes) {
     if (!droppableLvls.includes(lvl)) continue;
     const rad = r(lvl);
     const x = body.position.x;
@@ -955,11 +960,9 @@ function keepBodyAboveFloor(body, lvl) {
   Sleeping.set(body, false);
 }
 
-function preventIllegalContainerEscapes() {
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
-    const lvl = bodyLvl.get(body.id);
-    if (lvl === undefined || rimEscapedIds.has(body.id)) continue;
+function preventIllegalContainerEscapes(shapes = collectLiveShapes()) {
+  for (const { body, lvl } of shapes) {
+    if (rimEscapedIds.has(body.id)) continue;
 
     const outside = bodyOutsideContainerX(body, lvl);
     if (outside) {
@@ -1017,10 +1020,6 @@ function currentNextHandoff() {
   return { anim: nextHandoff, raw, eased: easeOutCubic(raw) };
 }
 
-function autoPilotSpeedFactor() {
-  return autoPilotActive ? autoPilotSpeed : 1;
-}
-
 function syncAutoPilotUI() {
   const canShow = round.playing && !round.gameOver;
   if (autoPilotPanel) {
@@ -1067,6 +1066,10 @@ function toggleAutoPilotCrazy() {
   syncAutoPilotUI();
 }
 
+function dropCooldownMs() {
+  return autoPilotActive ? BALANCE.DROP_COOLDOWN_MS / autoPilotSpeed : BALANCE.DROP_COOLDOWN_MS;
+}
+
 function tickAutoPilot(dt) {
   if (!autoPilotActive || !round.playing || round.gameOver) return;
   const { minX, maxX } = dropBounds(curLvl);
@@ -1079,7 +1082,10 @@ function tickAutoPilot(dt) {
     autoPilotDir = 1;
   }
   dropX = Math.max(minX, Math.min(maxX, nextX));
-  if (canDrop && destroyCharges === 0 && !chooseCountdownActive() && !dropBlockedAt(clampedDropX(), curLvl)) drop();
+  if (canDrop && destroyCharges === 0 && !chooseCountdownActive()) {
+    const sx = clampedDropX();
+    if (!dropBlockedAt(sx, curLvl)) drop({ skipBlockedCheck: true });
+  }
 }
 
 /**
@@ -1221,14 +1227,14 @@ function flushVanishes() {
 }
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
-function drop() {
+function drop({ skipBlockedCheck = false } = {}) {
   if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return;
   if (chooseCountdownActive()) return;
   const { minX, maxX } = dropBounds(curLvl);
   const sx = Math.max(minX, Math.min(maxX, dropX));
   // A planet in the way at this spot: refuse (the preview shows the red cross).
   // Refusing must NOT reset the chain, only a real drop starts a fresh one.
-  if (dropBlockedAt(sx, curLvl)) return;
+  if (!skipBlockedCheck && dropBlockedAt(sx, curLvl)) return;
   // Every drop starts a fresh chain — powers are earned by chains spawned
   // from ONE drop's cascade, never by accumulation across drops.
   resetChain();
@@ -1240,7 +1246,7 @@ function drop() {
   curLvl = incomingLvl;
   nxtLvl = pickLvl();
   canDrop = false;
-  cooldown = BALANCE.DROP_COOLDOWN_MS;
+  cooldown = dropCooldownMs();
   if (powerCharges > 0) {
     powerCharges--;
     if (powerCharges === 0) updatePowerUI();
@@ -1258,13 +1264,10 @@ function drop() {
 // only after a planet has actually fallen out of the visible canvas after
 // escaping through the open top. If physics nudges a planet through a side wall
 // or floor while it is still inside the board, push it back instead.
-function checkOver() {
+function checkOver(shapes = collectLiveShapes()) {
   if (isProtected()) return; // shielded while shaking: no game over
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
+  for (const { body, lvl } of shapes) {
     const id = body.id;
-    const lvl = bodyLvl.get(id);
-    if (lvl === undefined) continue;
     if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
 
     const outside = bodyOutsideContainerX(body, lvl);
@@ -1305,43 +1308,51 @@ function checkOver() {
    is blocked, there is nowhere left to drop; if that holds for NO_ROOM_MS the
    run ends. The dwell time rides out a chain mid-cascade, where planets fly
    everywhere for a moment but the board still has room once it settles. */
-function dropBlockedAt(sx, lvl) {
+function dropBlockedAt(sx, lvl, shapes = collectLiveShapes()) {
   const rad = r(lvl);
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
-    const otherLvl = bodyLvl.get(body.id);
-    if (otherLvl === undefined) continue;
+  for (const { body, rad: otherRad } of shapes) {
     const dx = body.position.x - sx;
     const dy = body.position.y - dropYFor(lvl);
-    const reach = rad + r(otherLvl) - 2; // small slack so a graze doesn't block
+    const reach = rad + otherRad - 2; // small slack so a graze doesn't block
     if (dx * dx + dy * dy < reach * reach) return true;
   }
   return false;
 }
 
-function boardFull() {
+function boardFull(shapes = collectLiveShapes()) {
   const { minX, maxX } = dropBounds(curLvl);
   const steps = 24;
   for (let i = 0; i <= steps; i++) {
-    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, curLvl)) return false;
+    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, curLvl, shapes)) return false;
   }
   return true;
 }
 
 let noRoomMs = 0;
-function checkBoardFull(dt) {
+let boardFullCheckMs = 0;
+function boardFullArmed(shapes = collectLiveShapes()) {
+  const armY = H - (H - WALL_TOP) * BOARD_FULL_ARM_FROM_BOTTOM_RATIO;
+  return shapes.some(({ body, rad }) => body.position.y - rad <= armY);
+}
+
+function checkBoardFull(dt, shapes = collectLiveShapes()) {
   // Only while the player could actually drop: cooldown chaos doesn't count,
   // the shake shield suspends losing just like it does for checkOver, and an
   // active falling escape gets priority so the death replay can show it.
-  if (!canDrop || isProtected() || chooseCountdownActive() || rimEscapedIds.size > 0) {
+  if (!canDrop || isProtected() || chooseCountdownActive() || rimEscapedIds.size > 0 || !boardFullArmed(shapes)) {
+    noRoomMs = 0;
+    boardFullCheckMs = 0;
+    return;
+  }
+  boardFullCheckMs += dt;
+  if (boardFullCheckMs < BOARD_FULL_CHECK_MS) return;
+  const elapsed = boardFullCheckMs;
+  boardFullCheckMs = 0;
+  if (!boardFull(shapes)) {
     noRoomMs = 0;
     return;
   }
-  if (!boardFull()) {
-    noRoomMs = 0;
-    return;
-  }
-  noRoomMs += dt;
+  noRoomMs += elapsed;
   if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame("no-room");
 }
 
@@ -1399,21 +1410,22 @@ function frame(ts) {
   tickAutoPilot(dt);
 
   if (!round.gameOver && round.playing) {
-    physAcc += dt * getSimSpeed() * autoPilotSpeedFactor();
+    physAcc += dt * getSimSpeed();
     while (physAcc >= PHYS_STEP) {
       physAcc -= PHYS_STEP;
       Engine.update(engine, PHYS_STEP);
       totalMs += PHYS_STEP;
-      preventIllegalContainerEscapes();
-      recordDeathReplayHistory();
       if (cooldown > 0) {
         cooldown -= PHYS_STEP;
         if (cooldown <= 0) canDrop = true;
       }
       flushMerges();
       flushVanishes();
-      checkOver();
-      checkBoardFull(PHYS_STEP);
+      const tickShapes = collectLiveShapes();
+      preventIllegalContainerEscapes(tickShapes);
+      recordDeathReplayHistory(tickShapes);
+      checkOver(tickShapes);
+      checkBoardFull(PHYS_STEP, tickShapes);
       if (round.gameOver) break;
 
       if (!autoPilotActive && isAutoDropOn() && canDrop) {
@@ -1481,10 +1493,10 @@ function frame(ts) {
   drawShield(ctx);
 
   /* Effects → bodies → score popups (draw order matters) */
+  const renderShapes = collectLiveShapes();
   drawFlashes(ctx, flashes, totalMs);
   if (deathCamera) drawDeathReplayTrail(ctx, deathCamera);
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
+  for (const { body } of renderShapes) {
     if (deathCamera && deathReplay && body.id === deathReplay.culpritId) {
       drawBody(ctx, replayBodyFor(body, deathCamera.sample), bodyLvl, totalMs);
     } else {
@@ -1499,14 +1511,14 @@ function frame(ts) {
     bodyLvl,
     totalMs,
   );
-  if (destroyCharges > 0) drawDestroyTargets();
+  if (destroyCharges > 0) drawDestroyTargets(renderShapes);
   drawPopups(ctx, popups, totalMs);
 
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
   const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
   const showingChooseCountdown = showingWaiting && chooseCountdownActive();
-  const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl);
+  const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl, renderShapes);
   const handoff = currentNextHandoff();
   const nextSlotScale = handoff ? handoff.eased : 1;
 
@@ -1694,6 +1706,7 @@ function resetGameState() {
   totalMs = 0;
   physAcc = 0;
   noRoomMs = 0;
+  boardFullCheckMs = 0;
   autoPilotActive = false;
   autoPilotSpeed = 1;
   round.gameOver = false;
@@ -1788,6 +1801,8 @@ function showStartScreen() {
   deathReplayHistory.clear();
   rimEscapedIds.clear();
   nextDeathReplaySampleMs = 0;
+  noRoomMs = 0;
+  boardFullCheckMs = 0;
 
   round.playing = false;
   round.gameOver = false;
@@ -1956,6 +1971,7 @@ function restoreGame(data) {
   cooldown = 0;
   totalMs = 0;
   noRoomMs = 0;
+  boardFullCheckMs = 0;
   autoPilotActive = false;
   autoPilotSpeed = 1;
   round.gameOver = false;
