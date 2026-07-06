@@ -26,9 +26,6 @@ const autoXEl = document.getElementById("auto-x");
 const autoXVal = document.getElementById("auto-x-val");
 const dropModeEl = document.getElementById("drop-mode");
 const colliderBtn = document.getElementById("collider-btn");
-// Declared for parity with the dev-panel markup; neither has a wired-up
-// click handler in the shipping game, so force-choose/force-destroy can only
-// ever be toggled by editing forceChoose/forceDestroy below directly.
 const forceChooseBtn = document.getElementById("force-choose-btn");
 const forceDestroyBtn = document.getElementById("force-destroy-btn");
 const statDropsEl = document.getElementById("stat-drops");
@@ -55,8 +52,7 @@ let simSpeed = 1; // physics time multiplier (1× = normal, 10× = turbo)
 
 // Dev "always armed" toggles. When on, the corresponding power re-arms itself
 // after every consumption so the UI stays in its active state and can be
-// visually tweaked without grinding chains. (See the comment on the buttons
-// above: nothing currently flips these from the UI.)
+// visually tweaked without grinding chains.
 let forceChoose = false;
 let forceDestroy = false;
 
@@ -65,6 +61,22 @@ export const getAutoDropX = () => autoDropX;
 export const getSimSpeed = () => simSpeed;
 export const getForceChoose = () => forceChoose;
 export const getForceDestroy = () => forceDestroy;
+
+let onForcePowerChanged = () => {};
+export function onForcePowerChange(callback) {
+  onForcePowerChanged = callback;
+}
+
+function syncForcePowerButtons() {
+  forceChooseBtn.textContent = forceChoose ? "ON" : "OFF";
+  forceChooseBtn.classList.toggle("active", forceChoose);
+  forceDestroyBtn.textContent = forceDestroy ? "ON" : "OFF";
+  forceDestroyBtn.classList.toggle("active", forceDestroy);
+}
+
+function notifyForcePowerChange() {
+  onForcePowerChanged({ forceChoose, forceDestroy });
+}
 
 // game.js registers this to snap the held/next planet immediately when the
 // dev panel picks a specific planet to always drop (kept as a callback,
@@ -138,6 +150,20 @@ colliderBtn.addEventListener("click", () => {
   colliderBtn.textContent = debugColliders ? "ON" : "OFF";
   colliderBtn.classList.toggle("active", debugColliders);
 });
+
+forceChooseBtn.addEventListener("click", () => {
+  forceChoose = !forceChoose;
+  syncForcePowerButtons();
+  notifyForcePowerChange();
+});
+
+forceDestroyBtn.addEventListener("click", () => {
+  forceDestroy = !forceDestroy;
+  syncForcePowerButtons();
+  notifyForcePowerChange();
+});
+
+syncForcePowerButtons();
 
 /* ── Dev panel open/close + drag ─────────────────────────────────────────── */
 // The ⚙ DEV button only opens/closes. Dragging is on the separate grip

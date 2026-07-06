@@ -62,6 +62,7 @@ import {
   getForceChoose,
   getForceDestroy,
   onDropModeChange,
+  onForcePowerChange,
   recordDevDrop,
   resetDevDrops,
   recordDevGame,
@@ -79,6 +80,7 @@ const {
   PLAYER_MARKER_H,
   PLAYER_MARKER_NEXT_SLOT_SCALE,
   PLAYER_MARKER_PLANET_BOTTOM_PAD,
+  PLAYER_CONTAINER_Y,
   SCORE_Y,
   WALL_TOP,
   VANISH_BONUS,
@@ -93,7 +95,7 @@ const ctx = canvas.getContext("2d");
 // Reused offscreen band for the big sky score + its masked shadow (drawScoreShadow).
 const scoreFx = document.createElement("canvas");
 scoreFx.width = W;
-scoreFx.height = Math.ceil(WALL_TOP + PLAYER_MARKER_H + 40);
+scoreFx.height = Math.ceil(Math.max(WALL_TOP, PLAYER_CONTAINER_Y) + PLAYER_MARKER_H + 40);
 
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
@@ -183,6 +185,8 @@ let chainBase = 0;
 let chainScorePrev = 0;
 let powerCharges = 0;
 let destroyCharges = 0;
+let chooseReadyMs = 0;
+let chooseRotateMs = 0;
 
 let cooldown = 0; // ms remaining before next drop is allowed
 let totalMs = 0; // total elapsed ms (frozen when game is over)
@@ -220,8 +224,7 @@ const autoPilotLabel = autoPilotStartBtn?.querySelector(".panel-label");
 const autoPilotValue = autoPilotStartBtn?.querySelector(".hud-value");
 const autoPilotControls = document.getElementById("autopilot-controls");
 const autoPilotCrazyBtn = document.getElementById("autopilot-crazy");
-const currentPrev = document.getElementById("current-prev");
-const currentNext = document.getElementById("current-next");
+const chooseLabel = document.getElementById("choose-label");
 const destroyOverlay = document.getElementById("destroy-overlay");
 const destroyTextEl = document.getElementById("destroy-text");
 const destroyCopyEl = document.getElementById("destroy-copy");
@@ -449,9 +452,8 @@ function registerChain(x, y, base) {
   }
   if (canEliminate && chainCount === BALANCE.DESTROY_UNLOCK) {
     destroyCharges = 1;
-    // Destroy supersedes Choose Planet — having both armed at once is
-    // confusing (arrows pulse below the line while the destroy prompt also
-    // sits there). Drop any pending choose charge when destroy unlocks.
+    // Destroy supersedes Choose Planet; having both prompts active at once is
+    // confusing. Drop any pending choose charge when destroy unlocks.
     if (powerCharges > 0) {
       powerCharges = 0;
       updatePowerUI();
@@ -467,22 +469,69 @@ function resetChain() {
   chainScorePrev = 0;
 }
 
-function updatePowerUI() {
-  const active = powerCharges > 0;
-  canvasWrapper.classList.toggle("power-active", active);
+function chooseReadyDuration() {
+  return Math.max(0, BALANCE.CHOOSE_READY_MS ?? 3000);
 }
 
-// Cycles the planet currently waiting to drop. Drawn by the per-frame
-// render loop, so no manual redraw needed here.
-function cycleCurrent(dir) {
-  if (powerCharges <= 0) return;
+function chooseCountdownActive() {
+  return powerCharges > 0 && chooseReadyMs > 0;
+}
+
+function syncChooseReadyUI() {
+  const ready = chooseCountdownActive();
+  canvasWrapper.classList.toggle("choose-ready", ready);
+  if (chooseLabel) chooseLabel.textContent = ready ? "Get ready to choose a planet" : "Drop Planet!";
+}
+
+function updatePowerUI() {
+  const active = powerCharges > 0;
+  const wasActive = canvasWrapper.classList.contains("power-active");
+  canvasWrapper.classList.toggle("power-active", active);
+  if (active && !wasActive) {
+    chooseReadyMs = chooseReadyDuration();
+    chooseRotateMs = 0;
+  } else if (!active) {
+    chooseReadyMs = 0;
+    chooseRotateMs = 0;
+  }
+  syncChooseReadyUI();
+}
+
+// Auto-cycles the planet currently waiting to drop while Choose Planet is
+// armed. The player times the normal drop tap instead of pressing arrows.
+function advanceChoosePlanet() {
+  if (powerCharges <= 0 || droppableLvls.length === 0) return;
   const i = droppableLvls.indexOf(curLvl);
-  const j = i < 0 ? 0 : (i + dir + droppableLvls.length) % droppableLvls.length;
+  const j = i < 0 ? 0 : (i + 1) % droppableLvls.length;
   curLvl = droppableLvls[j];
 }
 
-currentPrev.addEventListener("click", () => cycleCurrent(-1));
-currentNext.addEventListener("click", () => cycleCurrent(+1));
+function tickChooseRotation(dt) {
+  if (powerCharges <= 0 || !round.playing || round.gameOver || destroyCharges > 0) {
+    chooseReadyMs = 0;
+    chooseRotateMs = 0;
+    syncChooseReadyUI();
+    return;
+  }
+  if (!canDrop) {
+    chooseRotateMs = 0;
+    syncChooseReadyUI();
+    return;
+  }
+  if (chooseReadyMs > 0) {
+    chooseReadyMs = Math.max(0, chooseReadyMs - dt);
+    chooseRotateMs = 0;
+    syncChooseReadyUI();
+    return;
+  }
+  syncChooseReadyUI();
+  const rotateMs = Math.max(1, BALANCE.CHOOSE_ROTATE_MS || 500);
+  chooseRotateMs += dt;
+  while (chooseRotateMs >= rotateMs) {
+    chooseRotateMs -= rotateMs;
+    advanceChoosePlanet();
+  }
+}
 
 /* ── DESTROY POWER ──────────────────────────────────────────────────────
    Unlocked at BALANCE.DESTROY_UNLOCK merges in a streak. Paints a pulsing red
@@ -502,6 +551,26 @@ function updateDestroyUI() {
   destroyOverlay.classList.toggle("compact", !showHelp);
   if (destroyCopyEl) destroyCopyEl.hidden = !showHelp;
   if (showHelp) markDestroyHelpSeen();
+}
+
+function syncForcedPowersFromDev() {
+  if (getForceDestroy()) {
+    destroyCharges = 1;
+    if (powerCharges > 0) {
+      powerCharges = 0;
+      updatePowerUI();
+    }
+  } else {
+    destroyCharges = 0;
+  }
+  updateDestroyUI();
+
+  if (getForceChoose() && destroyCharges === 0) {
+    powerCharges = 1;
+  } else if (!getForceChoose()) {
+    powerCharges = 0;
+  }
+  updatePowerUI();
 }
 
 function destroyHelpSeen() {
@@ -575,7 +644,35 @@ function dropBounds(lvl = curLvl) {
 }
 
 function dropYFor(lvl = curLvl) {
-  return WALL_TOP + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
+  return PLAYER_CONTAINER_Y + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
+}
+
+function chooseCountdownNumber() {
+  return Math.max(1, Math.ceil(chooseReadyMs / 1000));
+}
+
+function drawChooseCountdown(ctx, x, y, rad) {
+  const circleRad = Math.max(rad, 40);
+  ctx.save();
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = "rgba(8, 12, 22, 0.9)";
+  ctx.beginPath();
+  ctx.arc(x, y, circleRad, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(125, 223, 255, 0.55)";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#e3f5ff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `900 ${Math.round(circleRad * 1.08)}px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
+  ctx.shadowColor = "rgba(125, 223, 255, 0.75)";
+  ctx.shadowBlur = 14;
+  ctx.fillText(String(chooseCountdownNumber()), x, y + 1);
+
+  ctx.restore();
 }
 
 function floorYFor(lvl) {
@@ -706,7 +803,7 @@ function tickAutoPilot(dt) {
     autoPilotDir = 1;
   }
   dropX = Math.max(minX, Math.min(maxX, nextX));
-  if (canDrop && destroyCharges === 0 && !dropBlockedAt(clampedDropX(), curLvl)) drop();
+  if (canDrop && destroyCharges === 0 && !chooseCountdownActive() && !dropBlockedAt(clampedDropX(), curLvl)) drop();
 }
 
 /**
@@ -760,11 +857,11 @@ function useDestroyPower(clientX, clientY) {
 // hand. Called right after checkLevelUp(score), which owns the level itself
 // but not these gameplay charges.
 function revokeBannedCharges() {
-  if (!curLevel().eliminate && destroyCharges > 0) {
+  if (!curLevel().eliminate && !getForceDestroy() && destroyCharges > 0) {
     destroyCharges = 0;
     updateDestroyUI();
   }
-  if (!curLevel().choose && powerCharges > 0) {
+  if (!curLevel().choose && !getForceChoose() && powerCharges > 0) {
     powerCharges = 0;
     updatePowerUI();
   }
@@ -850,6 +947,7 @@ function flushVanishes() {
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
   if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return;
+  if (chooseCountdownActive()) return;
   const { minX, maxX } = dropBounds(curLvl);
   const sx = Math.max(minX, Math.min(maxX, dropX));
   // A planet in the way at this spot: refuse (the preview shows the red cross).
@@ -939,7 +1037,7 @@ let noRoomMs = 0;
 function checkBoardFull(dt) {
   // Only while the player could actually drop: cooldown chaos doesn't count,
   // and the shake shield suspends losing just like it does for checkOver.
-  if (!canDrop || isProtected()) {
+  if (!canDrop || isProtected() || chooseCountdownActive()) {
     noRoomMs = 0;
     return;
   }
@@ -994,6 +1092,7 @@ function frame(ts) {
   // Shake shield: raise the rainbow arch (and suspend the danger check) while a
   // shake is in progress; drop it once the window passes or the game ends.
   tickShield();
+  tickChooseRotation(dt);
   tickAutoPilot(dt);
 
   const autoTarget = autoPilotActive ? 1 : 0;
@@ -1091,7 +1190,8 @@ function frame(ts) {
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
   const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
-  const waitingBlocked = showingWaiting && dropBlockedAt(markerX, curLvl);
+  const showingChooseCountdown = showingWaiting && chooseCountdownActive();
+  const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl);
   const handoff = currentNextHandoff();
   const nextSlotScale = handoff ? handoff.eased : 1;
 
@@ -1099,20 +1199,20 @@ function frame(ts) {
      marker skin casts the moving shadow on the digits. */
   if (!round.gameOver && round.playing) {
     const scoreX = lerp(W / 2, W * 0.27, easeOutCubic(autoPilotUiT));
-    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, WALL_TOP, markerTilt, scoreX);
+    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, PLAYER_CONTAINER_Y, markerTilt, scoreX);
   }
 
   // SVG-backed player marker/skin, centered on the live aim point. It carries
   // the NEXT planet while the current planet waits below it.
   if (!round.gameOver && round.playing) {
-    drawPlayerMarker(ctx, markerX, WALL_TOP, markerTilt, nxtLvl, false, nextSlotScale);
+    drawPlayerMarker(ctx, markerX, PLAYER_CONTAINER_Y, markerTilt, nxtLvl, false, nextSlotScale);
   }
 
   if (handoff) {
     const { anim, eased: t } = handoff;
     const fromLocalY = anim.fromLocalY ?? markerNextSlotY(anim.fromRad);
     const fromX = markerX - Math.sin(markerTilt) * fromLocalY;
-    const fromY = WALL_TOP + Math.cos(markerTilt) * fromLocalY;
+    const fromY = PLAYER_CONTAINER_Y + Math.cos(markerTilt) * fromLocalY;
     const toX = clampedDropX(anim.lvl);
     const toY = dropYFor(anim.lvl);
     drawPreview(
@@ -1135,12 +1235,16 @@ function frame(ts) {
     ctx.setLineDash([4, 7]);
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(sx, WALL_TOP + PLAYER_MARKER_H / 2 + 2);
+    ctx.moveTo(sx, PLAYER_CONTAINER_Y + PLAYER_MARKER_H / 2 + 2);
     ctx.lineTo(sx, H - WALL);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.globalAlpha = waitingBlocked ? 0.7 : 0.88;
-    drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, waitingBlocked);
+    if (showingChooseCountdown) {
+      drawChooseCountdown(ctx, sx, dropYFor(curLvl), rad);
+    } else {
+      ctx.globalAlpha = waitingBlocked ? 0.7 : 0.88;
+      drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, waitingBlocked);
+    }
     ctx.restore();
   }
 
@@ -1276,8 +1380,8 @@ function resetGameState() {
   resetChain();
   // Choose is always available; Eliminate only while the level allows it. The
   // dev-panel force-on toggles keep a charge primed for testing.
-  powerCharges = getForceChoose() && curLevel().choose ? 1 : 0;
-  destroyCharges = getForceDestroy() && curLevel().eliminate ? 1 : 0;
+  powerCharges = getForceChoose() ? 1 : 0;
+  destroyCharges = getForceDestroy() ? 1 : 0;
   updatePowerUI();
   updateDestroyUI();
 
@@ -1542,8 +1646,8 @@ function restoreGame(data) {
   wakeAllShapes();
 
   // Restore the saved charges; drop a charge if this level bans that power.
-  powerCharges = curLevel().choose ? data.powerCharges || 0 : 0;
-  destroyCharges = curLevel().eliminate ? data.destroyCharges || 0 : 0;
+  powerCharges = getForceChoose() ? 1 : curLevel().choose ? data.powerCharges || 0 : 0;
+  destroyCharges = getForceDestroy() ? 1 : curLevel().eliminate ? data.destroyCharges || 0 : 0;
   updatePowerUI();
   updateDestroyUI();
 
@@ -1610,6 +1714,8 @@ onDropModeChange((lvl) => {
   nextHandoff = null;
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
 });
+
+onForcePowerChange(syncForcedPowersFromDev);
 
 drawNext(nxtCtx, nxtCanvas, nxtLvl);
 // Re-draw NEXT once the currently-pending asset actually loads (SVGs are async)

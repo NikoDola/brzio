@@ -343,6 +343,7 @@ export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBl
     ctx.save();
     ctx.translate(cx, edgeY);
     ctx.rotate(angle);
+    drawAlienBeam(ctx, w, h);
     if (playerMarkerBmp) {
         ctx.drawImage(playerMarkerBmp, -w / 2, -h / 2, w, h);
     } else {
@@ -362,6 +363,65 @@ export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBl
     ctx.restore();
 }
 
+function drawAlienBeam(ctx, w, h) {
+    const alpha = (v) => v * 0.6;
+    const sourceY = h * 0.34;
+    const bottomY = sourceY + h * 1.15;
+    const topW = w * 0.26;
+    const bottomW = w * 0.72;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    let beam = ctx.createLinearGradient(0, sourceY, 0, bottomY);
+    beam.addColorStop(0, `rgba(220,255,245,${alpha(0.42)})`);
+    beam.addColorStop(0.16, `rgba(83,255,203,${alpha(0.34)})`);
+    beam.addColorStop(0.62, `rgba(0,218,184,${alpha(0.18)})`);
+    beam.addColorStop(1, 'rgba(0,168,166,0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(-topW / 2, sourceY);
+    ctx.lineTo(topW / 2, sourceY);
+    ctx.lineTo(bottomW / 2, bottomY);
+    ctx.lineTo(-bottomW / 2, bottomY);
+    ctx.closePath();
+    ctx.fill();
+
+    const core = ctx.createLinearGradient(0, sourceY, 0, bottomY);
+    core.addColorStop(0, `rgba(255,255,255,${alpha(0.55)})`);
+    core.addColorStop(0.18, `rgba(118,255,220,${alpha(0.42)})`);
+    core.addColorStop(0.68, `rgba(0,238,198,${alpha(0.16)})`);
+    core.addColorStop(1, 'rgba(0,238,198,0)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.moveTo(-topW * 0.34, sourceY + 2);
+    ctx.lineTo(topW * 0.34, sourceY + 2);
+    ctx.lineTo(bottomW * 0.22, bottomY * 0.88);
+    ctx.lineTo(-bottomW * 0.22, bottomY * 0.88);
+    ctx.closePath();
+    ctx.fill();
+
+    const sourceGlow = ctx.createRadialGradient(0, sourceY, 0, 0, sourceY, topW * 0.72);
+    sourceGlow.addColorStop(0, `rgba(255,255,255,${alpha(0.78)})`);
+    sourceGlow.addColorStop(0.24, `rgba(127,255,219,${alpha(0.52)})`);
+    sourceGlow.addColorStop(1, 'rgba(0,235,190,0)');
+    ctx.fillStyle = sourceGlow;
+    ctx.beginPath();
+    ctx.ellipse(0, sourceY, topW * 0.7, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const floorGlow = ctx.createRadialGradient(0, bottomY * 0.9, 0, 0, bottomY * 0.9, bottomW * 0.52);
+    floorGlow.addColorStop(0, `rgba(118,255,225,${alpha(0.2)})`);
+    floorGlow.addColorStop(0.5, `rgba(0,222,196,${alpha(0.12)})`);
+    floorGlow.addColorStop(1, 'rgba(0,222,196,0)');
+    ctx.fillStyle = floorGlow;
+    ctx.beginPath();
+    ctx.ellipse(0, bottomY * 0.9, bottomW * 0.5, h * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
 
 /* ── SCORE BEHIND THE DROP ───────────────────────────────────────────── */
 /**
@@ -375,7 +435,7 @@ export function drawScoreShadow(ctx, fx, scoreText, markerX, scoreY, markerEdgeY
 
     // The score, big and faded, fixed in the centre of the sky band.
     f.save();
-    f.font = `900 128px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
+    f.font = `900 112px 'Fredoka', 'Segoe UI', Arial, sans-serif`;
     f.textAlign = 'center';
     f.textBaseline = 'middle';
     f.fillStyle = 'rgba(255,255,255,0.22)';

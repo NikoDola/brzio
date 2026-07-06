@@ -103,6 +103,7 @@ body {
     display: flex;
     width: var(--canvas-w);
     box-sizing: border-box;
+    padding-top: 8px;
     padding-inline: 4.7619%;
     gap: 8px;
 }
@@ -232,64 +233,52 @@ button.hud-cell { cursor: pointer; }
     94% { transform: translateX(0) rotate(0); }
 }
 
-/* Choose-power arrows: pinned just below the red danger line, centered as a
-   pair with a small gap. Static targets so the player can click without the
-   buttons sliding away under the cursor. Inner edges anchored via `right`
-   (left arrow) and `left` (right arrow) so the gap stays constant. */
-.current-arrow {
-    position: absolute;
-    /* Centred near the drop row controls. 28px = half the 56px arrow height. */
-    top: calc(31.29% - 28px);
-    display: none;
-    background: rgba(125, 223, 255, 0.18);
-    border: 1px solid rgba(125, 223, 255, 0.6);
-    color: #e3f5ff;
-    width: 44px;
-    height: 56px;
-    border-radius: 8px;
-    font-size: 26px;
-    font-family: inherit;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    z-index: 5;
-    transition: background 0.15s, transform 0.1s;
-}
-
-#current-prev { right: calc(50% + 90px); }
-#current-next { left: calc(50% + 90px); }
-
-.current-arrow:hover  { background: rgba(125, 223, 255, 0.32); }
-.current-arrow:active { transform: scale(0.9); }
-
-#canvas-wrapper.power-active .current-arrow {
-    display: block;
-    animation: heartbeat-glow 1.1s ease-in-out infinite;
-}
-
-/* Label between the two choose-arrows. Same Fredoka face as the difficulty
-   picker so the choose-power UI feels visually consistent. Anchored to the
-   same y-band as the arrows so the trio reads as one widget. */
+/* Choose-power label: the waiting planet auto-rotates, and the player taps
+   the normal drop action when the wanted planet is showing. */
 #choose-label {
     position: absolute;
     top: 40.59%;
     left: 50%;
     transform: translateX(-50%);
-    height: 56px; /* matches .current-arrow height for vertical alignment */
+    box-sizing: border-box;
+    min-height: 54px;
+    max-width: calc(100% - 32px);
+    padding: 13px 24px;
     display: none;
     align-items: center;
+    justify-content: center;
     color: #e3f5ff;
+    opacity: 0.8;
+    background: rgba(18, 42, 66, 0.56);
+    backdrop-filter: blur(8px) saturate(1.18);
+    -webkit-backdrop-filter: blur(8px) saturate(1.18);
+    border: 1px solid rgba(125, 223, 255, 0.72);
     font-family: 'Fredoka', 'Segoe UI', sans-serif;
-    font-size: 19px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), 0 0 14px rgba(125, 223, 255, 0.35);
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: 0;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55), 0 0 16px rgba(125, 223, 255, 0.7);
+    box-shadow:
+        0 0 18px 4px rgba(125, 223, 255, 0.52),
+        inset 0 0 16px rgba(125, 223, 255, 0.2);
     pointer-events: none;
     white-space: nowrap;
     z-index: 5;
 }
 
-#canvas-wrapper.power-active #choose-label { display: flex; }
+#canvas-wrapper.power-active #choose-label {
+    display: flex;
+    animation: heartbeat-glow 1.1s ease-in-out infinite;
+}
+
+#canvas-wrapper.power-active.choose-ready #choose-label {
+    display: flex;
+    white-space: normal;
+    font-size: 26px;
+    padding: 16px 28px;
+}
 
 /* ── FULLSCREEN TOGGLE ─────────────────────────────────────────────────
    Small icon-only button in the canvas's bottom-right. Swaps between an
@@ -447,12 +436,12 @@ body.fullscreen #dev-panel { display: flex; }
 
 @keyframes heartbeat-glow {
     0%, 100% {
-        box-shadow: 0 0 3px 0 rgba(125, 223, 255, 0.45),
-                    inset 0 0 6px rgba(125, 223, 255, 0.12);
+        box-shadow: 0 0 12px 3px rgba(125, 223, 255, 0.48),
+                    inset 0 0 14px rgba(125, 223, 255, 0.18);
     }
     50% {
-        box-shadow: 0 0 11px 2px rgba(125, 223, 255, 0.95),
-                    inset 0 0 9px rgba(125, 223, 255, 0.28);
+        box-shadow: 0 0 24px 7px rgba(125, 223, 255, 0.82),
+                    inset 0 0 18px rgba(125, 223, 255, 0.3);
     }
 }
 

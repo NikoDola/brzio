@@ -12,14 +12,15 @@ export const LAYOUT = {
     H:            1160,   // canvas height (px), 10% shorter so the bottom legend stays visible
     WALL:         20,     // wall thickness (px) — +40%
     WALL_X:       60,     // inner playfield edge; makes the container 10% narrower while keeping the same canvas size
-    DROP_GAP:     20,     // gap between the player marker bottom and the current waiting planet
+    DROP_GAP:     8,      // gap between the player marker bottom and the current waiting planet
     PLAYER_MARKER_W: 212.5, // 25% larger than the previous holder, still 10:7
     PLAYER_MARKER_H: 148.75, // keeps the same 10:7 ratio
     PLAYER_MARKER_NEXT_SLOT_SCALE: 0.32, // next planet inside the holder, 20% smaller than before
     PLAYER_MARKER_PLANET_BOTTOM_PAD: 0.05, // held planet sits 5% above the holder bottom
     PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/
-    SCORE_Y:      76,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
-    WALL_TOP:     133,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
+    PLAYER_CONTAINER_Y: 93, // y-centre of the ship/player container
+    SCORE_Y:      61,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
+    WALL_TOP:     108,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
     BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180
     VANISH_BONUS: 4096,   // bonus score when two Suns touch and vanish (2x a Sun)
 };
@@ -32,6 +33,8 @@ export const LAYOUT = {
 export const BALANCE = {
     DROP_COOLDOWN_MS:      560,   // time between drops
     CHOOSE_UNLOCK:         3,     // merges in one chain to earn "pick your next planet"
+    CHOOSE_READY_MS:       3000,  // 3-2-1 pause before choose-power starts rotating planets
+    CHOOSE_ROTATE_MS:      500,   // choose-power auto-rotates the waiting planet every 0.5s
     DESTROY_UNLOCK:        5,     // merges in one chain to earn the Eliminate power
 
     NO_ROOM_MS:            900,   // full board must persist this long before it ends the run (rides out mid-chain crowding)
