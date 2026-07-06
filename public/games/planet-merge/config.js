@@ -11,12 +11,13 @@ export const LAYOUT = {
     W:            840,    // canvas width  (px)  — 2× original
     H:            1288,   // canvas height (px), 15% taller than the previous mobile playfield
     WALL:         20,     // wall thickness (px) — +40%
+    WALL_X:       60,     // inner playfield edge; makes the container 10% narrower while keeping the same canvas size
     DROP_GAP:     20,     // gap between the player marker bottom and the current waiting planet
     PLAYER_MARKER_W: 212.5, // 25% larger than the previous holder, still 10:7
     PLAYER_MARKER_H: 148.75, // keeps the same 10:7 ratio
-    PLAYER_MARKER_NEXT_SLOT_SCALE: 0.48, // fixed next-planet slot, 20% smaller than the previous holder preview
+    PLAYER_MARKER_NEXT_SLOT_SCALE: 0.32, // next planet inside the holder, 20% smaller than before
     PLAYER_MARKER_PLANET_BOTTOM_PAD: 0.05, // held planet sits 5% above the holder bottom
-    PLAYER_MARKER_ASSET: "player_container_placeholder.svg", // 10:7 SVG skin in assets/images/
+    PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/
     SCORE_Y:      81,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
     WALL_TOP:     133,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
     BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180

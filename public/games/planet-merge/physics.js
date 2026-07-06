@@ -7,7 +7,7 @@ import { LAYOUT, SHAPES, r, polyCorr } from './config.js';
 import { densityFor } from './tuning.js';
 
 const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query } = Matter;   // Matter loaded via CDN <script>
-const { W, H, WALL, WALL_TOP } = LAYOUT;
+const { W, H, WALL, WALL_X, WALL_TOP } = LAYOUT;
 
 // Tell Matter where the poly-decomp library is (needed for concave bodies)
 if (typeof window !== 'undefined' && window.decomp && Common.setDecomp) {
@@ -29,9 +29,9 @@ export const world  = engine.world;
 const wallOpts = { isStatic: true, label: 'wall', friction: 0.6, restitution: 0.1 };
 const SIDE_H = H - WALL_TOP;
 World.add(world, [
-    Bodies.rectangle(W / 2,      H - WALL / 2,        W - 2 * WALL, WALL,   { ...wallOpts, label: 'floor' }),  // floor (inner width only)
-    Bodies.rectangle(WALL / 2,   WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // left
-    Bodies.rectangle(W - WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // right
+    Bodies.rectangle(W / 2,          H - WALL / 2,        W - 2 * WALL_X, WALL,   { ...wallOpts, label: 'floor' }),  // floor (inner width only)
+    Bodies.rectangle(WALL_X - WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // left
+    Bodies.rectangle(W - WALL_X + WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // right
 ]);
 
 
@@ -44,7 +44,7 @@ World.add(world, [
 const ARCH_END_Y = 72;  // y at the side walls
 const ARCH_PEAK_Y = 26; // y at the centre (lower y = higher)
 export function archPoint(t) {
-    const x = WALL + (W - 2 * WALL) * t;
+    const x = WALL_X + (W - 2 * WALL_X) * t;
     const u = t * 2 - 1;                                  // -1..1 across the span
     const y = ARCH_PEAK_Y + (ARCH_END_Y - ARCH_PEAK_Y) * (u * u); // parabola
     return { x, y };
@@ -384,8 +384,8 @@ export function separateOverlapping(newBody) {
             // we never teleport a body through the playfield boundary.
             let tx = other.position.x + nx * overlap;
             let ty = other.position.y + ny * overlap;
-            const minX = WALL + otherR;
-            const maxX = W - WALL - otherR;
+            const minX = WALL_X + otherR;
+            const maxX = W - WALL_X - otherR;
             const maxY = H - WALL - otherR;
             if (tx < minX) tx = minX;
             else if (tx > maxX) tx = maxX;

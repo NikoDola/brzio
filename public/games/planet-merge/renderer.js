@@ -69,6 +69,7 @@ const hasImg = (lvl) => !!bodyBmps[lvl];
 
 let playerMarkerBmp = null;
 let playerMarkerShadowBmp = null;
+let playerMarkerAsset = "";
 
 function bakePlayerMarker(img) {
     const c = document.createElement('canvas');
@@ -78,14 +79,21 @@ function bakePlayerMarker(img) {
     return c;
 }
 
-if (LAYOUT.PLAYER_MARKER_ASSET) {
+export function setPlayerMarkerAsset(asset) {
+    if (!asset || asset === playerMarkerAsset) return;
+    playerMarkerAsset = asset;
     const img = new Image();
-    img.src = `assets/images/${LAYOUT.PLAYER_MARKER_ASSET}`;
+    img.src = `assets/images/${asset}`;
     img.onload = () => {
+        if (asset !== playerMarkerAsset) return;
         playerMarkerBmp = bakePlayerMarker(img);
         playerMarkerShadowBmp = bakeSilhouette(playerMarkerBmp);
     };
-    img.onerror = () => console.warn(`[renderer] failed to load assets/images/${LAYOUT.PLAYER_MARKER_ASSET}`);
+    img.onerror = () => console.warn(`[renderer] failed to load assets/images/${asset}`);
+}
+
+if (LAYOUT.PLAYER_MARKER_ASSET) {
+    setPlayerMarkerAsset(LAYOUT.PLAYER_MARKER_ASSET);
 }
 
 
@@ -361,10 +369,9 @@ export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBl
  * only on the digits. `fx` is a reused offscreen canvas; the mask needs an
  * isolated buffer so `source-atop` clips the shadow to the text alone.
  */
-export function drawScoreShadow(ctx, fx, scoreText, markerX, scoreY, markerEdgeY, markerAngle = 0) {
+export function drawScoreShadow(ctx, fx, scoreText, markerX, scoreY, markerEdgeY, markerAngle = 0, scoreX = fx.width / 2) {
     const f = fx.getContext('2d');
     f.clearRect(0, 0, fx.width, fx.height);
-    const cx = fx.width / 2; // score is pinned to the centre and never moves
 
     // The score, big and faded, fixed in the centre of the sky band.
     f.save();
@@ -372,7 +379,7 @@ export function drawScoreShadow(ctx, fx, scoreText, markerX, scoreY, markerEdgeY
     f.textAlign = 'center';
     f.textBaseline = 'middle';
     f.fillStyle = 'rgba(255,255,255,0.22)';
-    f.fillText(scoreText, cx, scoreY);
+    f.fillText(scoreText, scoreX, scoreY);
     f.restore();
 
     const w = LAYOUT.PLAYER_MARKER_W;

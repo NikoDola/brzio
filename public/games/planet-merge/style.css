@@ -91,17 +91,11 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    /* The HUD bar and canvas share ONE width so they line up, and the layout is
-       identical on desktop and mobile. The canvas fits the viewport in both
-       orientations; the height budget leaves room for the bar + legend.
-       All three terms carry a flat 15% bump (the ask: "make the container
-       bigger"). The side-margin term (100vw - 16px) is a hard physical
-       limit though, so on narrow portrait phones that term still wins and
-       the gain is whatever margin there was to reclaim, a few percent, not
-       15%, there just isn't more screen width to give it. Desktop/tablet
-       viewports are wide enough that the height or cap term wins instead,
-       where the full 15% comes through. */
-    --canvas-w: min(calc(100vw - 16px), calc((100vh - 160px) * 1.15 * 840 / 1288), 529px);
+    /* The HUD bar and canvas share one width so they line up. The iframe no
+       longer subtracts a side gutter, so on narrow screens the canvas can fill
+       the route section edge-to-edge while desktop/tablet still respect the
+       height budget and max-width cap. */
+    --canvas-w: min(100vw, calc((100vh - 160px) * 1.15 * 840 / 1288), 529px);
 }
 
 /* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
@@ -109,6 +103,10 @@ body {
     display: flex;
     width: var(--canvas-w);
     gap: 8px;
+}
+
+#hud-bar #next-panel {
+    display: none;
 }
 
 .hud-cell {
@@ -132,6 +130,33 @@ body {
 /* Any interactive HUD cell (perks, settings) shows the hand cursor. Lives on
    the class so a new clickable cell can never forget it. */
 button.hud-cell { cursor: pointer; }
+
+#hud-bar #autopilot-start {
+    border-color: rgba(125, 223, 255, 0.5);
+    background:
+        radial-gradient(circle at 50% 42%, rgba(125,223,255,0.14), rgba(255,255,255,0.06) 58%),
+        rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 12px rgba(125,223,255,0.08);
+}
+
+#hud-bar #autopilot-start .hud-value {
+    color: #e3f5ff;
+    font-size: 15px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+#hud-bar #autopilot-start.auto-active {
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(230,57,70,0.88);
+    box-shadow: 0 0 14px rgba(230,57,70,0.34), inset 0 0 12px rgba(255,255,255,0.08);
+}
+
+#hud-bar #autopilot-start.auto-active .panel-label,
+#hud-bar #autopilot-start.auto-active .hud-value {
+    color: #fff;
+    opacity: 1;
+}
 
 .hud-value {
     font-size: 20px;
@@ -454,6 +479,47 @@ body.fullscreen #dev-panel { display: flex; }
     cursor: cell;                   /* signals "pick a target" mode */
 }
 
+#autopilot-controls {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 7;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+}
+
+#autopilot-start[hidden],
+#autopilot-controls[hidden] {
+    display: none;
+}
+
+#autopilot-controls {
+    display: flex;
+    align-items: center;
+}
+
+#autopilot-crazy {
+    min-width: 106px;
+    height: 40px;
+    border: 1px solid rgba(125, 223, 255, 0.58);
+    border-radius: 8px;
+    background: rgba(17, 28, 50, 0.82);
+    color: #e3f5ff;
+    font: 800 12px/1 'Fredoka', 'Segoe UI', sans-serif;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    padding: 0 12px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.28), inset 0 0 10px rgba(125,223,255,0.12);
+    white-space: nowrap;
+}
+
+#autopilot-crazy[aria-pressed="true"] {
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(230,57,70,0.86);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(230,57,70,0.34), 0 8px 20px rgba(0,0,0,0.28);
+}
+
 /* Destroy-power overlay: prompt + skip button, pinned just below the red
    danger line so the prompt stays in one predictable spot while the player
    moves their cursor over the board to pick a target. */
@@ -530,6 +596,18 @@ body.fullscreen #dev-panel { display: flex; }
     font-size: 38px;
     color: #FF6B6B;
     letter-spacing: 2px;
+}
+
+.loss-reason {
+    max-width: min(360px, 82%);
+    padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.07);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.25;
+    text-align: center;
 }
 
 .final-line {
@@ -609,40 +687,54 @@ body.fullscreen #dev-panel { display: flex; }
 
 /* Decorative sliding planet band above the title. All planets scroll left→right
    on a seamless loop and clip at the card edges (start-inner overflow: hidden). */
-.start-planets {
-    width: 100%;
-    height: 104px;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
-            mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+.ship-selector {
+    display: grid;
+    grid-template-columns: 46px minmax(190px, 250px) 46px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: min(100%, 390px);
+    min-height: 132px;
 }
-.start-planets-track {
+
+.ship-preview-shell {
     display: flex;
-    width: max-content; /* 24 items (12 planets x2); half the track = one set */
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 10 / 7;
+}
+
+#ship-preview {
+    width: 100%;
     height: 100%;
-    animation: start-planets-slide 30s linear infinite;
-}
-@keyframes start-planets-slide {
-    from { transform: translateX(-50%); }
-    to   { transform: translateX(0); }
-}
-.start-planet {
-    position: relative;
-    flex: 0 0 104px; /* slot width; planet is 96px so they sit close together */
-    height: 100%;
-}
-.start-planet img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 96px;
-    height: 96px;
-    transform: translate(-50%, -50%);
     object-fit: contain;
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,0.38));
 }
-/* The body carries the drop shadow; the casual face rides on top, aligned. */
-.start-planet img:first-child {
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+
+.ship-arrow {
+    width: 46px;
+    aspect-ratio: 1;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font: 800 34px/1 'Fredoka', 'Segoe UI', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 3px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.22), inset 0 0 10px rgba(255,255,255,0.05);
+}
+
+.ship-arrow:hover {
+    background: rgba(125,223,255,0.18);
+    border-color: rgba(125,223,255,0.48);
+}
+
+.ship-arrow:active {
+    transform: scale(0.94);
 }
 
 .start-title {
@@ -1535,7 +1627,7 @@ html.dev-mode #dev-panel {
     /* Stack vertically and pin to the top. How to Play now lives inside
        Settings (not a control down here), so there's nothing left to anchor
        below the game; any leftover space just sits under it, which is fine. */
-    body { padding: 12px 8px; flex-direction: column; justify-content: flex-start; align-items: center; }
+    body { padding: 12px 0; flex-direction: column; justify-content: flex-start; align-items: center; }
 
     /* No fullscreen on phones: entering/exiting real fullscreen inside an
        iframe is unreliable on mobile browsers and the game already fills the

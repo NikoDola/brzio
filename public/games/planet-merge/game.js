@@ -28,6 +28,7 @@ import {
   drawUnlockGlows,
   drawPlayerMarker,
   onAssetLoad,
+  setPlayerMarkerAsset,
 } from "./renderer.js";
 import {
   initAnalytics,
@@ -38,7 +39,7 @@ import {
 import "./background.js";
 import { playPop, playGroundHit, playPlanetHit, playLaser, playTargetLock, playSelect, playPerk } from "./audio.js";
 import { round } from "./state.js";
-import { applyLegendMode, showLegend, hideLegend, casualFaceSrc } from "./planet-icons.js";
+import { applyLegendMode, showLegend, hideLegend } from "./planet-icons.js";
 import { earnPerk, perkCardEl, perksOverlayEl, openToLastEarnedTab, renderPerksGrid, perksOpen } from "./perks.js";
 import { recordHigh, recordBestChain, recordGamePlayed, startPlayClock, bankPlayTime, updateStatsUI } from "./stats.js";
 import { dailyLimitReached, showLimitMsg } from "./settings.js";
@@ -72,7 +73,9 @@ const {
   W,
   H,
   WALL,
+  WALL_X,
   DROP_GAP,
+  PLAYER_MARKER_W,
   PLAYER_MARKER_H,
   PLAYER_MARKER_NEXT_SLOT_SCALE,
   PLAYER_MARKER_PLANET_BOTTOM_PAD,
@@ -155,6 +158,12 @@ let playerMarkerTilt = 0;
 const NEXT_HANDOFF_MS = BALANCE.DROP_COOLDOWN_MS;
 let nextHandoff = null;
 
+const AUTO_PILOT_BASE_SWEEP = 0.28; // canvas px per real ms at base pace
+let autoPilotActive = false;
+let autoPilotDir = 1;
+let autoPilotSpeed = 1;
+let autoPilotUiT = 0;
+
 /* ── PER-DROP CHAIN + SUPER-POWERS ──────────────────────────────────────
    `chainCount` counts merges that come from ONE drop's cascade. It resets
    at the start of every drop — there's no time window, no slow accumulation
@@ -179,14 +188,38 @@ let cooldown = 0; // ms remaining before next drop is allowed
 let totalMs = 0; // total elapsed ms (frozen when game is over)
 let lastTs = 0;
 
+function formatScore(value) {
+  const n = Math.max(0, Math.floor(value || 0));
+  const units = [
+    { min: 1_000_000, suffix: "m" },
+    { min: 1_000, suffix: "k" },
+  ];
+  for (const { min, suffix } of units) {
+    if (n < min) continue;
+    const scaled = n / min;
+    const trimmed =
+      scaled < 10
+        ? Math.floor(scaled * 10) / 10
+        : Math.floor(scaled);
+    return String(trimmed).replace(/\.0$/, "") + suffix;
+  }
+  return String(n);
+}
+
 /* ── DOM ─────────────────────────────────────────────────────────────── */
 // The live score now shows on the canvas (drawScoreShadow); the HUD chip was
 // removed. Keep a stub so the existing score-write calls stay harmless no-ops.
 const scoreEl = document.getElementById("score") || {};
 const finalEl = document.getElementById("final-score");
+const lossReasonEl = document.getElementById("loss-reason");
 const overlayEl = document.getElementById("game-over-overlay");
 const restartEl = document.getElementById("restart-btn");
 const canvasWrapper = document.getElementById("canvas-wrapper");
+const autoPilotStartBtn = document.getElementById("autopilot-start");
+const autoPilotLabel = autoPilotStartBtn?.querySelector(".panel-label");
+const autoPilotValue = autoPilotStartBtn?.querySelector(".hud-value");
+const autoPilotControls = document.getElementById("autopilot-controls");
+const autoPilotCrazyBtn = document.getElementById("autopilot-crazy");
 const currentPrev = document.getElementById("current-prev");
 const currentNext = document.getElementById("current-next");
 const destroyOverlay = document.getElementById("destroy-overlay");
@@ -504,10 +537,16 @@ function canvasCoords(clientX, clientY) {
 }
 
 function clampedDropX(lvl = curLvl) {
-  const rad = r(lvl);
-  const minX = WALL + rad + 2;
-  const maxX = W - WALL - rad - 2;
+  const { minX, maxX } = dropBounds(lvl);
   return Math.max(minX, Math.min(maxX, dropX));
+}
+
+function dropBounds(lvl = curLvl) {
+  const rad = r(lvl);
+  const markerHalf = PLAYER_MARKER_W / 2;
+  const minX = Math.max(WALL_X + rad + 2, markerHalf);
+  const maxX = Math.min(W - WALL_X - rad - 2, W - markerHalf);
+  return { minX, maxX };
 }
 
 function dropYFor(lvl = curLvl) {
@@ -540,17 +579,13 @@ function markerNextSlotY(rad = markerNextSlotRadius()) {
 }
 
 function startNextHandoff(lvl) {
-  const markerX = clampedDropX();
   const fromRad = markerNextSlotRadius();
   const localY = markerNextSlotY(fromRad);
   nextHandoff = {
     lvl,
     startMs: totalMs,
-    fromX: markerX - Math.sin(playerMarkerTilt) * localY,
-    fromY: WALL_TOP + Math.cos(playerMarkerTilt) * localY,
+    fromLocalY: localY,
     fromRad,
-    toX: clampedDropX(lvl),
-    toY: dropYFor(lvl),
     toRad: r(lvl),
   };
 }
@@ -563,6 +598,70 @@ function currentNextHandoff() {
     return null;
   }
   return { anim: nextHandoff, raw, eased: easeOutCubic(raw) };
+}
+
+function autoPilotSpeedFactor() {
+  return autoPilotActive ? autoPilotSpeed : 1;
+}
+
+function syncAutoPilotUI() {
+  const canShow = round.playing && !round.gameOver;
+  if (autoPilotStartBtn) {
+    autoPilotStartBtn.hidden = !canShow;
+    autoPilotStartBtn.classList.toggle("auto-active", autoPilotActive);
+    autoPilotStartBtn.setAttribute("aria-pressed", String(autoPilotActive));
+    autoPilotStartBtn.setAttribute("aria-label", autoPilotActive ? "Stop Auto Pilot" : "Start Auto Pilot");
+  }
+  if (autoPilotLabel) autoPilotLabel.textContent = "AUTO";
+  if (autoPilotValue) autoPilotValue.textContent = autoPilotActive ? "STOP" : "PILOT";
+  if (autoPilotControls) autoPilotControls.hidden = !canShow || !autoPilotActive;
+  canvasWrapper?.classList.toggle("auto-pilot-active", autoPilotActive);
+  if (autoPilotCrazyBtn) {
+    const crazy = autoPilotSpeed === 4;
+    autoPilotCrazyBtn.textContent = crazy ? "Be Normal" : "Go Crazy";
+    autoPilotCrazyBtn.setAttribute("aria-pressed", String(crazy));
+  }
+}
+
+function startAutoPilot() {
+  if (!round.playing || round.gameOver) return;
+  autoPilotActive = true;
+  autoPilotDir = dropX < W / 2 ? 1 : -1;
+  syncAutoPilotUI();
+}
+
+function stopAutoPilot() {
+  autoPilotActive = false;
+  autoPilotSpeed = 1;
+  syncAutoPilotUI();
+}
+
+function toggleAutoPilot() {
+  if (autoPilotActive) {
+    stopAutoPilot();
+  } else {
+    startAutoPilot();
+  }
+}
+
+function toggleAutoPilotCrazy() {
+  autoPilotSpeed = autoPilotSpeed === 4 ? 1 : 4;
+  syncAutoPilotUI();
+}
+
+function tickAutoPilot(dt) {
+  if (!autoPilotActive || !round.playing || round.gameOver) return;
+  const { minX, maxX } = dropBounds(curLvl);
+  let nextX = dropX + autoPilotDir * AUTO_PILOT_BASE_SWEEP * autoPilotSpeed * dt;
+  if (nextX > maxX) {
+    nextX = maxX - (nextX - maxX);
+    autoPilotDir = -1;
+  } else if (nextX < minX) {
+    nextX = minX + (minX - nextX);
+    autoPilotDir = 1;
+  }
+  dropX = Math.max(minX, Math.min(maxX, nextX));
+  if (canDrop && destroyCharges === 0 && !dropBlockedAt(clampedDropX(), curLvl)) drop();
 }
 
 /**
@@ -653,7 +752,7 @@ function flushMerges() {
     registerChain(mx, my, SHAPES[level].pts);
     const gained = score - before;
     mergeCount++;
-    scoreEl.textContent = score;
+    scoreEl.textContent = formatScore(score);
     recordHigh(score);
     checkLevelUp(score);
     revokeBannedCharges();
@@ -693,7 +792,7 @@ function flushVanishes() {
     // Endless mode: two Suns pay a big bonus and the run keeps going.
     score += VANISH_BONUS;
     mergeCount++;
-    scoreEl.textContent = score;
+    scoreEl.textContent = formatScore(score);
     recordHigh(score);
     checkLevelUp(score);
     revokeBannedCharges();
@@ -706,9 +805,7 @@ function flushVanishes() {
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop() {
   if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return;
-  const rad = r(curLvl);
-  const minX = WALL + rad + 2;
-  const maxX = W - WALL - rad - 2;
+  const { minX, maxX } = dropBounds(curLvl);
   const sx = Math.max(minX, Math.min(maxX, dropX));
   // A planet in the way at this spot: refuse (the preview shows the red cross).
   // Refusing must NOT reset the chain, only a real drop starts a fresh one.
@@ -751,7 +848,7 @@ function checkOver() {
     if (lvl === undefined) continue;
     if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
     if (body.position.y > H + 40) {
-      endGame();
+      endGame("planet-out");
       return;
     }
   }
@@ -782,9 +879,7 @@ function dropBlockedAt(sx, lvl) {
 }
 
 function boardFull() {
-  const rad = r(curLvl);
-  const minX = WALL + rad + 2;
-  const maxX = W - WALL - rad - 2;
+  const { minX, maxX } = dropBounds(curLvl);
   const steps = 24;
   for (let i = 0; i <= steps; i++) {
     if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, curLvl)) return false;
@@ -805,12 +900,22 @@ function checkBoardFull(dt) {
     return;
   }
   noRoomMs += dt;
-  if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame();
+  if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame("no-room");
 }
 
-function endGame() {
+function endGame(reason = "unknown") {
+  if (round.gameOver) return;
   round.gameOver = true;
-  finalEl.textContent = score;
+  stopAutoPilot();
+  finalEl.textContent = formatScore(score);
+  if (lossReasonEl) {
+    lossReasonEl.textContent =
+      reason === "planet-out"
+        ? "Lost because a planet fell out of the container."
+        : reason === "no-room"
+          ? "Lost because there was no room for the next planet."
+          : "Lost because the run ended.";
+  }
   reportGameEnd("lost", score, getLevel());
   clearSave(); // a finished game shouldn't offer a resume
   bankPlayTime();
@@ -841,9 +946,13 @@ function frame(ts) {
   // Shake shield: raise the rainbow arch (and suspend the danger check) while a
   // shake is in progress; drop it once the window passes or the game ends.
   tickShield();
+  tickAutoPilot(dt);
+
+  const autoTarget = autoPilotActive ? 1 : 0;
+  autoPilotUiT += (autoTarget - autoPilotUiT) * Math.min(1, dt / 180);
 
   if (!round.gameOver && round.playing) {
-    physAcc += dt * getSimSpeed();
+    physAcc += dt * getSimSpeed() * autoPilotSpeedFactor();
     while (physAcc >= PHYS_STEP) {
       physAcc -= PHYS_STEP;
       Engine.update(engine, PHYS_STEP);
@@ -858,9 +967,8 @@ function frame(ts) {
       checkBoardFull(PHYS_STEP);
       if (round.gameOver) break;
 
-      if (isAutoDropOn() && canDrop) {
-        const minX = WALL + r(curLvl) + 2;
-        const maxX = W - WALL - r(curLvl) - 2;
+      if (!autoPilotActive && isAutoDropOn() && canDrop) {
+        const { minX, maxX } = dropBounds(curLvl);
         dropX = minX + getAutoDropX() * (maxX - minX);
         drop();
         recordDevDrop();
@@ -875,7 +983,7 @@ function frame(ts) {
      tint. Only the container itself (from WALL_TOP down) gets painted. */
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = playfieldGradient;
-  ctx.fillRect(WALL, WALL_TOP, W - 2 * WALL, H - WALL_TOP);
+  ctx.fillRect(WALL_X, WALL_TOP, W - 2 * WALL_X, H - WALL_TOP);
 
   /* Twinkling stars (behind everything else, in front of the gradient).
      Spans the full canvas, including the open area above the container, so
@@ -897,9 +1005,9 @@ function frame(ts) {
      (matching the physics bodies), so the space above reads as open air a
      planet can be pushed over. */
   ctx.fillStyle = "#1a2a4a";
-  ctx.fillRect(0, WALL_TOP, WALL, H - WALL_TOP);
-  ctx.fillRect(W - WALL, WALL_TOP, WALL, H - WALL_TOP);
-  ctx.fillRect(WALL, H - WALL, W - 2 * WALL, WALL);
+  ctx.fillRect(WALL_X - WALL, WALL_TOP, WALL, H - WALL_TOP);
+  ctx.fillRect(W - WALL_X, WALL_TOP, WALL, H - WALL_TOP);
+  ctx.fillRect(WALL_X, H - WALL, W - 2 * WALL_X, WALL);
 
   /* A thin border tracing ONLY the container's real outline (flat top at
      WALL_TOP, since the rim is cut there, not the whole canvas). This used
@@ -909,7 +1017,7 @@ function frame(ts) {
      container shape. */
   ctx.strokeStyle = "rgba(255,255,255,0.14)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(1, WALL_TOP, W - 2, H - WALL_TOP - 1);
+  ctx.strokeRect(WALL_X - WALL + 1, WALL_TOP, W - 2 * (WALL_X - WALL) - 2, H - WALL_TOP - 1);
 
 
   /* Rainbow shield arch, only while a shake has it raised. (The red danger
@@ -942,7 +1050,8 @@ function frame(ts) {
   /* Big total score in the sky, always visible during a round. The player
      marker skin casts the moving shadow on the digits. */
   if (!round.gameOver && round.playing) {
-    drawScoreShadow(ctx, scoreFx, String(score), markerX, SCORE_Y, WALL_TOP, markerTilt);
+    const scoreX = lerp(W / 2, W * 0.27, easeOutCubic(autoPilotUiT));
+    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, WALL_TOP, markerTilt, scoreX);
   }
 
   // SVG-backed player marker/skin, centered on the live aim point. It carries
@@ -953,11 +1062,16 @@ function frame(ts) {
 
   if (handoff) {
     const { anim, eased: t } = handoff;
+    const fromLocalY = anim.fromLocalY ?? markerNextSlotY(anim.fromRad);
+    const fromX = markerX - Math.sin(markerTilt) * fromLocalY;
+    const fromY = WALL_TOP + Math.cos(markerTilt) * fromLocalY;
+    const toX = clampedDropX(anim.lvl);
+    const toY = dropYFor(anim.lvl);
     drawPreview(
       ctx,
       anim.lvl,
-      lerp(anim.fromX, anim.toX, t),
-      lerp(anim.fromY, anim.toY, t),
+      lerp(fromX, toX, t),
+      lerp(fromY, toY, t),
       0,
       lerp(anim.fromRad, anim.toRad, t),
       false,
@@ -987,11 +1101,13 @@ function frame(ts) {
 
 /* ── INPUT ───────────────────────────────────────────────────────────── */
 canvas.addEventListener("mousemove", (e) => {
+  if (autoPilotActive) return;
   const rect = canvas.getBoundingClientRect();
   dropX = (e.clientX - rect.left) * (W / rect.width);
 });
 
 canvas.addEventListener("click", (e) => {
+  if (autoPilotActive) return;
   // When destroy power is armed, the click selects a target instead of
   // dropping. A missed click is a no-op (don't burn the charge or drop).
   if (destroyCharges > 0) {
@@ -1009,6 +1125,7 @@ canvas.addEventListener(
   "touchstart",
   (e) => {
     e.preventDefault();
+    if (autoPilotActive) return;
     const rect = canvas.getBoundingClientRect();
     dropX = (e.touches[0].clientX - rect.left) * (W / rect.width);
   },
@@ -1019,6 +1136,7 @@ canvas.addEventListener(
   "touchmove",
   (e) => {
     e.preventDefault();
+    if (autoPilotActive) return;
     const rect = canvas.getBoundingClientRect();
     dropX = (e.touches[0].clientX - rect.left) * (W / rect.width);
   },
@@ -1029,6 +1147,7 @@ canvas.addEventListener(
   "touchend",
   (e) => {
     e.preventDefault();
+    if (autoPilotActive) return;
     if (destroyCharges > 0) {
       const t = e.changedTouches[0];
       if (t) useDestroyPower(t.clientX, t.clientY);
@@ -1042,6 +1161,7 @@ canvas.addEventListener(
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
+    if (autoPilotActive) return;
     drop();
   }
 });
@@ -1056,6 +1176,9 @@ if (destroySkipBtn) {
     }
   });
 }
+
+autoPilotStartBtn?.addEventListener("click", toggleAutoPilot);
+autoPilotCrazyBtn?.addEventListener("click", toggleAutoPilotCrazy);
 
 /* ── DIFFICULTY / RESTART ───────────────────────────────────────────────
    `resetGameState` is shared between Play Again and the first start.
@@ -1082,7 +1205,7 @@ function resetGameState() {
   score = 0;
   mergeCount = 0;
   resetLevel();
-  scoreEl.textContent = "0";
+  scoreEl.textContent = formatScore(0);
   resetShake();
   curLvl = firstDrop();
   nxtLvl = pickLvl();
@@ -1095,8 +1218,12 @@ function resetGameState() {
   totalMs = 0;
   physAcc = 0;
   noRoomMs = 0;
+  autoPilotActive = false;
+  autoPilotSpeed = 1;
+  autoPilotUiT = 0;
   round.gameOver = false;
   resetDevDrops();
+  syncAutoPilotUI();
 
   resetChain();
   // Choose is always available; Eliminate only while the level allows it. The
@@ -1185,6 +1312,10 @@ function showStartScreen() {
 
   round.playing = false;
   round.gameOver = false;
+  autoPilotActive = false;
+  autoPilotSpeed = 1;
+  autoPilotUiT = 0;
+  syncAutoPilotUI();
   checkResume();
   hideLegend();
   overlayEl.classList.remove("visible");
@@ -1208,18 +1339,40 @@ playBtnEl?.addEventListener("click", () => {
   startGame();
 });
 
-// Decorative start-screen band: every planet (body + its casual face) scrolls
 // left→right and loops. The set is duplicated so the CSS marquee is seamless.
-const startPlanetsTrackEl = document.getElementById("start-planets-track");
-if (startPlanetsTrackEl) {
-  const planetHTML = (lvl) => {
-    const body = `<img src="assets/images/${SHAPES[lvl].asset}" alt="">`;
-    const face = casualFaceSrc(lvl);
-    return `<div class="start-planet">${body}${face ? `<img src="${face}" alt="">` : ""}</div>`;
-  };
-  const oneSet = SHAPES.map((_, i) => planetHTML(i)).join("");
-  startPlanetsTrackEl.innerHTML = oneSet + oneSet;
+const SHIP_SKINS = [
+  { name: "Alien", asset: "ship-container_alien.svg" },
+  { name: "Baby", asset: "ship-container_baby.svg" },
+  { name: "Car", asset: "ship-container_car.svg" },
+  { name: "Native", asset: "ship-container_native-indian.svg" },
+];
+const SHIP_SKIN_KEY = "planet-merge-ship-skin";
+const shipPreviewEl = document.getElementById("ship-preview");
+const shipPrevBtn = document.getElementById("ship-prev");
+const shipNextBtn = document.getElementById("ship-next");
+let shipSkinIndex = Math.max(
+  0,
+  SHIP_SKINS.findIndex((skin) => skin.asset === localStorage.getItem(SHIP_SKIN_KEY)),
+);
+
+function syncShipSkin() {
+  const skin = SHIP_SKINS[shipSkinIndex] || SHIP_SKINS[0];
+  if (shipPreviewEl) {
+    shipPreviewEl.src = `assets/images/${skin.asset}`;
+    shipPreviewEl.alt = `${skin.name} ship`;
+  }
+  setPlayerMarkerAsset(skin.asset);
+  localStorage.setItem(SHIP_SKIN_KEY, skin.asset);
 }
+
+function cycleShipSkin(dir) {
+  shipSkinIndex = (shipSkinIndex + dir + SHIP_SKINS.length) % SHIP_SKINS.length;
+  playSelect();
+  syncShipSkin();
+}
+shipPrevBtn?.addEventListener("click", () => cycleShipSkin(-1));
+shipNextBtn?.addEventListener("click", () => cycleShipSkin(1));
+syncShipSkin();
 
 /* ── SAVE / CONTINUE ─────────────────────────────────────────────────────
    Snapshot the live game (level, score, powers, the current/next planet,
@@ -1277,7 +1430,7 @@ function restoreGame(data) {
 
   score = data.score || 0;
   mergeCount = data.mergeCount || 0;
-  scoreEl.textContent = score;
+  scoreEl.textContent = formatScore(score);
   resetShake();
   curLvl = data.curLvl ?? firstDrop();
   nxtLvl = data.nxtLvl ?? pickLvl();
@@ -1289,8 +1442,12 @@ function restoreGame(data) {
   cooldown = 0;
   totalMs = 0;
   noRoomMs = 0;
+  autoPilotActive = false;
+  autoPilotSpeed = 1;
+  autoPilotUiT = 0;
   round.gameOver = false;
   resetDevDrops();
+  syncAutoPilotUI();
   resetChain();
   (data.seenLevels || []).forEach((l) => seenLevels.add(l));
 

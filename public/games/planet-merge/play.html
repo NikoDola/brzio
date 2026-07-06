@@ -46,6 +46,10 @@
                     <span class="panel-label">PERKS</span>
                     <span class="hud-value"><span id="perk-count">0</span>/<span id="perk-total">0</span></span>
                 </button>
+                <button class="hud-cell" id="autopilot-start" type="button" hidden>
+                    <span class="panel-label">AUTO</span>
+                    <span class="hud-value">PILOT</span>
+                </button>
                 <div class="hud-cell" id="next-panel" hidden>
                     <div class="panel-label" id="next-label">NEXT</div>
                     <canvas id="next-canvas" width="70" height="70"></canvas>
@@ -53,6 +57,9 @@
             </div>
             <div id="canvas-wrapper">
                 <canvas id="game-canvas"></canvas>
+                <div id="autopilot-controls" hidden>
+                    <button id="autopilot-crazy" type="button" aria-pressed="false">Go Crazy</button>
+                </div>
                 <button id="current-prev" class="current-arrow" type="button" aria-label="Previous planet">&lsaquo;</button>
                 <div id="choose-label" class="current-label">Select Planet!</div>
                 <button id="current-next" class="current-arrow" type="button" aria-label="Next planet">&rsaquo;</button>
@@ -63,14 +70,19 @@
                 </div>
                 <div id="game-over-overlay">
                     <h2>Game Over</h2>
+                    <div class="loss-reason" id="loss-reason">Lost because the board filled up.</div>
                     <div class="final-line">Score: <span id="final-score">0</span></div>
                     <button id="restart-btn">Play Again</button>
                 </div>
             </div>
             <div id="start-overlay" class="visible">
                 <div class="start-inner">
-                    <div class="start-planets" aria-hidden="true">
-                        <div class="start-planets-track" id="start-planets-track"></div>
+                    <div class="ship-selector" aria-label="Choose ship">
+                        <button class="ship-arrow" id="ship-prev" type="button" aria-label="Previous ship">&lsaquo;</button>
+                        <div class="ship-preview-shell">
+                            <img id="ship-preview" src="assets/images/ship-container_alien.svg" alt="Alien ship">
+                        </div>
+                        <button class="ship-arrow" id="ship-next" type="button" aria-label="Next ship">&rsaquo;</button>
                     </div>
                     <div class="start-content">
                         <h1 class="start-title">Planet Merge</h1>
