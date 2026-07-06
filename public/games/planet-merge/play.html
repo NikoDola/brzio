@@ -46,10 +46,16 @@
                     <span class="panel-label">PERKS</span>
                     <span class="hud-value"><span id="perk-count">0</span>/<span id="perk-total">0</span></span>
                 </button>
-                <button class="hud-cell" id="autopilot-start" type="button" hidden>
-                    <span class="panel-label">AUTO</span>
-                    <span class="hud-value">PILOT</span>
-                </button>
+                <div class="hud-cell" id="autopilot-panel" hidden>
+                    <button id="autopilot-start" type="button">
+                        <span class="auto-idle-label" aria-hidden="true">
+                            <span class="panel-label">AUTO</span>
+                            <span class="hud-value">Pilot</span>
+                        </span>
+                        <span class="auto-active-label">Stop</span>
+                    </button>
+                    <button id="autopilot-crazy" type="button" aria-pressed="false" hidden>Fast</button>
+                </div>
                 <div class="hud-cell" id="next-panel" hidden>
                     <div class="panel-label" id="next-label">NEXT</div>
                     <canvas id="next-canvas" width="70" height="70"></canvas>
@@ -57,9 +63,6 @@
             </div>
             <div id="canvas-wrapper">
                 <canvas id="game-canvas"></canvas>
-                <div id="autopilot-controls" hidden>
-                    <button id="autopilot-crazy" type="button" aria-pressed="false">Go Crazy</button>
-                </div>
                 <div id="choose-label" class="current-label">Drop Planet!</div>
                 <div id="destroy-overlay" style="display:none">
                     <div id="destroy-text">Eliminate<br>Planets</div>

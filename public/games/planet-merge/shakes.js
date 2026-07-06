@@ -51,9 +51,9 @@ function updateShakeUI() {
   if (shakePct >= 100) shakeArmed = true;
   else if (shakePct <= 0) shakeArmed = false;
   if (shakesPanelEl) shakesPanelEl.classList.toggle("armed", shakeArmed);
-  // Armed: a "Time for / Shake" call-to-action. Otherwise the SHAKES % meter.
+  // Armed: a "TIME FOR / Shake" call-to-action. Otherwise the SHAKES % meter.
   if (shakeArmed) {
-    if (shakesLabelEl) shakesLabelEl.textContent = "Time for";
+    if (shakesLabelEl) shakesLabelEl.textContent = "TIME FOR";
     if (shakesValueEl) shakesValueEl.textContent = "Shake";
   } else {
     if (shakesLabelEl) shakesLabelEl.textContent = "SHAKES";

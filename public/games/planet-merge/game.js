@@ -164,7 +164,6 @@ const AUTO_PILOT_BASE_SWEEP = 0.28; // canvas px per real ms at base pace
 let autoPilotActive = false;
 let autoPilotDir = 1;
 let autoPilotSpeed = 1;
-let autoPilotUiT = 0;
 
 /* ── PER-DROP CHAIN + SUPER-POWERS ──────────────────────────────────────
    `chainCount` counts merges that come from ONE drop's cascade. It resets
@@ -435,10 +434,8 @@ const lossReasonEl = document.getElementById("loss-reason");
 const overlayEl = document.getElementById("game-over-overlay");
 const restartEl = document.getElementById("restart-btn");
 const canvasWrapper = document.getElementById("canvas-wrapper");
+const autoPilotPanel = document.getElementById("autopilot-panel");
 const autoPilotStartBtn = document.getElementById("autopilot-start");
-const autoPilotLabel = autoPilotStartBtn?.querySelector(".panel-label");
-const autoPilotValue = autoPilotStartBtn?.querySelector(".hud-value");
-const autoPilotControls = document.getElementById("autopilot-controls");
 const autoPilotCrazyBtn = document.getElementById("autopilot-crazy");
 const chooseLabel = document.getElementById("choose-label");
 const destroyOverlay = document.getElementById("destroy-overlay");
@@ -627,7 +624,7 @@ function registerChain(x, y, base) {
   // still allows it. Unlock messages fire when a threshold is first crossed;
   // otherwise the running chain number is shown, scaled up.
   const canEliminate = curLevel().eliminate;
-  const canChoose = curLevel().choose;
+  const canChoose = curLevel().choose && !autoPilotActive;
   let text, fontSize, color, dur;
   if (canEliminate && chainCount === BALANCE.DESTROY_UNLOCK) {
     text = "Destroy Power Unlocked!";
@@ -713,6 +710,14 @@ function updatePowerUI() {
   syncChooseReadyUI();
 }
 
+function clearChoosePower() {
+  if (powerCharges === 0 && chooseReadyMs === 0 && chooseRotateMs === 0) return;
+  powerCharges = 0;
+  chooseReadyMs = 0;
+  chooseRotateMs = 0;
+  updatePowerUI();
+}
+
 // Auto-cycles the planet currently waiting to drop while Choose Planet is
 // armed. The player times the normal drop tap instead of pressing arrows.
 function advanceChoosePlanet() {
@@ -781,7 +786,9 @@ function syncForcedPowersFromDev() {
   }
   updateDestroyUI();
 
-  if (getForceChoose() && destroyCharges === 0) {
+  if (autoPilotActive) {
+    powerCharges = 0;
+  } else if (getForceChoose() && destroyCharges === 0) {
     powerCharges = 1;
   } else if (!getForceChoose()) {
     powerCharges = 0;
@@ -1016,19 +1023,19 @@ function autoPilotSpeedFactor() {
 
 function syncAutoPilotUI() {
   const canShow = round.playing && !round.gameOver;
+  if (autoPilotPanel) {
+    autoPilotPanel.hidden = !canShow;
+    autoPilotPanel.classList.toggle("auto-active", autoPilotActive);
+  }
   if (autoPilotStartBtn) {
-    autoPilotStartBtn.hidden = !canShow;
-    autoPilotStartBtn.classList.toggle("auto-active", autoPilotActive);
     autoPilotStartBtn.setAttribute("aria-pressed", String(autoPilotActive));
     autoPilotStartBtn.setAttribute("aria-label", autoPilotActive ? "Stop Auto Pilot" : "Start Auto Pilot");
   }
-  if (autoPilotLabel) autoPilotLabel.textContent = "AUTO";
-  if (autoPilotValue) autoPilotValue.textContent = autoPilotActive ? "STOP" : "PILOT";
-  if (autoPilotControls) autoPilotControls.hidden = !canShow || !autoPilotActive;
   canvasWrapper?.classList.toggle("auto-pilot-active", autoPilotActive);
   if (autoPilotCrazyBtn) {
     const crazy = autoPilotSpeed === 4;
-    autoPilotCrazyBtn.textContent = crazy ? "Be Normal" : "Go Crazy";
+    autoPilotCrazyBtn.hidden = !canShow || !autoPilotActive;
+    autoPilotCrazyBtn.textContent = crazy ? "Slow" : "Fast";
     autoPilotCrazyBtn.setAttribute("aria-pressed", String(crazy));
   }
 }
@@ -1037,6 +1044,7 @@ function startAutoPilot() {
   if (!round.playing || round.gameOver) return;
   autoPilotActive = true;
   autoPilotDir = dropX < W / 2 ? 1 : -1;
+  clearChoosePower();
   syncAutoPilotUI();
 }
 
@@ -1237,7 +1245,7 @@ function drop() {
     powerCharges--;
     if (powerCharges === 0) updatePowerUI();
   }
-  if (getForceChoose() && powerCharges === 0) {
+  if (!autoPilotActive && getForceChoose() && powerCharges === 0) {
     powerCharges = 1;
     updatePowerUI();
   }
@@ -1323,8 +1331,9 @@ function boardFull() {
 let noRoomMs = 0;
 function checkBoardFull(dt) {
   // Only while the player could actually drop: cooldown chaos doesn't count,
-  // and the shake shield suspends losing just like it does for checkOver.
-  if (!canDrop || isProtected() || chooseCountdownActive()) {
+  // the shake shield suspends losing just like it does for checkOver, and an
+  // active falling escape gets priority so the death replay can show it.
+  if (!canDrop || isProtected() || chooseCountdownActive() || rimEscapedIds.size > 0) {
     noRoomMs = 0;
     return;
   }
@@ -1388,9 +1397,6 @@ function frame(ts) {
   tickShield();
   tickChooseRotation(dt);
   tickAutoPilot(dt);
-
-  const autoTarget = autoPilotActive ? 1 : 0;
-  autoPilotUiT += (autoTarget - autoPilotUiT) * Math.min(1, dt / 180);
 
   if (!round.gameOver && round.playing) {
     physAcc += dt * getSimSpeed() * autoPilotSpeedFactor();
@@ -1507,8 +1513,7 @@ function frame(ts) {
   /* Big total score in the sky, always visible during a round. The player
      marker skin casts the moving shadow on the digits. */
   if (!round.gameOver && round.playing) {
-    const scoreX = lerp(W / 2, W * 0.27, easeOutCubic(autoPilotUiT));
-    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, PLAYER_CONTAINER_Y, markerTilt, scoreX);
+    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, PLAYER_CONTAINER_Y, markerTilt, W / 2);
   }
 
   // SVG-backed player marker/skin, centered on the live aim point. It carries
@@ -1691,7 +1696,6 @@ function resetGameState() {
   noRoomMs = 0;
   autoPilotActive = false;
   autoPilotSpeed = 1;
-  autoPilotUiT = 0;
   round.gameOver = false;
   resetDevDrops();
   syncAutoPilotUI();
@@ -1789,7 +1793,6 @@ function showStartScreen() {
   round.gameOver = false;
   autoPilotActive = false;
   autoPilotSpeed = 1;
-  autoPilotUiT = 0;
   syncAutoPilotUI();
   syncStartResumeUI();
   hideLegend();
@@ -1955,7 +1958,6 @@ function restoreGame(data) {
   noRoomMs = 0;
   autoPilotActive = false;
   autoPilotSpeed = 1;
-  autoPilotUiT = 0;
   round.gameOver = false;
   resetDevDrops();
   syncAutoPilotUI();

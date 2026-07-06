@@ -134,7 +134,9 @@ body {
    the class so a new clickable cell can never forget it. */
 button.hud-cell { cursor: pointer; }
 
-#hud-bar #autopilot-start {
+#hud-bar #autopilot-panel {
+    padding: 6px 4px;
+    gap: 3px;
     border-color: rgba(125, 223, 255, 0.5);
     background:
         radial-gradient(circle at 50% 42%, rgba(125,223,255,0.14), rgba(255,255,255,0.06) 58%),
@@ -142,23 +144,78 @@ button.hud-cell { cursor: pointer; }
     box-shadow: inset 0 0 12px rgba(125,223,255,0.08);
 }
 
-#hud-bar #autopilot-start .hud-value {
+#hud-bar #autopilot-panel button {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #e3f5ff;
+    font: 800 13px/1 'Fredoka', 'Segoe UI', sans-serif;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    white-space: nowrap;
+}
+
+#hud-bar #autopilot-panel .auto-idle-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+#hud-bar #autopilot-panel .auto-idle-label .hud-value {
     color: #e3f5ff;
     font-size: 15px;
     letter-spacing: 0.8px;
-    text-transform: uppercase;
 }
 
-#hud-bar #autopilot-start.auto-active {
+#hud-bar #autopilot-panel .auto-active-label {
+    display: none;
+}
+
+#hud-bar #autopilot-panel.auto-active {
+    padding: 5px;
+    gap: 4px;
     border-color: rgba(255,255,255,0.2);
-    background: rgba(230,57,70,0.88);
-    box-shadow: 0 0 14px rgba(230,57,70,0.34), inset 0 0 12px rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
+    box-shadow: inset 0 0 12px rgba(255,255,255,0.08);
 }
 
-#hud-bar #autopilot-start.auto-active .panel-label,
-#hud-bar #autopilot-start.auto-active .hud-value {
+#hud-bar #autopilot-panel.auto-active button {
+    flex-basis: 0;
+    color: #e3f5ff;
+    background: rgba(17, 28, 50, 0.34);
+    border-color: rgba(255,255,255,0.14);
+}
+
+#hud-bar #autopilot-panel.auto-active #autopilot-start {
     color: #fff;
-    opacity: 1;
+    background: rgba(230,57,70,0.9);
+    border-color: rgba(255,255,255,0.18);
+    box-shadow: 0 0 11px rgba(230,57,70,0.34);
+}
+
+#hud-bar #autopilot-panel.auto-active .auto-idle-label {
+    display: none;
+}
+
+#hud-bar #autopilot-panel.auto-active .auto-active-label {
+    display: inline;
+}
+
+#hud-bar #autopilot-panel.auto-active #autopilot-crazy[aria-pressed="true"] {
+    color: #fff;
+    background: linear-gradient(135deg, #54d66f, #16a765);
+    border-color: rgba(255,255,255,0.22);
+    box-shadow: 0 0 12px rgba(22,167,101,0.32);
 }
 
 .hud-value {
@@ -210,7 +267,7 @@ button.hud-cell { cursor: pointer; }
     0%, 100% { box-shadow: 0 0 0 1px rgba(52, 199, 123, 0.5), 0 0 8px rgba(52, 199, 123, 0.35); }
     50% { box-shadow: 0 0 0 2px rgba(52, 199, 123, 0.9), 0 0 16px rgba(52, 199, 123, 0.6); }
 }
-/* Armed CTA: "Time for" over "Shake", readable (not the tiny meter label), and a
+/* Armed CTA: "TIME FOR" over "Shake", readable (not the tiny meter label), and a
    quick shake of the text every ~3s so the player notices they can use it. */
 #shakes-panel.armed .panel-label {
     font-size: 11px;
@@ -470,45 +527,9 @@ body.fullscreen #dev-panel { display: flex; }
     cursor: cell;                   /* signals "pick a target" mode */
 }
 
-#autopilot-controls {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    z-index: 7;
-    font-family: 'Fredoka', 'Segoe UI', sans-serif;
-}
-
-#autopilot-start[hidden],
-#autopilot-controls[hidden] {
+#autopilot-panel[hidden],
+#hud-bar #autopilot-panel #autopilot-crazy[hidden] {
     display: none;
-}
-
-#autopilot-controls {
-    display: flex;
-    align-items: center;
-}
-
-#autopilot-crazy {
-    min-width: 106px;
-    height: 40px;
-    border: 1px solid rgba(125, 223, 255, 0.58);
-    border-radius: 8px;
-    background: rgba(17, 28, 50, 0.82);
-    color: #e3f5ff;
-    font: 800 12px/1 'Fredoka', 'Segoe UI', sans-serif;
-    letter-spacing: 0.7px;
-    text-transform: uppercase;
-    padding: 0 12px;
-    cursor: pointer;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.28), inset 0 0 10px rgba(125,223,255,0.12);
-    white-space: nowrap;
-}
-
-#autopilot-crazy[aria-pressed="true"] {
-    border-color: rgba(255,255,255,0.2);
-    background: rgba(230,57,70,0.86);
-    color: #fff;
-    box-shadow: 0 0 15px rgba(230,57,70,0.34), 0 8px 20px rgba(0,0,0,0.28);
 }
 
 /* Destroy-power overlay: prompt + skip button, pinned just below the red
