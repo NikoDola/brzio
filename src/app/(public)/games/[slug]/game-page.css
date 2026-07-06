@@ -99,7 +99,7 @@ body:has(.planet-merge) .game-page-body {
 
 @media (max-width: 640px) {
   .game-page {
-    padding: 80px 16px 60px;
+    padding: 60px 16px max(10px, env(safe-area-inset-bottom));
   }
 
   body:has(.planet-merge) .game-page {

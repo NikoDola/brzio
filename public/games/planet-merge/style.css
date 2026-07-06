@@ -1689,7 +1689,25 @@ html.dev-mode #dev-panel {
     /* Stack vertically and pin to the top. How to Play now lives inside
        Settings (not a control down here), so there's nothing left to anchor
        below the game; any leftover space just sits under it, which is fine. */
-    body { padding: 12px 0; flex-direction: column; justify-content: flex-start; align-items: center; }
+    body {
+        min-height: 100dvh;
+        padding: 6px 0 max(10px, env(safe-area-inset-bottom));
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    #game-container { gap: 8px; }
+
+    #game-stage {
+        gap: 8px;
+        --canvas-w: min(95vw, calc((100vh - 145px) * 1.15 * 840 / 1160), 503px);
+        --canvas-w: min(95vw, calc((100dvh - 145px) * 1.15 * 840 / 1160), 503px);
+    }
+
+    #hud-bar {
+        padding-top: 4px;
+    }
 
     /* No fullscreen on phones: entering/exiting real fullscreen inside an
        iframe is unreliable on mobile browsers and the game already fills the

@@ -121,6 +121,10 @@
     display: flex;
   }
   .navbar {
-    padding: 0 20px;
+    height: 60px;
+    padding: 0 1rem;
+  }
+  .navbar-logo .brand-logo {
+    font-size: 24px;
   }
 }
