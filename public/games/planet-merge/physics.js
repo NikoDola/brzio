@@ -8,6 +8,13 @@ import { densityFor } from './tuning.js';
 
 const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query } = Matter;   // Matter loaded via CDN <script>
 const { W, H, WALL, WALL_X, WALL_TOP } = LAYOUT;
+const mobileColliderQuery = typeof window !== 'undefined'
+    ? window.matchMedia?.('(max-width: 700px), (pointer: coarse)')
+    : null;
+const CIRCLE_COLLIDER_SIDES =
+    mobileColliderQuery?.matches || (typeof window !== 'undefined' && window.innerWidth <= 700)
+        ? 32
+        : 64;
 
 // Tell Matter where the poly-decomp library is (needed for concave bodies)
 if (typeof window !== 'undefined' && window.decomp && Common.setDecomp) {
@@ -272,12 +279,13 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
                 body = Bodies.circle(x, y, rad, opts);
             }
         } else {
-            // 64-sided polygon. Matter.js approximates circles as polygons
+            // High-sided polygon. Matter.js approximates circles as polygons
             // (default 14–26 sides depending on radius), and the flat edges
             // cause deterministic lateral drift after bouncing on the floor.
             // A finer polygon shrinks the per-edge tilt below the friction
-            // threshold so the planet bounces straight up.
-            body = Bodies.circle(x, y, rad, opts, 64);
+            // threshold so the planet bounces straight up. Phones use fewer
+            // sides because Fast auto mode is CPU-bound by collision solving.
+            body = Bodies.circle(x, y, rad, opts, CIRCLE_COLLIDER_SIDES);
         }
     } else if (def.sides === 'plus') {
         body = Bodies.polygon(x, y, 4, rad, opts);      // square proxy

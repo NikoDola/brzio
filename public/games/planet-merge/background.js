@@ -117,8 +117,15 @@ function buildBgStars() {
 }
 
 // The galaxy twinkles slowly, so redrawing it at ~30fps is visually identical
-// to 60fps and halves the cost of this full-viewport canvas.
-const BG_FRAME_MS = 33;
+// to 60fps and halves the cost of this full-viewport canvas. Phones get an
+// even lighter cadence; the game canvas matters more than the backdrop there.
+const bgMobileQuery = typeof window !== "undefined"
+  ? window.matchMedia?.("(max-width: 700px), (pointer: coarse)")
+  : null;
+const BG_FRAME_MS =
+  bgMobileQuery?.matches || (typeof window !== "undefined" && window.innerWidth <= 700)
+    ? 66
+    : 33;
 let bgLastDraw = 0;
 
 function drawBgStarfield(t) {

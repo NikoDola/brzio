@@ -161,9 +161,16 @@ const NEXT_HANDOFF_MS = BALANCE.DROP_COOLDOWN_MS;
 let nextHandoff = null;
 
 const AUTO_PILOT_BASE_SWEEP = 0.28; // canvas px per real ms at base pace
+const AUTO_PILOT_FAST_SPEED = 4;
+const MOBILE_AUTO_FAST_MOTION = 2.6;
+const MOBILE_AUTO_FAST_MIN_DROP_MS = 260;
+const MOBILE_AUTO_FAST_BUSY_DROP_MS = 330;
+const MOBILE_AUTO_FAST_BUSY_BODY_COUNT = 18;
+const MOBILE_AUTO_FAST_STAR_COUNT = 36;
 let autoPilotActive = false;
 let autoPilotDir = 1;
 let autoPilotSpeed = 1;
+const mobilePerfQuery = window.matchMedia?.("(max-width: 700px), (pointer: coarse)");
 
 /* ── PER-DROP CHAIN + SUPER-POWERS ──────────────────────────────────────
    `chainCount` counts merges that come from ONE drop's cascade. It resets
@@ -194,7 +201,7 @@ let lastTs = 0;
 const DEATH_REPLAY_HISTORY_MS = 2400;
 const DEATH_REPLAY_SAMPLE_MS = 80;
 const DEATH_REPLAY_DURATION_MS = 2900;
-const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.2;
+const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.8;
 const BOARD_FULL_CHECK_MS = 96;
 const BOARD_FULL_ARM_FROM_BOTTOM_RATIO = 0.8;
 const SIDE_WALL_ESCAPE_SLACK = 4;
@@ -1020,6 +1027,22 @@ function currentNextHandoff() {
   return { anim: nextHandoff, raw, eased: easeOutCubic(raw) };
 }
 
+function mobilePerfMode() {
+  return Boolean(mobilePerfQuery?.matches || window.innerWidth <= 700);
+}
+
+function autoPilotFastActive() {
+  return autoPilotActive && autoPilotSpeed === AUTO_PILOT_FAST_SPEED;
+}
+
+function autoPilotMotionSpeed() {
+  return autoPilotFastActive() && mobilePerfMode() ? MOBILE_AUTO_FAST_MOTION : autoPilotSpeed;
+}
+
+function renderLiteMode() {
+  return autoPilotFastActive() && mobilePerfMode();
+}
+
 function syncAutoPilotUI() {
   const canShow = round.playing && !round.gameOver;
   if (autoPilotPanel) {
@@ -1032,7 +1055,7 @@ function syncAutoPilotUI() {
   }
   canvasWrapper?.classList.toggle("auto-pilot-active", autoPilotActive);
   if (autoPilotCrazyBtn) {
-    const crazy = autoPilotSpeed === 4;
+    const crazy = autoPilotSpeed === AUTO_PILOT_FAST_SPEED;
     autoPilotCrazyBtn.hidden = !canShow || !autoPilotActive;
     autoPilotCrazyBtn.textContent = crazy ? "Slow" : "Fast";
     autoPilotCrazyBtn.setAttribute("aria-pressed", String(crazy));
@@ -1062,18 +1085,26 @@ function toggleAutoPilot() {
 }
 
 function toggleAutoPilotCrazy() {
-  autoPilotSpeed = autoPilotSpeed === 4 ? 1 : 4;
+  autoPilotSpeed = autoPilotSpeed === AUTO_PILOT_FAST_SPEED ? 1 : AUTO_PILOT_FAST_SPEED;
   syncAutoPilotUI();
 }
 
 function dropCooldownMs() {
-  return autoPilotActive ? BALANCE.DROP_COOLDOWN_MS / autoPilotSpeed : BALANCE.DROP_COOLDOWN_MS;
+  if (!autoPilotActive) return BALANCE.DROP_COOLDOWN_MS;
+  const base = BALANCE.DROP_COOLDOWN_MS / autoPilotSpeed;
+  if (!autoPilotFastActive() || !mobilePerfMode()) return base;
+  const mobileFloor =
+    active.size >= MOBILE_AUTO_FAST_BUSY_BODY_COUNT
+      ? MOBILE_AUTO_FAST_BUSY_DROP_MS
+      : MOBILE_AUTO_FAST_MIN_DROP_MS;
+  return Math.max(base, mobileFloor);
 }
 
 function tickAutoPilot(dt) {
   if (!autoPilotActive || !round.playing || round.gameOver) return;
   const { minX, maxX } = dropBounds(curLvl);
-  let nextX = dropX + autoPilotDir * AUTO_PILOT_BASE_SWEEP * autoPilotSpeed * dt;
+  const motionSpeed = autoPilotMotionSpeed();
+  let nextX = dropX + autoPilotDir * AUTO_PILOT_BASE_SWEEP * motionSpeed * dt;
   if (nextX > maxX) {
     nextX = maxX - (nextX - maxX);
     autoPilotDir = -1;
@@ -1458,7 +1489,9 @@ function frame(ts) {
      it layers a second, faster-twinkling star field over the page's own
      backdrop there. */
   ctx.fillStyle = "#fff6d6";
-  for (const s of stars) {
+  const starCount = renderLiteMode() ? MOBILE_AUTO_FAST_STAR_COUNT : stars.length;
+  for (let i = 0; i < starCount; i++) {
+    const s = stars[i];
     // sin -> [-1, 1] mapped to a soft [0.25, 1] multiplier so stars never
     // fully disappear; the floor keeps the field feeling steady, not strobe-y.
     const tw = 0.25 + 0.75 * (Math.sin(totalMs * s.speed + s.phase) * 0.5 + 0.5);
@@ -1516,6 +1549,7 @@ function frame(ts) {
 
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
+  const liteRender = renderLiteMode();
   const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
   const showingChooseCountdown = showingWaiting && chooseCountdownActive();
   const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl, renderShapes);
@@ -1531,7 +1565,9 @@ function frame(ts) {
   // SVG-backed player marker/skin, centered on the live aim point. It carries
   // the NEXT planet while the current planet waits below it.
   if (!round.gameOver && round.playing) {
-    drawPlayerMarker(ctx, markerX, PLAYER_CONTAINER_Y, markerTilt, nxtLvl, false, nextSlotScale);
+    drawPlayerMarker(ctx, markerX, PLAYER_CONTAINER_Y, markerTilt, nxtLvl, false, nextSlotScale, {
+      skipBeam: liteRender,
+    });
   }
 
   if (handoff) {

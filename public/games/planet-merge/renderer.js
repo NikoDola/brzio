@@ -338,12 +338,12 @@ function drawBlockedCross(ctx, rad) {
  * Draws the 10:7 SVG holder skin. If the asset is missing or still loading,
  * it falls back to the old red rectangle.
  */
-export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBlocked = false, heldScale = 1) {
+export function drawPlayerMarker(ctx, cx, edgeY, angle = 0, heldLvl = -1, heldBlocked = false, heldScale = 1, opts = {}) {
     const w = LAYOUT.PLAYER_MARKER_W, h = LAYOUT.PLAYER_MARKER_H;
     ctx.save();
     ctx.translate(cx, edgeY);
     ctx.rotate(angle);
-    drawAlienBeam(ctx, w, h);
+    if (!opts.skipBeam) drawAlienBeam(ctx, w, h);
     if (playerMarkerBmp) {
         ctx.drawImage(playerMarkerBmp, -w / 2, -h / 2, w, h);
     } else {
