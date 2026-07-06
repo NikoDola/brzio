@@ -57,9 +57,8 @@ export function clearSave() {
   } catch (_) {}
 }
 
-// Show the resume popup over the start screen when a saved game exists.
-export const resumeOverlayEl = document.getElementById("resume-overlay");
 export function checkResume() {
-  if (!resumeOverlayEl) return;
-  resumeOverlayEl.classList.toggle("visible", !!loadSave());
+  try {
+    window.dispatchEvent(new Event("planet-merge-save-change"));
+  } catch (_) {}
 }

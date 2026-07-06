@@ -85,12 +85,12 @@
                         <button class="ship-arrow" id="ship-next" type="button" aria-label="Next ship">&rsaquo;</button>
                     </div>
                     <div class="start-content">
-                        <h1 class="start-title">Planet Merge</h1>
-                        <p class="start-sub">Merge planets, chase the chain, climb the levels!</p>
+                        <h1 class="start-title"><span>Planet</span><span>Merge</span></h1>
                         <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
                         <button id="play-btn" type="button">
                             <span class="play-label">Play</span>
                         </button>
+                        <button id="resume-continue" class="start-secondary-btn" type="button" hidden>Continue</button>
                         <button id="game-stat-btn" type="button">
                             <span class="game-stat-icon" aria-hidden="true">📊</span>
                             Game Statistic
@@ -123,14 +123,6 @@
                         </div>
                         <div class="perks-grid" id="perks-grid"></div>
                     </div>
-                </div>
-            </div>
-            <div id="resume-overlay">
-                <div class="resume-inner">
-                    <p class="resume-msg">We saved your progress.<br>Would you like to:</p>
-                    <button id="resume-continue" class="resume-btn resume-btn-primary" type="button">Continue</button>
-                    <div class="resume-or"><span>or start</span></div>
-                    <button id="resume-new" class="resume-btn" type="button">New Game</button>
                 </div>
             </div>
             <div id="settings-overlay">

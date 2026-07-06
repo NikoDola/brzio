@@ -95,13 +95,15 @@ body {
        longer subtracts a side gutter, so on narrow screens the canvas can fill
        the route section edge-to-edge while desktop/tablet still respect the
        height budget and max-width cap. */
-    --canvas-w: min(100vw, calc((100vh - 160px) * 1.15 * 840 / 1288), 529px);
+    --canvas-w: min(100vw, calc((100vh - 160px) * 1.15 * 840 / 1160), 529px);
 }
 
 /* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
 #hud-bar {
     display: flex;
     width: var(--canvas-w);
+    box-sizing: border-box;
+    padding-inline: 4.7619%;
     gap: 8px;
 }
 
@@ -414,7 +416,7 @@ button.hud-cell { cursor: pointer; }
 
 /* In fullscreen, drop the centered max-width cap so the canvas can grow to
    fit the screen, and size the wrapper by viewport height (canvas keeps its
-   840:1288 aspect ratio). The side panels sit alongside as usual. */
+   840:1160 aspect ratio). The side panels sit alongside as usual. */
 body.fullscreen {
     padding: 0;
     height: 100vh;
@@ -438,7 +440,7 @@ body.fullscreen #game-stage {
 body.fullscreen #canvas-wrapper {
     height: calc(100vh - 150px);
     width: auto;
-    aspect-ratio: 840 / 1288;
+    aspect-ratio: 840 / 1160;
 }
 
 body.fullscreen #dev-panel { display: flex; }
@@ -464,13 +466,13 @@ body.fullscreen #dev-panel { display: flex; }
        (game.js's frame()), only from WALL_TOP down, so nothing bounds the
        open top. */
     width: var(--canvas-w);         /* shared with the HUD bar so they line up */
-    aspect-ratio: 840 / 1288;       /* matches canvas internal resolution */
+    aspect-ratio: 840 / 1160;       /* matches canvas internal resolution */
 }
 
 #game-canvas {
     display: block;
     cursor: crosshair;
-    width: 100%;                    /* CSS scales display; internal pixels stay 840x1288 */
+    width: 100%;                    /* CSS scales display; internal pixels stay 840x1160 */
     height: 100%;
     touch-action: none;             /* prevent page scroll while dragging on canvas */
 }
@@ -529,21 +531,30 @@ body.fullscreen #dev-panel { display: flex; }
     top: 2%; /* sit at the very top, where the planet drops in */
     transform: translateX(-50%);
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
-    width: 94%;
-    padding: 8px 14px;
+    justify-content: center;
+    gap: 8px;
+    width: min(88%, 280px);
+    padding: 10px 14px;
     border-radius: 16px;
     background: rgba(10, 16, 30, 0.55);
     pointer-events: none; /* allow clicks to fall through except button */
+    text-align: center;
 }
 
-/* Big title on the left, two lines (Eliminate / Planets). */
+#destroy-overlay.compact {
+    width: auto;
+    min-width: 150px;
+    padding: 8px 12px;
+    gap: 7px;
+}
+
+/* Big title, two lines (Eliminate / Planets). */
 #destroy-overlay #destroy-text {
     flex-shrink: 0;
     color: #ff66b2;
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 800;
     line-height: 1.0;
     letter-spacing: 0.5px;
@@ -551,14 +562,17 @@ body.fullscreen #dev-panel { display: flex; }
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-/* Explanation fills the middle so the button is pushed to the far right. */
 #destroy-overlay #destroy-copy {
-    flex: 1;
+    max-width: 230px;
     color: rgba(255, 255, 255, 0.85);
     font-size: 13px;
     line-height: 1.3;
     pointer-events: none;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+#destroy-overlay #destroy-copy[hidden] {
+    display: none;
 }
 
 #destroy-overlay #destroy-skip {
@@ -689,12 +703,12 @@ body.fullscreen #dev-panel { display: flex; }
    on a seamless loop and clip at the card edges (start-inner overflow: hidden). */
 .ship-selector {
     display: grid;
-    grid-template-columns: 46px minmax(190px, 250px) 46px;
+    grid-template-columns: 40px minmax(150px, 205px) 40px;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: min(100%, 390px);
-    min-height: 132px;
+    gap: 14px;
+    width: min(calc(100% - 42px), 320px);
+    min-height: 108px;
 }
 
 .ship-preview-shell {
@@ -713,13 +727,13 @@ body.fullscreen #dev-panel { display: flex; }
 }
 
 .ship-arrow {
-    width: 46px;
+    width: 40px;
     aspect-ratio: 1;
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: 50%;
     background: rgba(255,255,255,0.08);
     color: #fff;
-    font: 800 34px/1 'Fredoka', 'Segoe UI', sans-serif;
+    font: 800 30px/1 'Fredoka', 'Segoe UI', sans-serif;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -738,19 +752,15 @@ body.fullscreen #dev-panel { display: flex; }
 }
 
 .start-title {
-    font-size: clamp(30px, 6vw, 44px);
+    display: flex;
+    flex-direction: column;
+    font-size: clamp(27px, 5.2vw, 38px);
+    line-height: 1.1;
     font-weight: 700;
     color: #FECA57;
     text-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 8px 18px rgba(254,202,87,0.35);
     letter-spacing: 1px;
     margin: 0;
-}
-
-.start-sub {
-    font-size: clamp(14px, 2.5vw, 17px);
-    font-weight: 500;
-    color: rgba(255,255,255,0.72);
-    margin-bottom: 14px;
 }
 
 /* One big Play button. Planet icon on the left, label on the right. */
@@ -759,7 +769,9 @@ body.fullscreen #dev-panel { display: flex; }
     align-items: center;
     justify-content: center;
     gap: 14px;
-    padding: 16px 48px;
+    width: min(100%, 230px);
+    min-height: 66px;
+    padding: 16px 20px;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     background: linear-gradient(135deg, #ffd23f, #f0932b);
@@ -774,6 +786,27 @@ body.fullscreen #dev-panel { display: flex; }
 }
 #play-btn:hover  { transform: translateY(-3px) scale(1.03); }
 #play-btn:active { transform: scale(0.97); transition: transform 0.05s; }
+
+.start-secondary-btn {
+    width: min(100%, 230px);
+    min-height: 66px;
+    padding: 16px 20px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: linear-gradient(135deg, #54d66f, #16a765);
+    color: #082315;
+    font-family: inherit;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(22, 167, 101, 0.36);
+    transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
+}
+
+.start-secondary-btn[hidden] { display: none; }
+.start-secondary-btn:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.04); }
+.start-secondary-btn:active { transform: scale(0.97); }
 
 /* Game Statistic button under the mode buttons. Deliberately thinner than a
    mode button (less vertical padding). Opens the stats/perks overlay. */

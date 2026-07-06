@@ -66,7 +66,7 @@ import {
   resetDevDrops,
   recordDevGame,
 } from "./dev-panel.js";
-import { snapshotBodies, writeSave, loadSave, clearSave, resumeOverlayEl, checkResume } from "./save-storage.js";
+import { snapshotBodies, writeSave, loadSave, clearSave } from "./save-storage.js";
 
 const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
 const {
@@ -224,7 +224,10 @@ const currentPrev = document.getElementById("current-prev");
 const currentNext = document.getElementById("current-next");
 const destroyOverlay = document.getElementById("destroy-overlay");
 const destroyTextEl = document.getElementById("destroy-text");
+const destroyCopyEl = document.getElementById("destroy-copy");
 const destroySkipBtn = document.getElementById("destroy-skip");
+const DESTROY_HELP_KEY = "planet-merge-destroy-help-seen";
+let destroyHelpSeenThisSession = false;
 
 /* ── COLLISION → MERGE / VANISH ──────────────────────────────────────── */
 /* IMPACT_KICK shoves both bodies a bit harder along the contact normal when
@@ -487,11 +490,33 @@ currentNext.addEventListener("click", () => cycleCurrent(+1));
    planet, and every body of that same level is destroyed. */
 
 function updateDestroyUI() {
-  canvas.classList.toggle("destroy-armed", destroyCharges > 0);
+  const active = destroyCharges > 0;
+  canvas.classList.toggle("destroy-armed", active);
   if (!destroyOverlay) return;
   // Position is fully CSS-driven (static, just below the danger line) so the
   // prompt stays put while the player moves their cursor over the board.
-  destroyOverlay.style.display = destroyCharges > 0 ? "flex" : "none";
+  destroyOverlay.style.display = active ? "flex" : "none";
+  if (!active) return;
+  const showHelp = !destroyHelpSeen();
+  destroyOverlay.classList.toggle("has-help", showHelp);
+  destroyOverlay.classList.toggle("compact", !showHelp);
+  if (destroyCopyEl) destroyCopyEl.hidden = !showHelp;
+  if (showHelp) markDestroyHelpSeen();
+}
+
+function destroyHelpSeen() {
+  try {
+    return localStorage.getItem(DESTROY_HELP_KEY) === "1";
+  } catch (_) {
+    return destroyHelpSeenThisSession;
+  }
+}
+
+function markDestroyHelpSeen() {
+  destroyHelpSeenThisSession = true;
+  try {
+    localStorage.setItem(DESTROY_HELP_KEY, "1");
+  } catch (_) {}
 }
 
 /** Pulsing red crosshair overlay on every destroyable body. Mirrors the
@@ -551,6 +576,26 @@ function dropBounds(lvl = curLvl) {
 
 function dropYFor(lvl = curLvl) {
   return WALL_TOP + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
+}
+
+function floorYFor(lvl) {
+  return H - WALL - r(lvl) - 3;
+}
+
+function bodyOutsideContainerX(body, lvl) {
+  const rad = r(lvl);
+  return body.position.x < WALL_X - rad * 0.35 || body.position.x > W - WALL_X + rad * 0.35;
+}
+
+function recoverBodyAboveFloor(body, lvl) {
+  const rad = r(lvl);
+  Body.setPosition(body, {
+    x: Math.max(WALL_X + rad + 2, Math.min(W - WALL_X - rad - 2, body.position.x)),
+    y: floorYFor(lvl),
+  });
+  Body.setVelocity(body, { x: 0, y: 0 });
+  Body.setAngularVelocity(body, 0);
+  Sleeping.set(body, false);
 }
 
 function updatePlayerTilt(markerX) {
@@ -741,7 +786,7 @@ function flushMerges() {
     // Wake the whole field so bodies stacked above the merge — even 3+
     // layers up, beyond any local radius — fall when their support goes.
     wakeAllShapes();
-    const sy = Math.max(WALL_TOP + newR + 6, my);
+    const sy = Math.min(Math.max(WALL_TOP + newR + 6, my), floorYFor(newLvl));
     const merged = spawn(mx, sy, newLvl, totalMs);
     Body.setVelocity(merged, { x: 0, y: -3 });
     // Bigger body at the midpoint may intersect a neighbour — push them apart.
@@ -836,9 +881,9 @@ function drop() {
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
 // No danger line any more: the container is open at the top and the run ends
-// when a planet is pushed over a wall and falls OUT of the container (past the
-// bottom of the canvas). The second lose condition, a board so crowded there is
-// nowhere left to drop, lives in checkBoardFull() below.
+// when a planet is pushed over a wall and falls OUT of the container. A body
+// that somehow slips below the floor while still inside the container is a
+// physics recovery case, not a loss.
 function checkOver() {
   if (isProtected()) return; // shielded while shaking: no game over
   for (const body of Composite.allBodies(world)) {
@@ -848,8 +893,11 @@ function checkOver() {
     if (lvl === undefined) continue;
     if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
     if (body.position.y > H + 40) {
-      endGame("planet-out");
-      return;
+      if (bodyOutsideContainerX(body, lvl)) {
+        endGame("planet-out");
+        return;
+      }
+      recoverBodyAboveFloor(body, lvl);
     }
   }
 }
@@ -911,7 +959,7 @@ function endGame(reason = "unknown") {
   if (lossReasonEl) {
     lossReasonEl.textContent =
       reason === "planet-out"
-        ? "Lost because a planet fell out of the container."
+        ? "Lost because a planet escaped over the side of the container."
         : reason === "no-room"
           ? "Lost because there was no room for the next planet."
           : "Lost because the run ended.";
@@ -1107,13 +1155,13 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("click", (e) => {
-  if (autoPilotActive) return;
   // When destroy power is armed, the click selects a target instead of
   // dropping. A missed click is a no-op (don't burn the charge or drop).
   if (destroyCharges > 0) {
     useDestroyPower(e.clientX, e.clientY);
     return;
   }
+  if (autoPilotActive) return;
   drop();
 });
 
@@ -1147,12 +1195,12 @@ canvas.addEventListener(
   "touchend",
   (e) => {
     e.preventDefault();
-    if (autoPilotActive) return;
     if (destroyCharges > 0) {
       const t = e.changedTouches[0];
       if (t) useDestroyPower(t.clientX, t.clientY);
       return;
     }
+    if (autoPilotActive) return;
     drop();
   },
   { passive: false },
@@ -1316,7 +1364,7 @@ function showStartScreen() {
   autoPilotSpeed = 1;
   autoPilotUiT = 0;
   syncAutoPilotUI();
-  checkResume();
+  syncStartResumeUI();
   hideLegend();
   overlayEl.classList.remove("visible");
   startOverlayEl.classList.add("visible");
@@ -1333,10 +1381,43 @@ restartEl.addEventListener("click", () => {
 });
 
 const playBtnEl = document.getElementById("play-btn");
+const playLabelEl = playBtnEl?.querySelector(".play-label");
+const resumeContinueBtn = document.getElementById("resume-continue");
+
+function syncStartResumeUI() {
+  const hasSave = !!loadSave();
+  if (playLabelEl) playLabelEl.textContent = hasSave ? "New Game" : "Play";
+  if (resumeContinueBtn) resumeContinueBtn.hidden = !hasSave;
+}
+
+window.addEventListener("planet-merge-save-change", syncStartResumeUI);
+
 playBtnEl?.addEventListener("mouseenter", () => playPlanetHit());
 playBtnEl?.addEventListener("click", () => {
   playPop();
+  if (loadSave()) {
+    if (dailyLimitReached()) {
+      startGame();
+      return;
+    }
+    clearSave();
+    syncStartResumeUI();
+  }
   startGame();
+});
+
+resumeContinueBtn?.addEventListener("click", () => {
+  const saved = loadSave();
+  if (!saved) {
+    syncStartResumeUI();
+    return;
+  }
+  playPop();
+  restoreGame(saved);
+  // One-time resume: consume the save so the player can't keep rewinding to the
+  // same point. Leaving again mid-game writes a fresh save.
+  clearSave();
+  syncStartResumeUI();
 });
 
 // left→right and loops. The set is duplicated so the CSS marquee is seamless.
@@ -1382,13 +1463,10 @@ syncShipSkin();
    the snapshot stays until the player saves again or clears storage, so they
    can keep playing after a save and still resume that point later.
 
-   The localStorage plumbing (snapshotBodies, writeSave, loadSave, clearSave,
-   checkResume) lives in save-storage.js; this file only decides WHAT to save
+   The localStorage plumbing (snapshotBodies, writeSave, loadSave, clearSave)
+   lives in save-storage.js; this file only decides WHAT to save
    and how to rebuild a live round from it, since that needs deep access to
    score/level/chain state. */
-const resumeContinueBtn = document.getElementById("resume-continue");
-const resumeNewBtn = document.getElementById("resume-new");
-
 // Silent auto-save. Called when the player leaves mid-game; there is no manual
 // save button. Skips when there's nothing meaningful to save (no round active
 // or after a loss).
@@ -1488,26 +1566,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-resumeContinueBtn?.addEventListener("click", () => {
-  const saved = loadSave();
-  resumeOverlayEl?.classList.remove("visible");
-  if (!saved) return;
-  playPop();
-  restoreGame(saved);
-  // One-time resume: consume the save so the player can't keep rewinding to the
-  // same point. Leaving again mid-game writes a fresh save.
-  clearSave();
-});
-
-resumeNewBtn?.addEventListener("click", () => {
-  // Discard the saved game and reveal the picker that's already behind the popup.
-  playPop();
-  resumeOverlayEl?.classList.remove("visible");
-  clearSave();
-});
-
-// Show the resume popup over the picker if a saved game exists at load.
-checkResume();
+syncStartResumeUI();
 
 /* ── FULLSCREEN ─────────────────────────────────────────────────────────
    Requests fullscreen on the documentElement so the entire game body goes
