@@ -192,6 +192,16 @@ let cooldown = 0; // ms remaining before next drop is allowed
 let totalMs = 0; // total elapsed ms (frozen when game is over)
 let lastTs = 0;
 
+const DEATH_REPLAY_HISTORY_MS = 2400;
+const DEATH_REPLAY_SAMPLE_MS = 80;
+const DEATH_REPLAY_DURATION_MS = 2900;
+const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.2;
+const SIDE_WALL_ESCAPE_SLACK = 4;
+const deathReplayHistory = new Map();
+const rimEscapedIds = new Set();
+let deathReplay = null;
+let nextDeathReplaySampleMs = 0;
+
 function formatScore(value) {
   const n = Math.max(0, Math.floor(value || 0));
   const units = [
@@ -208,6 +218,212 @@ function formatScore(value) {
     return String(trimmed).replace(/\.0$/, "") + suffix;
   }
   return String(n);
+}
+
+function recordDeathReplayHistory() {
+  if (totalMs < nextDeathReplaySampleMs) return;
+  nextDeathReplaySampleMs = totalMs + DEATH_REPLAY_SAMPLE_MS;
+
+  const liveIds = new Set();
+  const shapes = [];
+  const armY = H - (H - WALL_TOP) * DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO;
+  let shouldRecord = false;
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== "shape") continue;
+    const lvl = bodyLvl.get(body.id);
+    if (lvl === undefined) continue;
+    liveIds.add(body.id);
+    shapes.push({ body, lvl });
+    if (body.position.y - r(lvl) <= armY || rimEscapedIds.has(body.id)) {
+      shouldRecord = true;
+    }
+  }
+
+  for (const id of rimEscapedIds) {
+    if (!liveIds.has(id)) rimEscapedIds.delete(id);
+  }
+
+  if (!shouldRecord) {
+    deathReplayHistory.clear();
+    return;
+  }
+
+  for (const { body, lvl } of shapes) {
+    let samples = deathReplayHistory.get(body.id);
+    if (!samples) {
+      samples = [];
+      deathReplayHistory.set(body.id, samples);
+    }
+    const last = samples[samples.length - 1];
+    if (!last || totalMs - last.t >= DEATH_REPLAY_SAMPLE_MS) {
+      samples.push({
+        t: totalMs,
+        x: body.position.x,
+        y: body.position.y,
+        a: body.angle,
+        lvl,
+      });
+    }
+    while (samples.length && totalMs - samples[0].t > DEATH_REPLAY_HISTORY_MS) {
+      samples.shift();
+    }
+  }
+  for (const id of deathReplayHistory.keys()) {
+    if (!liveIds.has(id) && deathReplay?.culpritId !== id) deathReplayHistory.delete(id);
+  }
+}
+
+function deathReplaySamplesFor(body, lvl) {
+  const samples = (deathReplayHistory.get(body.id) || []).slice();
+  const last = samples[samples.length - 1];
+  if (!last || last.x !== body.position.x || last.y !== body.position.y) {
+    samples.push({
+      t: totalMs,
+      x: body.position.x,
+      y: body.position.y,
+      a: body.angle,
+      lvl,
+    });
+  }
+  return samples.length ? samples : [{ t: totalMs, x: body.position.x, y: body.position.y, a: body.angle, lvl }];
+}
+
+function startDeathReplay(body, lvl) {
+  const samples = deathReplaySamplesFor(body, lvl);
+  if (!samples.length) return false;
+  deathReplay = {
+    culpritId: body.id,
+    lvl,
+    samples,
+    elapsedMs: 0,
+    durationMs: DEATH_REPLAY_DURATION_MS,
+  };
+  overlayEl.classList.remove("visible");
+  return true;
+}
+
+function finishDeathReplay() {
+  deathReplay = null;
+  overlayEl.classList.add("visible");
+}
+
+function tickDeathReplay(dt) {
+  if (!deathReplay) return;
+  deathReplay.elapsedMs += dt;
+  if (deathReplay.elapsedMs >= deathReplay.durationMs) finishDeathReplay();
+}
+
+function deathReplayProgress() {
+  if (!deathReplay) return 0;
+  return Math.max(0, Math.min(1, deathReplay.elapsedMs / deathReplay.durationMs));
+}
+
+function interpolateDeathReplaySample(progress = deathReplayProgress()) {
+  if (!deathReplay) return null;
+  const samples = deathReplay.samples;
+  if (samples.length === 1) return samples[0];
+  const start = samples[0].t;
+  const end = samples[samples.length - 1].t;
+  const target = start + (end - start) * progress;
+  let i = 1;
+  while (i < samples.length && samples[i].t < target) i++;
+  const prev = samples[Math.max(0, i - 1)];
+  const next = samples[Math.min(samples.length - 1, i)];
+  const span = Math.max(1, next.t - prev.t);
+  const t = Math.max(0, Math.min(1, (target - prev.t) / span));
+  return {
+    t: target,
+    x: lerp(prev.x, next.x, t),
+    y: lerp(prev.y, next.y, t),
+    a: lerp(prev.a || 0, next.a || 0, t),
+    lvl: deathReplay.lvl,
+  };
+}
+
+function currentDeathReplayCamera() {
+  if (!deathReplay) return null;
+  const sample = interpolateDeathReplaySample();
+  if (!sample) return null;
+  const zoomIn = Math.min(1, deathReplay.elapsedMs / 650);
+  return {
+    sample,
+    zoom: lerp(1.08, 2.65, easeOutCubic(zoomIn)),
+    progress: deathReplayProgress(),
+  };
+}
+
+function applyDeathReplayCamera(ctx, camera) {
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.sample.x, -camera.sample.y);
+}
+
+function replayBodyFor(body, sample) {
+  const replayBody = Object.create(body);
+  replayBody.position = { x: sample.x, y: sample.y };
+  replayBody.angle = sample.a || 0;
+  replayBody.id = body.id;
+  return replayBody;
+}
+
+function drawDeathReplayTrail(ctx, camera) {
+  if (!deathReplay || deathReplay.samples.length < 2) return;
+  const currentT = deathReplay.samples[0].t + (deathReplay.samples[deathReplay.samples.length - 1].t - deathReplay.samples[0].t) * camera.progress;
+  ctx.save();
+  ctx.strokeStyle = "rgba(125, 223, 255, 0.58)";
+  ctx.lineWidth = 5 / camera.zoom;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  let started = false;
+  for (const sample of deathReplay.samples) {
+    if (sample.t > currentT) break;
+    if (!started) {
+      ctx.moveTo(sample.x, sample.y);
+      started = true;
+    } else {
+      ctx.lineTo(sample.x, sample.y);
+    }
+  }
+  if (started) ctx.lineTo(camera.sample.x, camera.sample.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawDeathReplayFocus(ctx, camera) {
+  const rad = r(deathReplay.lvl);
+  const pulse = 0.75 + 0.25 * Math.sin(deathReplay.elapsedMs * 0.012);
+  ctx.save();
+  ctx.strokeStyle = `rgba(125, 223, 255, ${pulse})`;
+  ctx.lineWidth = 5 / camera.zoom;
+  ctx.beginPath();
+  ctx.arc(camera.sample.x, camera.sample.y, rad * 1.35, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawDeathReplayCaption(ctx) {
+  if (!deathReplay) return;
+  const name = SHAPES[deathReplay.lvl]?.name || "Planet";
+  ctx.save();
+  ctx.globalAlpha = 0.88;
+  ctx.fillStyle = "rgba(6, 12, 22, 0.62)";
+  ctx.strokeStyle = "rgba(125, 223, 255, 0.58)";
+  ctx.lineWidth = 1.5;
+  const label = `Replay: ${name} fell out`;
+  ctx.font = "800 24px 'Fredoka', 'Segoe UI', Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const labelW = Math.min(W - 64, Math.max(270, ctx.measureText(label).width + 48));
+  const x = W / 2 - labelW / 2;
+  const y = 24;
+  ctx.fillRect(x, y, labelW, 50);
+  ctx.strokeRect(x, y, labelW, 50);
+  ctx.fillStyle = "#e3f5ff";
+  ctx.shadowColor = "rgba(125, 223, 255, 0.7)";
+  ctx.shadowBlur = 12;
+  ctx.fillText(label, W / 2, y + 25);
+  ctx.restore();
 }
 
 /* ── DOM ─────────────────────────────────────────────────────────────── */
@@ -681,7 +897,31 @@ function floorYFor(lvl) {
 
 function bodyOutsideContainerX(body, lvl) {
   const rad = r(lvl);
-  return body.position.x < WALL_X - rad * 0.35 || body.position.x > W - WALL_X + rad * 0.35;
+  return (
+    body.position.x < WALL_X + rad - SIDE_WALL_ESCAPE_SLACK ||
+    body.position.x > W - WALL_X - rad + SIDE_WALL_ESCAPE_SLACK
+  );
+}
+
+function bodyNoLongerVisible(body, lvl) {
+  return body.position.y - r(lvl) > H;
+}
+
+function bodyReachedOpenRim(body, lvl) {
+  const rad = r(lvl);
+  return body.position.y <= WALL_TOP + rad * 0.42;
+}
+
+function keepBodyInsideSideWalls(body, lvl) {
+  const rad = r(lvl);
+  const minX = WALL_X + rad + 2;
+  const maxX = W - WALL_X - rad - 2;
+  const x = Math.max(minX, Math.min(maxX, body.position.x));
+  if (Math.abs(x - body.position.x) < 0.01) return;
+  Body.setPosition(body, { x, y: body.position.y });
+  Body.setVelocity(body, { x: 0, y: body.velocity.y });
+  Body.setAngularVelocity(body, body.angularVelocity * 0.35);
+  Sleeping.set(body, false);
 }
 
 function recoverBodyAboveFloor(body, lvl) {
@@ -693,6 +933,34 @@ function recoverBodyAboveFloor(body, lvl) {
   Body.setVelocity(body, { x: 0, y: 0 });
   Body.setAngularVelocity(body, 0);
   Sleeping.set(body, false);
+}
+
+function keepBodyAboveFloor(body, lvl) {
+  const maxContactY = H - WALL - r(lvl) + 2;
+  if (body.position.y <= maxContactY) return;
+  const y = floorYFor(lvl);
+  Body.setPosition(body, { x: body.position.x, y });
+  Body.setVelocity(body, {
+    x: body.velocity.x * 0.92,
+    y: Math.min(0, body.velocity.y),
+  });
+  Body.setAngularVelocity(body, body.angularVelocity * 0.65);
+  Sleeping.set(body, false);
+}
+
+function preventIllegalContainerEscapes() {
+  for (const body of Composite.allBodies(world)) {
+    if (body.label !== "shape") continue;
+    const lvl = bodyLvl.get(body.id);
+    if (lvl === undefined || rimEscapedIds.has(body.id)) continue;
+
+    const outside = bodyOutsideContainerX(body, lvl);
+    if (outside) {
+      if (bodyReachedOpenRim(body, lvl)) continue;
+      keepBodyInsideSideWalls(body, lvl);
+    }
+    keepBodyAboveFloor(body, lvl);
+  }
 }
 
 function updatePlayerTilt(markerX) {
@@ -979,9 +1247,9 @@ function drop() {
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
 // No danger line any more: the container is open at the top and the run ends
-// when a planet is pushed over a wall and falls OUT of the container. A body
-// that somehow slips below the floor while still inside the container is a
-// physics recovery case, not a loss.
+// only after a planet has actually fallen out of the visible canvas after
+// escaping through the open top. If physics nudges a planet through a side wall
+// or floor while it is still inside the board, push it back instead.
 function checkOver() {
   if (isProtected()) return; // shielded while shaking: no game over
   for (const body of Composite.allBodies(world)) {
@@ -990,11 +1258,30 @@ function checkOver() {
     const lvl = bodyLvl.get(id);
     if (lvl === undefined) continue;
     if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
-    if (body.position.y > H + 40) {
-      if (bodyOutsideContainerX(body, lvl)) {
-        endGame("planet-out");
-        return;
+
+    const outside = bodyOutsideContainerX(body, lvl);
+    if (outside) {
+      if (bodyReachedOpenRim(body, lvl)) {
+        rimEscapedIds.add(id);
+      } else if (!rimEscapedIds.has(id)) {
+        keepBodyInsideSideWalls(body, lvl);
+        continue;
       }
+    } else if (rimEscapedIds.has(id) && body.position.y > WALL_TOP + r(lvl)) {
+      rimEscapedIds.delete(id);
+    }
+
+    if (!rimEscapedIds.has(id) && !outside && body.position.y > floorYFor(lvl) + r(lvl) * 0.55) {
+      recoverBodyAboveFloor(body, lvl);
+      continue;
+    }
+
+    if (bodyNoLongerVisible(body, lvl)) {
+      endGame("planet-out", { body, lvl });
+      return;
+    }
+
+    if (body.position.y > H + 40 && !outside) {
       recoverBodyAboveFloor(body, lvl);
     }
   }
@@ -1049,15 +1336,16 @@ function checkBoardFull(dt) {
   if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame("no-room");
 }
 
-function endGame(reason = "unknown") {
+function endGame(reason = "unknown", detail = {}) {
   if (round.gameOver) return;
   round.gameOver = true;
   stopAutoPilot();
   finalEl.textContent = formatScore(score);
+  const culpritName = detail.lvl !== undefined ? SHAPES[detail.lvl]?.name : "";
   if (lossReasonEl) {
     lossReasonEl.textContent =
       reason === "planet-out"
-        ? "Lost because a planet escaped over the side of the container."
+        ? `Lost because ${culpritName || "a planet"} fell out of the board.`
         : reason === "no-room"
           ? "Lost because there was no room for the next planet."
           : "Lost because the run ended.";
@@ -1067,7 +1355,12 @@ function endGame(reason = "unknown") {
   bankPlayTime();
   if (mergeCount < 100) earnPerk("lose-under-100"); // play the game in reverse
   if (mergeCount < 150) earnPerk("lose-under-150");
-  overlayEl.classList.add("visible");
+  const replayStarted =
+    reason === "planet-out" &&
+    detail.body &&
+    detail.lvl !== undefined &&
+    startDeathReplay(detail.body, detail.lvl);
+  if (!replayStarted) overlayEl.classList.add("visible");
 
   recordDevGame(score);
 }
@@ -1088,6 +1381,7 @@ function frame(ts) {
   // substeps per frame at 4 x simSpeed.
   const dt = Math.min(ts - lastTs, 32);
   lastTs = ts;
+  tickDeathReplay(dt);
 
   // Shake shield: raise the rainbow arch (and suspend the danger check) while a
   // shake is in progress; drop it once the window passes or the game ends.
@@ -1104,6 +1398,8 @@ function frame(ts) {
       physAcc -= PHYS_STEP;
       Engine.update(engine, PHYS_STEP);
       totalMs += PHYS_STEP;
+      preventIllegalContainerEscapes();
+      recordDeathReplayHistory();
       if (cooldown > 0) {
         cooldown -= PHYS_STEP;
         if (cooldown <= 0) canDrop = true;
@@ -1129,6 +1425,13 @@ function frame(ts) {
      starfield canvas shows straight through with no seam, no border, no
      tint. Only the container itself (from WALL_TOP down) gets painted. */
   ctx.clearRect(0, 0, W, H);
+  const deathCamera = currentDeathReplayCamera();
+  if (deathCamera) {
+    ctx.fillStyle = "#08101d";
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    applyDeathReplayCamera(ctx, deathCamera);
+  }
   ctx.fillStyle = playfieldGradient;
   ctx.fillRect(WALL_X, WALL_TOP, W - 2 * WALL_X, H - WALL_TOP);
 
@@ -1173,8 +1476,14 @@ function frame(ts) {
 
   /* Effects → bodies → score popups (draw order matters) */
   drawFlashes(ctx, flashes, totalMs);
+  if (deathCamera) drawDeathReplayTrail(ctx, deathCamera);
   for (const body of Composite.allBodies(world)) {
-    if (body.label === "shape") drawBody(ctx, body, bodyLvl, totalMs);
+    if (body.label !== "shape") continue;
+    if (deathCamera && deathReplay && body.id === deathReplay.culpritId) {
+      drawBody(ctx, replayBodyFor(body, deathCamera.sample), bodyLvl, totalMs);
+    } else {
+      drawBody(ctx, body, bodyLvl, totalMs);
+    }
   }
   drawUnlockGlows(
     ctx,
@@ -1246,6 +1555,12 @@ function frame(ts) {
       drawPreview(ctx, curLvl, sx, dropYFor(curLvl), 0, rad, waitingBlocked);
     }
     ctx.restore();
+  }
+
+  if (deathCamera) {
+    drawDeathReplayFocus(ctx, deathCamera);
+    ctx.restore();
+    drawDeathReplayCaption(ctx);
   }
 
   requestAnimationFrame(frame);
@@ -1353,6 +1668,10 @@ function resetGameState() {
   popups.length = 0;
   unlockGlows.length = 0;
   seenLevels.clear();
+  deathReplay = null;
+  deathReplayHistory.clear();
+  rimEscapedIds.clear();
+  nextDeathReplaySampleMs = 0;
 
   score = 0;
   mergeCount = 0;
@@ -1461,6 +1780,10 @@ function showStartScreen() {
   popups.length = 0;
   unlockGlows.length = 0;
   seenLevels.clear();
+  deathReplay = null;
+  deathReplayHistory.clear();
+  rimEscapedIds.clear();
+  nextDeathReplaySampleMs = 0;
 
   round.playing = false;
   round.gameOver = false;
@@ -1526,13 +1849,14 @@ resumeContinueBtn?.addEventListener("click", () => {
 
 // left→right and loops. The set is duplicated so the CSS marquee is seamless.
 const SHIP_SKINS = [
-  { name: "Alien", asset: "ship-container_alien.svg" },
-  { name: "Baby", asset: "ship-container_baby.svg" },
-  { name: "Car", asset: "ship-container_car.svg" },
-  { name: "Native", asset: "ship-container_native-indian.svg" },
+  { name: "alien", asset: "ship-container_alien.svg" },
+  { name: "baby", asset: "ship-container_baby.svg" },
+  { name: "car", asset: "ship-container_car.svg" },
+  { name: "native-indian", asset: "ship-container_native-indian.svg" },
 ];
 const SHIP_SKIN_KEY = "planet-merge-ship-skin";
 const shipPreviewEl = document.getElementById("ship-preview");
+const shipNameEl = document.getElementById("ship-name");
 const shipPrevBtn = document.getElementById("ship-prev");
 const shipNextBtn = document.getElementById("ship-next");
 let shipSkinIndex = Math.max(
@@ -1546,6 +1870,7 @@ function syncShipSkin() {
     shipPreviewEl.src = `assets/images/${skin.asset}`;
     shipPreviewEl.alt = `${skin.name} ship`;
   }
+  if (shipNameEl) shipNameEl.textContent = skin.name;
   setPlayerMarkerAsset(skin.asset);
   localStorage.setItem(SHIP_SKIN_KEY, skin.asset);
 }
@@ -1609,6 +1934,10 @@ function restoreGame(data) {
   popups.length = 0;
   unlockGlows.length = 0;
   seenLevels.clear();
+  deathReplay = null;
+  deathReplayHistory.clear();
+  rimEscapedIds.clear();
+  nextDeathReplaySampleMs = 0;
 
   score = data.score || 0;
   mergeCount = data.mergeCount || 0;

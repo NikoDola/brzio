@@ -669,7 +669,7 @@ body.fullscreen #dev-panel { display: flex; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: 10px;
     border-radius: 14px;
     background: radial-gradient(circle at 50% 20%, #34507a 0%, #1c2742 70%, #131c30 100%);
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -685,7 +685,7 @@ body.fullscreen #dev-panel { display: flex; }
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 1rem;
 }
 
 /* Decorative sliding planet band above the title. All planets scroll left→right
@@ -698,6 +698,14 @@ body.fullscreen #dev-panel { display: flex; }
     gap: 14px;
     width: min(calc(100% - 42px), 320px);
     min-height: 108px;
+}
+
+.ship-choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
 }
 
 .ship-preview-shell {
@@ -713,6 +721,18 @@ body.fullscreen #dev-panel { display: flex; }
     height: 100%;
     object-fit: contain;
     filter: drop-shadow(0 10px 18px rgba(0,0,0,0.38));
+}
+
+.ship-name {
+    max-width: 100%;
+    color: rgba(227, 245, 255, 0.86);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.6px;
+    text-transform: lowercase;
+    text-shadow: 0 3px 8px rgba(0,0,0,0.35);
+    overflow-wrap: anywhere;
 }
 
 .ship-arrow {
@@ -741,15 +761,14 @@ body.fullscreen #dev-panel { display: flex; }
 }
 
 .start-title {
-    display: flex;
-    flex-direction: column;
-    font-size: clamp(27px, 5.2vw, 38px);
-    line-height: 1.1;
+    font-size: clamp(27px, 6.6vw, 34px);
+    line-height: 1.05;
     font-weight: 700;
     color: #FECA57;
     text-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 8px 18px rgba(254,202,87,0.35);
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     margin: 0;
+    white-space: nowrap;
 }
 
 /* One big Play button. Planet icon on the left, label on the right. */

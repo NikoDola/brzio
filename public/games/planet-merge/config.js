@@ -18,7 +18,7 @@ export const LAYOUT = {
     PLAYER_MARKER_NEXT_SLOT_SCALE: 0.32, // next planet inside the holder, 20% smaller than before
     PLAYER_MARKER_PLANET_BOTTOM_PAD: 0.05, // held planet sits 5% above the holder bottom
     PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/
-    PLAYER_CONTAINER_Y: 93, // y-centre of the ship/player container
+    PLAYER_CONTAINER_Y: 73, // y-centre of the ship/player container
     SCORE_Y:      61,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
     WALL_TOP:     108,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
     BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180
