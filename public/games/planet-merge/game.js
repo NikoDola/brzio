@@ -1561,7 +1561,7 @@ function frame(ts) {
 
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
-  const liteRender = renderLiteMode();
+  const skipShipBeam = mobilePerfMode();
   const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
   const showingChooseCountdown = showingWaiting && chooseCountdownActive();
   const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl, renderShapes);
@@ -1578,7 +1578,7 @@ function frame(ts) {
   // the NEXT planet while the current planet waits below it.
   if (!round.gameOver && round.playing) {
     drawPlayerMarker(ctx, markerX, PLAYER_CONTAINER_Y, markerTilt, nxtLvl, false, nextSlotScale, {
-      skipBeam: liteRender,
+      skipBeam: skipShipBeam,
     });
   }
 
