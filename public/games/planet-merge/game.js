@@ -88,9 +88,45 @@ const {
 
 /* ── CANVAS ──────────────────────────────────────────────────────────── */
 const canvas = document.getElementById("game-canvas");
-canvas.width = W;
-canvas.height = H;
 const ctx = canvas.getContext("2d");
+const MOBILE_RENDER_SCALE = 0.7;
+const mobilePerfQuery = window.matchMedia?.("(max-width: 700px), (pointer: coarse)");
+let renderScale = 1;
+let playfieldGradient = null;
+
+function mobilePerfMode() {
+  return Boolean(mobilePerfQuery?.matches || window.innerWidth <= 700);
+}
+
+function createPlayfieldGradient() {
+  const gradient = ctx.createRadialGradient(
+    W / 2,
+    H * 0.35,
+    0,
+    W / 2,
+    H * 0.35,
+    Math.max(W, H),
+  );
+  gradient.addColorStop(0, "#3a5680");
+  gradient.addColorStop(0.65, "#1a2540");
+  gradient.addColorStop(1, "#0a1020");
+  return gradient;
+}
+
+function resizeGameCanvas() {
+  const nextScale = mobilePerfMode() ? MOBILE_RENDER_SCALE : 1;
+  const pixelW = Math.round(W * nextScale);
+  const pixelH = Math.round(H * nextScale);
+  if (canvas.width !== pixelW || canvas.height !== pixelH) {
+    canvas.width = pixelW;
+    canvas.height = pixelH;
+  }
+  renderScale = nextScale;
+  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+  playfieldGradient = createPlayfieldGradient();
+}
+
+resizeGameCanvas();
 
 // Reused offscreen band for the big sky score + its masked shadow (drawScoreShadow).
 const scoreFx = document.createElement("canvas");
@@ -103,21 +139,6 @@ let mobileScoreCacheText = "";
 
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
-
-// Cached playfield background gradient. Same radial palette as the start
-// screen (style.css #start-overlay) so the canvas reads as the same space,
-// just with the planets dropped in.
-const playfieldGradient = ctx.createRadialGradient(
-  W / 2,
-  H * 0.35,
-  0,
-  W / 2,
-  H * 0.35,
-  Math.max(W, H),
-);
-playfieldGradient.addColorStop(0, "#3a5680");
-playfieldGradient.addColorStop(0.65, "#1a2540");
-playfieldGradient.addColorStop(1, "#0a1020");
 
 // Pre-generated starfield drawn behind everything. Each star has its own
 // position, peak brightness, twinkle speed and phase, so the field reads
@@ -174,7 +195,6 @@ const MOBILE_AUTO_FAST_STAR_COUNT = 36;
 let autoPilotActive = false;
 let autoPilotDir = 1;
 let autoPilotSpeed = 1;
-const mobilePerfQuery = window.matchMedia?.("(max-width: 700px), (pointer: coarse)");
 
 /* ── PER-DROP CHAIN + SUPER-POWERS ──────────────────────────────────────
    `chainCount` counts merges that come from ONE drop's cascade. It resets
@@ -1047,10 +1067,6 @@ function currentNextHandoff() {
   return { anim: nextHandoff, raw, eased: easeOutCubic(raw) };
 }
 
-function mobilePerfMode() {
-  return Boolean(mobilePerfQuery?.matches || window.innerWidth <= 700);
-}
-
 function autoPilotAvailable() {
   return !mobilePerfMode();
 }
@@ -1785,12 +1801,19 @@ if (destroySkipBtn) {
 
 autoPilotStartBtn?.addEventListener("click", toggleAutoPilot);
 autoPilotCrazyBtn?.addEventListener("click", toggleAutoPilotCrazy);
-mobilePerfQuery?.addEventListener?.("change", () => syncAutoPilotUI());
+mobilePerfQuery?.addEventListener?.("change", () => {
+  resizeGameCanvas();
+  syncAutoPilotUI();
+});
 window.addEventListener("resize", () => {
   clearTouchAimCache();
+  resizeGameCanvas();
   if (!autoPilotAvailable()) syncAutoPilotUI();
 });
-window.addEventListener("orientationchange", clearTouchAimCache);
+window.addEventListener("orientationchange", () => {
+  clearTouchAimCache();
+  resizeGameCanvas();
+});
 
 /* ── DIFFICULTY / RESTART ───────────────────────────────────────────────
    `resetGameState` is shared between Play Again and the first start.
