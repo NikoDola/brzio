@@ -1709,6 +1709,10 @@ html.dev-mode #dev-panel {
         padding-top: 4px;
     }
 
+    #hud-bar #autopilot-panel {
+        display: none;
+    }
+
     /* No fullscreen on phones: entering/exiting real fullscreen inside an
        iframe is unreliable on mobile browsers and the game already fills the
        available space, so the toggle is dropped for this breakpoint. With

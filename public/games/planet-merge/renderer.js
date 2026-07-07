@@ -54,13 +54,43 @@ const _assetLoadCbs = [];
  *  artwork is available (the main game loop redraws every frame anyway). */
 export function onAssetLoad(cb) { _assetLoadCbs.push(cb); }
 
+const MOODS = ['casual', 'hurt', 'sad'];
+
 const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
+const combinedBmps = SHAPES.map(() => ({ casual: null, hurt: null, sad: null }));
+
+function bakeCombinedSprite(lvl, faceBmp) {
+    const body = bodyBmps[lvl];
+    if (!body) return null;
+    const c = document.createElement('canvas');
+    c.width = body.width;
+    c.height = body.height;
+    const g = c.getContext('2d');
+    g.drawImage(body, 0, 0);
+    if (faceBmp) g.drawImage(faceBmp, 0, 0, c.width, c.height);
+    return c;
+}
+
+function rebuildCombinedSprites(lvl) {
+    const faces = exprBmps[lvl];
+    if (!bodyBmps[lvl] || !faces) return;
+    for (const mood of MOODS) {
+        if (faces[mood]) combinedBmps[lvl][mood] = bakeCombinedSprite(lvl, faces[mood]);
+    }
+}
+
+function spriteForMood(lvl, mood = 'casual') {
+    const combined = combinedBmps[lvl];
+    return combined?.[mood] || combined?.casual || bodyBmps[lvl];
+}
+
 SHAPES.forEach((s, i) => {
     if (!s.asset) return;
     const img = new Image();
     img.src = `assets/images/${s.asset}`;
     img.onload = () => {
         bodyBmps[i] = bakeBitmap(img, i);
+        rebuildCombinedSprites(i);
         _assetLoadCbs.forEach((cb) => cb(i));
     };
     img.onerror = () => console.warn(`[renderer] failed to load assets/images/${s.asset}`);
@@ -124,6 +154,7 @@ const exprBmps = SHAPES.map((s, i) => {
         img.src = `assets/images/${base}_${mood}.svg`;
         img.onload  = () => {
             slot[mood] = bakeBitmap(img, i);
+            rebuildCombinedSprites(i);
             _assetLoadCbs.forEach((cb) => cb(i));
         };
         img.onerror = () => {};  // art may not exist yet: fall back to bare body
@@ -243,18 +274,12 @@ export function drawBody(ctx, body, bodyLvl, totalMs = 0) {
     if (hasImg(lvl)) {
         const rad = r(lvl);
         const ro  = body.renderOffset;        // set by physics.js for silhouette bodies
+        const sprite = spriteForMood(lvl, currentExpr(body, totalMs));
         ctx.save();
         ctx.translate(body.position.x, body.position.y);
         ctx.rotate(vAngle);
         if (ro) ctx.translate(ro.x, ro.y);    // align image w/ collider when silhouette is off-centre
-        ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
-        // Face overlay on top of the body, same rect so it tracks position
-        // and rotation. Drawn after the body, inside the same transform.
-        const faces = exprBmps[lvl];
-        if (faces) {
-            const face = faces[currentExpr(body, totalMs)];
-            if (face) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
-        }
+        ctx.drawImage(sprite, -rad, -rad, rad * 2, rad * 2);
         ctx.restore();
     } else {
         drawProcedural(ctx, lvl, body.position.x, body.position.y, vAngle);
@@ -293,17 +318,11 @@ function drawColliderOverlay(ctx, body) {
  */
 export function drawPreview(ctx, lvl, cx, cy, angle, rad, blocked = false) {
     if (hasImg(lvl)) {
+        const sprite = spriteForMood(lvl, blocked ? 'hurt' : 'casual');
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angle);
-        ctx.drawImage(bodyBmps[lvl], -rad, -rad, rad * 2, rad * 2);
-        // A planet waiting to drop (or shown as the NEXT preview) has no hit state,
-        // so it wears its casual face, same overlay as a live body. When the
-        // drop spot is blocked by a planet underneath, it winces instead.
-        const faces = exprBmps[lvl];
-        const face = blocked ? faces && (faces.hurt || faces.casual)
-                             : faces && faces.casual;
-        if (face) ctx.drawImage(face, -rad, -rad, rad * 2, rad * 2);
+        ctx.drawImage(sprite, -rad, -rad, rad * 2, rad * 2);
         if (blocked) drawBlockedCross(ctx, rad);
         ctx.restore();
         return;

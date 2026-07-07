@@ -1031,6 +1031,10 @@ function mobilePerfMode() {
   return Boolean(mobilePerfQuery?.matches || window.innerWidth <= 700);
 }
 
+function autoPilotAvailable() {
+  return !mobilePerfMode();
+}
+
 function autoPilotFastActive() {
   return autoPilotActive && autoPilotSpeed === AUTO_PILOT_FAST_SPEED;
 }
@@ -1044,7 +1048,11 @@ function renderLiteMode() {
 }
 
 function syncAutoPilotUI() {
-  const canShow = round.playing && !round.gameOver;
+  if (autoPilotActive && !autoPilotAvailable()) {
+    autoPilotActive = false;
+    autoPilotSpeed = 1;
+  }
+  const canShow = autoPilotAvailable() && round.playing && !round.gameOver;
   if (autoPilotPanel) {
     autoPilotPanel.hidden = !canShow;
     autoPilotPanel.classList.toggle("auto-active", autoPilotActive);
@@ -1063,7 +1071,7 @@ function syncAutoPilotUI() {
 }
 
 function startAutoPilot() {
-  if (!round.playing || round.gameOver) return;
+  if (!autoPilotAvailable() || !round.playing || round.gameOver) return;
   autoPilotActive = true;
   autoPilotDir = dropX < W / 2 ? 1 : -1;
   clearChoosePower();
@@ -1102,6 +1110,10 @@ function dropCooldownMs() {
 
 function tickAutoPilot(dt) {
   if (!autoPilotActive || !round.playing || round.gameOver) return;
+  if (!autoPilotAvailable()) {
+    stopAutoPilot();
+    return;
+  }
   const { minX, maxX } = dropBounds(curLvl);
   const motionSpeed = autoPilotMotionSpeed();
   let nextX = dropX + autoPilotDir * AUTO_PILOT_BASE_SWEEP * motionSpeed * dt;
@@ -1699,6 +1711,10 @@ if (destroySkipBtn) {
 
 autoPilotStartBtn?.addEventListener("click", toggleAutoPilot);
 autoPilotCrazyBtn?.addEventListener("click", toggleAutoPilotCrazy);
+mobilePerfQuery?.addEventListener?.("change", () => syncAutoPilotUI());
+window.addEventListener("resize", () => {
+  if (!autoPilotAvailable()) syncAutoPilotUI();
+});
 
 /* ── DIFFICULTY / RESTART ───────────────────────────────────────────────
    `resetGameState` is shared between Play Again and the first start.
