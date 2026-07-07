@@ -96,6 +96,10 @@ const ctx = canvas.getContext("2d");
 const scoreFx = document.createElement("canvas");
 scoreFx.width = W;
 scoreFx.height = Math.ceil(Math.max(WALL_TOP, PLAYER_CONTAINER_Y) + PLAYER_MARKER_H + 40);
+const mobileScoreFx = document.createElement("canvas");
+mobileScoreFx.width = W;
+mobileScoreFx.height = scoreFx.height;
+let mobileScoreCacheText = "";
 
 const nxtCanvas = document.getElementById("next-canvas");
 const nxtCtx = nxtCanvas.getContext("2d");
@@ -226,6 +230,22 @@ function formatScore(value) {
     return String(trimmed).replace(/\.0$/, "") + suffix;
   }
   return String(n);
+}
+
+function drawMobileScoreText(ctx, scoreText) {
+  if (scoreText !== mobileScoreCacheText) {
+    mobileScoreCacheText = scoreText;
+    const f = mobileScoreFx.getContext("2d");
+    f.clearRect(0, 0, mobileScoreFx.width, mobileScoreFx.height);
+    f.save();
+    f.font = "900 112px 'Fredoka', 'Segoe UI', Arial, sans-serif";
+    f.textAlign = "center";
+    f.textBaseline = "middle";
+    f.fillStyle = "rgba(255,255,255,0.22)";
+    f.fillText(scoreText, W / 2, SCORE_Y);
+    f.restore();
+  }
+  ctx.drawImage(mobileScoreFx, 0, 0);
 }
 
 function collectLiveShapes() {
@@ -1559,6 +1579,7 @@ function frame(ts) {
   if (destroyCharges > 0) drawDestroyTargets(renderShapes);
   drawPopups(ctx, popups, totalMs);
 
+  applyPendingTouchAim();
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
   const skipShipBeam = mobilePerfMode();
@@ -1571,7 +1592,12 @@ function frame(ts) {
   /* Big total score in the sky, always visible during a round. The player
      marker skin casts the moving shadow on the digits. */
   if (!round.gameOver && round.playing) {
-    drawScoreShadow(ctx, scoreFx, formatScore(score), markerX, SCORE_Y, PLAYER_CONTAINER_Y, markerTilt, W / 2);
+    const scoreText = formatScore(score);
+    if (mobilePerfMode()) {
+      drawMobileScoreText(ctx, scoreText);
+    } else {
+      drawScoreShadow(ctx, scoreFx, scoreText, markerX, SCORE_Y, PLAYER_CONTAINER_Y, markerTilt, W / 2);
+    }
   }
 
   // SVG-backed player marker/skin, centered on the live aim point. It carries
@@ -1632,6 +1658,30 @@ function frame(ts) {
 }
 
 /* ── INPUT ───────────────────────────────────────────────────────────── */
+let touchAimRect = null;
+let pendingTouchClientX = null;
+
+function cacheTouchAimRect() {
+  touchAimRect = canvas.getBoundingClientRect();
+  return touchAimRect;
+}
+
+function queueTouchAim(clientX) {
+  pendingTouchClientX = clientX;
+}
+
+function applyPendingTouchAim() {
+  if (pendingTouchClientX === null || autoPilotActive) return;
+  const rect = touchAimRect || cacheTouchAimRect();
+  if (rect.width > 0) dropX = (pendingTouchClientX - rect.left) * (W / rect.width);
+  pendingTouchClientX = null;
+}
+
+function clearTouchAimCache() {
+  touchAimRect = null;
+  pendingTouchClientX = null;
+}
+
 canvas.addEventListener("mousemove", (e) => {
   if (autoPilotActive) return;
   const rect = canvas.getBoundingClientRect();
@@ -1657,9 +1707,15 @@ canvas.addEventListener(
   "touchstart",
   (e) => {
     e.preventDefault();
-    if (autoPilotActive) return;
-    const rect = canvas.getBoundingClientRect();
-    dropX = (e.touches[0].clientX - rect.left) * (W / rect.width);
+    if (autoPilotActive) {
+      clearTouchAimCache();
+      return;
+    }
+    const t = e.touches[0];
+    if (!t) return;
+    cacheTouchAimRect();
+    queueTouchAim(t.clientX);
+    applyPendingTouchAim();
   },
   { passive: false },
 );
@@ -1668,9 +1724,12 @@ canvas.addEventListener(
   "touchmove",
   (e) => {
     e.preventDefault();
-    if (autoPilotActive) return;
-    const rect = canvas.getBoundingClientRect();
-    dropX = (e.touches[0].clientX - rect.left) * (W / rect.width);
+    if (autoPilotActive) {
+      clearTouchAimCache();
+      return;
+    }
+    const t = e.touches[0];
+    if (t) queueTouchAim(t.clientX);
   },
   { passive: false },
 );
@@ -1679,15 +1738,30 @@ canvas.addEventListener(
   "touchend",
   (e) => {
     e.preventDefault();
+    const t = e.changedTouches[0];
     if (destroyCharges > 0) {
-      const t = e.changedTouches[0];
       if (t) useDestroyPower(t.clientX, t.clientY);
+      clearTouchAimCache();
       return;
     }
-    if (autoPilotActive) return;
+    if (autoPilotActive) {
+      clearTouchAimCache();
+      return;
+    }
+    if (t) queueTouchAim(t.clientX);
+    applyPendingTouchAim();
+    clearTouchAimCache();
     drop();
   },
   { passive: false },
+);
+
+canvas.addEventListener(
+  "touchcancel",
+  () => {
+    clearTouchAimCache();
+  },
+  { passive: true },
 );
 
 document.addEventListener("keydown", (e) => {
@@ -1713,8 +1787,10 @@ autoPilotStartBtn?.addEventListener("click", toggleAutoPilot);
 autoPilotCrazyBtn?.addEventListener("click", toggleAutoPilotCrazy);
 mobilePerfQuery?.addEventListener?.("change", () => syncAutoPilotUI());
 window.addEventListener("resize", () => {
+  clearTouchAimCache();
   if (!autoPilotAvailable()) syncAutoPilotUI();
 });
+window.addEventListener("orientationchange", clearTouchAimCache);
 
 /* ── DIFFICULTY / RESTART ───────────────────────────────────────────────
    `resetGameState` is shared between Play Again and the first start.
