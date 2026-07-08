@@ -1993,7 +1993,8 @@ html.dev-mode #dev-panel {
 }
 
 #mass-power-val,
-#impact-strength-val {
+#impact-strength-val,
+#solver-iter-val {
     width: 52px;
     text-align: right;
     font-size: 11px;

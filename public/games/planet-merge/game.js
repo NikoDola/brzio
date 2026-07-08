@@ -69,6 +69,7 @@ import {
   recordDevDrop,
   resetDevDrops,
   recordDevGame,
+  recordPhysMs,
 } from "./dev-panel.js";
 import { snapshotBodies, writeSave, loadSave, clearSave } from "./save-storage.js";
 
@@ -273,15 +274,31 @@ function drawMobileScoreText(ctx, scoreText) {
   ctx.drawImage(mobileScoreFx, 0, 0);
 }
 
+// Reused scratch list. collectLiveShapes runs every 8ms physics substep and
+// again for every paint, so allocating a fresh array + one object per body each
+// call fed the garbage collector for nothing. All callers consume the list
+// immediately (within the same substep or frame) and never retain it, so a
+// single module-level buffer with pooled entries is safe. Do NOT stash the
+// returned array anywhere that outlives the frame; take a copy instead.
+const _shapesScratch = [];
 function collectLiveShapes() {
-  const shapes = [];
+  let n = 0;
   for (const body of Composite.allBodies(world)) {
     if (body.label !== "shape") continue;
     const lvl = bodyLvl.get(body.id);
     if (lvl === undefined) continue;
-    shapes.push({ body, lvl, rad: r(lvl) });
+    let entry = _shapesScratch[n];
+    if (!entry) {
+      entry = { body: null, lvl: 0, rad: 0 };
+      _shapesScratch[n] = entry;
+    }
+    entry.body = body;
+    entry.lvl = lvl;
+    entry.rad = r(lvl);
+    n++;
   }
-  return shapes;
+  _shapesScratch.length = n;
+  return _shapesScratch;
 }
 
 function recordDeathReplayHistory(shapes = collectLiveShapes()) {
@@ -1530,6 +1547,10 @@ function frame(ts) {
   tickAutoPilot(dt);
 
   if (!round.gameOver && round.playing) {
+    // Dev-panel Phys readout: time the whole physics drain (engine steps plus
+    // the per-step passes below). Two performance.now() calls per frame; the
+    // readout itself only touches the DOM twice a second in dev-panel.js.
+    const physStart = performance.now();
     physAcc += dt * getSimSpeed();
     while (physAcc >= PHYS_STEP) {
       physAcc -= PHYS_STEP;
@@ -1556,6 +1577,7 @@ function frame(ts) {
         recordDevDrop();
       }
     }
+    recordPhysMs(performance.now() - physStart);
   }
 
   /* Background: wipe to fully transparent first. The open area above the

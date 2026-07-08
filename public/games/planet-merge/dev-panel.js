@@ -7,7 +7,7 @@
    ships to a real player; see ../CLAUDE.md for how ?dev=1 is gated. */
 import { SHAPES } from "./config.js";
 import { setDebugColliders } from "./renderer.js";
-import { applyTuningToBodies, wakeAllShapes } from "./physics.js";
+import { applyTuningToBodies, wakeAllShapes, engine } from "./physics.js";
 import { TUNING } from "./tuning.js";
 import { setDropMode } from "./levels.js";
 import { clearEarnedPerks } from "./perks.js";
@@ -338,6 +338,59 @@ saveScenarioBtn?.addEventListener("click", () => {
 });
 
 renderScenarios();
+
+/* ── Physics cost readout (dev) ───────────────────────────────────────────
+   game.js times the whole physics drain each frame (engine steps + the
+   per-step safety passes) and reports it here. A rolling ~2s window is
+   collapsed to "avg / max ms" and written to the dev-stats cell twice a
+   second. Rough budget: ~8 ms at 60 Hz before physics starts eating the
+   paint half of the frame. */
+const statPhysEl = document.getElementById("stat-phys");
+const physSamples = [];
+let physDomLast = 0;
+
+export function recordPhysMs(ms) {
+  if (!statPhysEl) return;
+  physSamples.push(ms);
+  if (physSamples.length > 120) physSamples.shift();
+  const now = performance.now();
+  if (now - physDomLast < 500) return;
+  physDomLast = now;
+  let sum = 0;
+  let max = 0;
+  for (const s of physSamples) {
+    sum += s;
+    if (s > max) max = s;
+  }
+  statPhysEl.textContent = `${(sum / physSamples.length).toFixed(1)} / ${max.toFixed(1)} ms`;
+}
+
+/* ── Solver iterations (dev) ──────────────────────────────────────────────
+   positionIterations is the main physics cost knob: it was raised 6 → 14 to
+   fix the crush bug (small planets forced inside big ones), and resolver cost
+   scales with iterations x contacts. This slider changes it live so the safe
+   floor can be found empirically: lower it, replay a saved crush Scenario,
+   and watch whether the embedding returns. velocityIterations follows at
+   ~0.6x (14 → 8, matching the shipping pair). */
+const solverIterEl = document.getElementById("solver-iter");
+const solverIterVal = document.getElementById("solver-iter-val");
+
+function syncSolverIterUI() {
+  if (!solverIterEl) return;
+  solverIterEl.value = String(engine.positionIterations);
+  if (solverIterVal) {
+    solverIterVal.textContent = `${engine.positionIterations} / ${engine.velocityIterations}`;
+  }
+}
+
+solverIterEl?.addEventListener("input", () => {
+  const v = Number(solverIterEl.value);
+  engine.positionIterations = v;
+  engine.velocityIterations = Math.max(4, Math.round(v * 0.6));
+  syncSolverIterUI();
+});
+
+syncSolverIterUI();
 
 /* ── Physics editor (mass + impact + shake) ───────────────────────────────
    Tune how heavy each planet is and how hard impacts hit, live. Defaults

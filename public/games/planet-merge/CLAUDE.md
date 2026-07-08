@@ -85,11 +85,13 @@ When a board planet overlaps the drop spot, the waiting planet dims to 0.7 opaci
 
 ## The planets
 
-All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest. Each one carries a few settings: its size, score value, drop weighting, which image file it uses, and whether it has face expressions or an outline collider.
+All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest. Each one carries a few settings: its size, score value, drop weighting, which image file it uses, and whether it has face expressions or decorative accessories. **Every planet is a plain circle collider now** (`sides: 0`, no `outline`), so shape never affects physics.
 
 One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It's decided by the `drops` list on each level in levels.js (the per-planet `dropRate` is still used, as the weighting within that roster). The `droppable` flag only feeds `rndLvl()` in config.js, which nothing calls anymore. In the live game, level 1 drops Moon, Pluto, Mercury, Mars, and Venus. Level 2 adds Stars. From level 3 on, Venus stops dropping. Every other planet only ever shows up by merging.
 
 Most planets are `expressions: true`: the body SVG is faceless (`planet_earth_body.svg`) and separate casual/hurt/sad face overlays share its viewBox (`planet_earth_casual.svg` etc). A hit planet flinches (hurt, 1s), sulks (sad, 2s), then relaxes. Missing face files fail silently, so art can land incrementally.
+
+**Accessories** are decorative bitmaps layered around a planet without ever touching the collider (which stays a plain circle). Saturn's ring and the Sun's corona + sunglasses are `accessories: [...]` entries on those `SHAPES` (see config.js for the schema: a `layer` of `back` or `front`, plus `wRatio`/`hRatio`/`inflatePx` for size and `xRatio`/`yRatio` for offset, all fractions of the body diameter). They're pure paint: the game draws every `back` accessory behind all planets, then all bodies + faces, then `front` accessories on top, so a ring never covers a neighbour and never collides. The Sun's sunglasses are the only `front` accessory.
 
 To add a planet, just add it to `SHAPES`. The drop odds and the merge order sort themselves out.
 
@@ -160,17 +162,20 @@ A merge spawns a bigger body at the midpoint of two smaller ones, which can leav
 **Planets that tunnel through a wall or the floor get pushed back in.**
 The ONLY legal way out of the container is over the open rim. `preventIllegalContainerEscapes` and `checkOver` treat a planet outside the side-wall x range that never reached the rim as a physics glitch: it's clamped back inside instead of ending the run. Same for planets pushed below the floor.
 
-**Odd-shaped planets are made of several pieces.**
-Planets that aren't simple circles (Saturn, Sun, anything using its artwork outline) get built out of multiple sub-shapes. Each piece reports its own collisions, so before figuring out which planet was hit, we always step up to the parent shape. Skip that and merges silently never happen for those planets.
+**All planets are plain circles now (the compound-body path is dormant).**
+No planet currently sets `outline: true`, so every collider is one simple circle and none is built from decomposed sub-pieces. Saturn's ring and the Sun's rays are decorative accessories, not collision geometry. The collision code still walks up to a body's parent before reading its level (harmless for circles), and the silhouette/poly-decomp machinery still exists, so an outline planet *could* be re-added, but nothing uses it today.
 
-**We ignore duplicate collision reports in the same instant.**
-Because those multi-piece planets fire one collision per piece, the same real bump gets reported many times per frame. Without filtering the duplicates out, the impact kick stacks up and blows the pile apart.
+**We de-duplicate collision reports per tick.**
+Added because the old compound planets fired one collision per sub-piece, so the same bump got reported many times and the impact kick stacked up. With every planet a single circle now it rarely triggers, but the guard is cheap and stays in case an outline planet returns.
 
-**Some artwork needs an offset to line up with its collider.**
-When we build a collider from an outline, Matter.js recenters it on its balance point, which usually isn't the center of the picture. So lopsided planets like Saturn would float above their actual collider. A small render offset pins the picture back onto the shape.
+**No planet may sit deeply inside another, and spin can't run away.**
+Two circle-specific safety nets, both documented in full below: `separatePenetrations` eases apart any pair that overlaps far past normal resting slop (and zeroes their velocity so they don't orbit or spin), and an `afterUpdate` hook damps + caps every planet's angular velocity. See the two entries higher up.
 
-**Circles are actually 64-sided (32 on phones).**
-Matter's default "circle" is a rough 14-to-26-sided polygon. Those flat edges make a planet that should bounce straight up slowly drift sideways instead. Bumping it to 64 sides hides the drift; phones get 32 because collision solving is their bottleneck.
+**Circles are polygons, capped at 64 sides (32 on phones).**
+Matter.js has no true circles; every "circle" is a polygon. Its default cap is a rough 14-to-26 sides, whose flat edges make a planet that should bounce straight up slowly drift sideways instead. We raise the cap to 64 to hide the drift; phones get 32 because collision solving is their bottleneck. Note the cap is a MAXIMUM: `Bodies.circle` also limits sides by pixel radius, so small planets already have far fewer (a Star is ~18-sided, a Moon ~26) and only Venus-and-up actually reach the cap. "Making planets polygons" is therefore not an optimization; they already are, and the knobs are this cap and the solver iterations.
+
+**Solver iterations are the main physics cost knob.**
+The engine runs `positionIterations: 14` / `velocityIterations: 8` (Matter defaults 6/4), raised to fix the crush bug. Resolver cost scales with iterations times contacts, so lowering them is the biggest physics saving available, but NEVER lower the default blindly: replay the saved crush Scenarios (dev panel) at the lower value first and confirm no planet embeds or spins. The dev panel's Solver Iter slider exists for exactly this experiment, and the Phys stat shows the live cost.
 
 **Physics runs in fixed tiny steps.**
 The game loop feeds real elapsed time into a bucket and drains it in fixed 8ms physics steps. Two reasons, both important. The tiny step stops a fast-falling Star from punching straight through a solid planet. And running on real time instead of frames means the game plays at the same speed on a 60Hz and a 144Hz monitor, and a laggy frame just costs a little sim time instead of snowballing.
@@ -190,6 +195,8 @@ Please don't switch back to "run physics N times per frame." That ties game spee
 ---
 
 ## Building colliders from artwork
+
+> **Dormant as of the all-circle change.** No planet currently sets `outline: true`, so none of this runs: `loadOutlines()` is still called at boot but finds nothing, and the poly-decomp CDN script is loaded but unused. It's kept because the machinery is intact and an outline planet could be re-added. If you're trimming, this whole path (plus the poly-decomp `<script>` in play.html) is safe to delete.
 
 Planets flagged `outline: true` need a collider traced from an SVG file. The file has to contain one or more `<path>` elements whose id starts with `silhouette` (Illustrator mangles the full ids, so we match on the start of the name).
 
@@ -213,7 +220,8 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 
 | Control | What it does |
 |---|---|
-| **Local Storage CLEAR** | Wipes perks, stats, and the saved game for testing |
+| **Local Storage CLEAR** | Wipes perks, stats, and the saved game for testing (leaves saved scenarios alone) |
+| **Scenarios** | Save the current board as a replayable test case (stored in `pm_dev_scenarios`); each card's ▶ loads that exact planet arrangement back in via the same restore path as Continue. For reproducing physics bugs and checking a fix holds. |
 | **Auto-Drop** | Keeps dropping at a fixed spot for stress-testing |
 | **Speed** | Runs physics 1x to 10x faster |
 | **Drop X** | Where auto-drop drops, from left to right |
@@ -221,7 +229,8 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 | **Colliders** | Overlays the real physics shapes for debugging |
 | **Choose / Destroy Power** | Force a power permanently armed (it re-arms after each use) for UI work |
 | **Planet Physics** | Live sliders for mass power, impact kick, shake strength and falloff, plus a JSON editor and a fill-the-shake-meter button |
-| **Stats** | Drops, games, and average score this session |
+| **Solver Iter** | Live contact-solver iterations (position 6-20; velocity follows at ~0.6x). Shipping value 14/8. For finding the cheapest setting that still holds the anti-crush fix: lower it, replay a crush Scenario, watch for embedding |
+| **Stats** | Drops, games, average score this session, and Phys: physics ms per frame (avg / max over ~2s; ~8 ms is the 60 Hz budget) |
 
 ---
 
