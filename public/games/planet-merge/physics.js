@@ -6,7 +6,7 @@
 import { LAYOUT, SHAPES, r, polyCorr } from './config.js';
 import { densityFor } from './tuning.js';
 
-const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query } = Matter;   // Matter loaded via CDN <script>
+const { Engine, Bodies, Body, World, Common, Vertices, Sleeping, Query, Events } = Matter;   // Matter loaded via CDN <script>
 const { W, H, WALL, WALL_X, WALL_TOP } = LAYOUT;
 const mobileColliderQuery = typeof window !== 'undefined'
     ? window.matchMedia?.('(max-width: 700px), (pointer: coarse)')
@@ -26,8 +26,37 @@ if (typeof window !== 'undefined' && window.decomp && Common.setDecomp) {
 // `enableSleeping` lets bodies freeze when they come to rest. Without this,
 // the contact solver keeps applying tiny competing impulses to the Moon's
 // decomposed sub-parts, which manifests as a non-stop micro-shake.
-export const engine = Engine.create({ gravity: { y: 1.8 }, enableSleeping: true });
+// positionIterations is raised above Matter's default 6: the default solver is
+// soft, so a small planet driven into a big one only oozes apart slowly (or,
+// once asleep, stays embedded). More position iterations squeeze resting
+// overlaps down to a hair and separate a freshly-woken embedding quickly.
+export const engine = Engine.create({
+    gravity: { y: 1.8 },
+    enableSleeping: true,
+    positionIterations: 14,
+    velocityIterations: 8,
+});
 export const world  = engine.world;
+
+/* ── SPIN LIMITER ────────────────────────────────────────────────────────
+   Planets are circles, so nothing physical ever stops them rotating: any
+   friction impulse at a churning contact (especially under a heavy planet's
+   weight) torques them, and the spin just accumulates — the "planets spinning
+   like crazy" bug. Rotation contributes nothing to gameplay beyond a bit of
+   rolling charm, so after every engine step we damp each awake planet's
+   angular velocity and clamp it to a sane ceiling. Gentle rolling survives;
+   runaway spin cannot. */
+const SPIN_DAMP = 0.985;  // per 8ms step ≈ 15% of spin left after 1s
+const SPIN_MAX  = 0.05;   // rad per step ≈ 1 revolution/second ceiling
+Events.on(engine, 'afterUpdate', () => {
+    for (const body of world.bodies) {
+        if (body.label !== 'shape' || body.isSleeping) continue;
+        let w = body.angularVelocity * SPIN_DAMP;
+        if (w > SPIN_MAX) w = SPIN_MAX;
+        else if (w < -SPIN_MAX) w = -SPIN_MAX;
+        if (w !== body.angularVelocity) Body.setAngularVelocity(body, w);
+    }
+});
 
 // The container is a "U" with a cut-down rim: the side walls only start at
 // WALL_TOP, so an overfull stack can push planets over the edge. The floor
@@ -401,6 +430,62 @@ export function separateOverlapping(newBody) {
             Body.setPosition(other, { x: tx, y: ty });
         }
     }
+}
+
+/**
+ * Per-step safety net: no planet may sit DEEPLY inside another. Matter's solver
+ * allows a couple of px of resting overlap (fine), but a small planet can get
+ * driven right into a big one by a merge, a wall clamp, or a hard drop, and then
+ * it stays embedded — either frozen (both bodies asleep, so the solver ignores
+ * the pair) or, worse, spun by friction as the deep contact churns.
+ *
+ * When a pair overlaps well beyond normal resting slop (`allowance`), we EASE
+ * them apart along their centre line (the lighter body moves more) and zero both
+ * bodies' linear AND angular velocity. Zeroing is what makes this safe: a plain
+ * position teleport with velocity left alone makes the freed body orbit the
+ * other's rim, and the leftover spin is exactly the "spinning like crazy" bug.
+ * Killing the momentum lets them come apart cleanly and stop. The high allowance
+ * means settled stacks never trip it, so normal piles are untouched.
+ *
+ * @param {{body: Matter.Body, rad: number}[]} shapes  live shapes (from collectLiveShapes)
+ */
+export function separatePenetrations(shapes) {
+    if (!shapes || shapes.length < 2) return;
+    for (let i = 0; i < shapes.length; i++) {
+        const a = shapes[i];
+        for (let j = i + 1; j < shapes.length; j++) {
+            const b = shapes[j];
+            const dx = b.body.position.x - a.body.position.x;
+            const dy = b.body.position.y - a.body.position.y;
+            const dist = Math.hypot(dx, dy);
+            const overlap = a.rad + b.rad - dist;
+            // Only act on a REAL burial, not the few px a small planet legitimately
+            // overlaps its neighbours when packed tight in a gap.
+            const allowance = Math.max(10, Math.min(a.rad, b.rad) * 0.2);
+            if (overlap <= allowance) continue;
+
+            const push = (overlap - allowance) * 0.5;    // resolve half the excess per step
+            const nx = dist > 0.01 ? dx / dist : 0;
+            const ny = dist > 0.01 ? dy / dist : -1;     // straight up if coincident
+            // Split by inverse mass so the lighter (usually smaller) body gives way.
+            const total = a.body.mass + b.body.mass;
+            const aShare = total > 0 ? b.body.mass / total : 0.5;
+            const bShare = total > 0 ? a.body.mass / total : 0.5;
+            depenetrate(a.body, -nx * push * aShare, -ny * push * aShare, a.rad);
+            depenetrate(b.body,  nx * push * bShare,  ny * push * bShare, b.rad);
+        }
+    }
+}
+
+/** Nudge a body out of an embedding by (dx, dy): wake it, clamp inside the walls,
+ *  and kill its linear + angular velocity so it can't orbit or keep spinning. */
+function depenetrate(body, dx, dy, rad) {
+    if (body.isSleeping) Sleeping.set(body, false);
+    const x = Math.max(WALL_X + rad, Math.min(W - WALL_X - rad, body.position.x + dx));
+    const y = Math.min(H - WALL - rad, body.position.y + dy);
+    Body.setPosition(body, { x, y });
+    Body.setVelocity(body, { x: 0, y: 0 });
+    Body.setAngularVelocity(body, 0);
 }
 
 /**

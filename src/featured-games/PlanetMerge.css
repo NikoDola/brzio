@@ -29,12 +29,11 @@
 
 /* Desktop: iframe spans the full page width. The game inside still caps
    #game-container at 700px, so the game stays centered with dark
-   background filling the sides. Fixed height prevents the iframe from
-   blowing up vertically on wide screens. */
+   background filling the sides. Leave room for the site nav on desktop. */
 @media (min-width: 720px) {
   .planet-merge-frame .game-embed {
     max-width: none;
-    height: 600px;
+    height: 90vh;
     aspect-ratio: auto;
   }
 }

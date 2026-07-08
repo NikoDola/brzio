@@ -5,7 +5,7 @@
    Used by the merge-order legend (this file), the perk tiles (perks.js), and
    the level-up toast cards (levels.js), so they all render the exact same
    body + casual-face combo instead of three slightly different versions. */
-import { SHAPES } from "./config.js";
+import { SHAPES, r } from "./config.js";
 
 /* Casual-face overlay path for a planet that has expressions, or null. Mirrors
    the renderer's filename derivation: drop `.svg` and the `_body` suffix from
@@ -18,13 +18,47 @@ export function casualFaceSrc(lvl) {
   return `assets/images/${stem}_casual.svg`;
 }
 
-/* A planet's body+face icon markup: bare body with the casual face overlaid. */
+/* A planet's decorative accessories for the DOM icons (Saturn's ring, the Sun's
+   corona + sunglasses), or []. Each carries its image src, whether it sits
+   behind or in front of the body, and an inline style (size + offset) derived
+   from the same ratios the canvas renderer uses, so the icon matches the game.
+   'wrap' accessories (the ring) are drawn fully behind here so the face stays
+   clear while their tips poke out the sides. */
+export function accessoryList(lvl) {
+  const s = SHAPES[lvl];
+  if (!s?.accessories) return [];
+  return s.accessories.map((acc) => ({
+    src: `assets/images/${acc.asset}`,
+    inFront: acc.layer === "front",
+    style: accessoryStyle(lvl, acc),
+  }));
+}
+
+/* Size (% of the icon box) + centred offset for one accessory, mirroring
+   renderer.js accessoryRect: inflatePx grows a square outset, otherwise
+   wRatio/hRatio set the box; xRatio/yRatio shift the centre. */
+function accessoryStyle(lvl, acc) {
+  const diameter = r(lvl) * 2;
+  const wFrac = acc.inflatePx != null ? (diameter + 2 * acc.inflatePx) / diameter : acc.wRatio ?? 1;
+  const hFrac = acc.inflatePx != null ? (diameter + 2 * acc.inflatePx) / diameter : acc.hRatio ?? 1;
+  const leftPct = (0.5 + (acc.xRatio || 0)) * 100;
+  const topPct = (0.5 + (acc.yRatio || 0)) * 100;
+  return `width:${(wFrac * 100).toFixed(2)}%;height:${(hFrac * 100).toFixed(2)}%;left:${leftPct.toFixed(2)}%;top:${topPct.toFixed(2)}%;transform:translate(-50%,-50%);`;
+}
+
+/* A planet's body+face icon markup: bare body with the casual face overlaid,
+   plus any decorative accessories layered behind or in front (Saturn, Sun). */
 export function planetIconHTML(lvl) {
   const s = SHAPES[lvl];
   const face = casualFaceSrc(lvl);
-  return `<span class="planet-icon"><img src="assets/images/${s.asset}" alt="">${
+  const accs = accessoryList(lvl);
+  const back = accs.filter((a) => !a.inFront);
+  const front = accs.filter((a) => a.inFront);
+  const accHTML = (a) =>
+    `<img class="planet-accessory${a.inFront ? "" : " is-back"}" src="${a.src}" style="${a.style}" alt="">`;
+  return `<span class="planet-icon">${back.map(accHTML).join("")}<img src="assets/images/${s.asset}" alt="">${
     face ? `<img class="planet-face" src="${face}" alt="">` : ""
-  }</span>`;
+  }${front.map(accHTML).join("")}</span>`;
 }
 
 /* ── Merge-order legend ──────────────────────────────────────────────────
@@ -54,6 +88,17 @@ function buildPlanetLegend() {
     icon.style.width = `${px}px`;
     icon.style.height = `${px}px`;
 
+    const accs = accessoryList(i);
+    const appendAccessory = (a) => {
+      const el = document.createElement("img");
+      el.className = a.inFront ? "planet-accessory" : "planet-accessory is-back";
+      el.src = a.src;
+      el.alt = "";
+      el.setAttribute("style", a.style);
+      icon.appendChild(el);
+    };
+    accs.filter((a) => !a.inFront).forEach(appendAccessory);
+
     const img = document.createElement("img");
     img.src = `assets/images/${s.asset}`;
     img.alt = s.name;
@@ -67,6 +112,8 @@ function buildPlanetLegend() {
       face.alt = "";
       icon.appendChild(face);
     }
+
+    accs.filter((a) => a.inFront).forEach(appendAccessory);
 
     item.appendChild(icon);
     planetLegendEl.appendChild(item);

@@ -58,6 +58,7 @@ const MOODS = ['casual', 'hurt', 'sad'];
 
 const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
 const combinedBmps = SHAPES.map(() => ({ casual: null, hurt: null, sad: null }));
+const accessoryBmps = SHAPES.map(() => []);  // lvl → array of baked accessory bitmaps (index matches SHAPES[lvl].accessories)
 
 function bakeCombinedSprite(lvl, faceBmp) {
     const body = bodyBmps[lvl];
@@ -96,6 +97,43 @@ SHAPES.forEach((s, i) => {
     img.onerror = () => console.warn(`[renderer] failed to load assets/images/${s.asset}`);
 });
 const hasImg = (lvl) => !!bodyBmps[lvl];
+
+/** Bake one decorative accessory (Saturn's ring, the Sun's corona/sunglasses)
+ *  at the planet's bake resolution, preserving the drawn aspect. Accessories are
+ *  pure paint in drawBody and never contribute to the collider. Sized either by
+ *  `inflatePx` (body diameter + a pixel outset, square) or by `wRatio`/`hRatio`
+ *  (fractions of the body diameter). */
+function bakeAccessory(img, lvl, acc) {
+    const bake  = bakeSize(lvl);            // px the body diameter bakes to
+    const scale = bake / (r(lvl) * 2);      // bake px per world px
+    let w, h;
+    if (acc.inflatePx != null) {
+        const drawn = r(lvl) * 2 + 2 * acc.inflatePx;   // world px, square
+        w = h = Math.max(1, Math.round(drawn * scale));
+    } else {
+        w = Math.max(1, Math.round(bake * (acc.wRatio ?? 1)));
+        h = Math.max(1, Math.round(bake * (acc.hRatio ?? 1)));
+    }
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    return c;
+}
+
+SHAPES.forEach((s, i) => {
+    if (!s.accessories) return;
+    s.accessories.forEach((acc, ai) => {
+        if (!acc.asset) return;
+        const img = new Image();
+        img.src = `assets/images/${acc.asset}`;
+        img.onload = () => {
+            accessoryBmps[i][ai] = bakeAccessory(img, i, acc);
+            _assetLoadCbs.forEach((cb) => cb(i));
+        };
+        img.onerror = () => console.warn(`[renderer] failed to load assets/images/${acc.asset}`);
+    });
+});
 
 let playerMarkerBmp = null;
 let playerMarkerShadowBmp = null;
@@ -257,35 +295,83 @@ export function drawProcedural(c, lvl, cx, cy, angle, radOverride) {
 export let DEBUG_COLLIDERS = false;
 export function setDebugColliders(v) { DEBUG_COLLIDERS = !!v; }
 
+/** Drawn size + centre offset of an accessory in world px (relative to the body
+ *  centre). Sized by `inflatePx` (square: body + a pixel outset) or by
+ *  `wRatio`/`hRatio`; positioned by `xRatio`/`yRatio`. */
+function accessoryRect(rad, acc) {
+    const diameter = rad * 2;
+    const w = acc.inflatePx != null ? diameter + 2 * acc.inflatePx : diameter * (acc.wRatio ?? 1);
+    const h = acc.inflatePx != null ? diameter + 2 * acc.inflatePx : diameter * (acc.hRatio ?? 1);
+    return { w, h, cx: diameter * (acc.xRatio || 0), cy: diameter * (acc.yRatio || 0) };
+}
+
+/** Blit an accessory centred at its offset. Call inside the body's
+ *  translate+rotate frame. */
+function drawAccessory(ctx, bmp, rad, acc) {
+    if (!bmp) return;
+    const { w, h, cx, cy } = accessoryRect(rad, acc);
+    ctx.drawImage(bmp, cx - w / 2, cy - h / 2, w, h);
+}
+
 /**
- * Draw one live physics body.
- * Uses the asset image if available, otherwise drawProcedural.
+ * Draw one live physics body, in a given render `phase`:
+ *   'back'  — only the accessories that sit BEHIND planets (everything except
+ *             those flagged layer:'front').
+ *   'body'  — only the planet body + face.
+ *   'front' — only layer:'front' accessories (the Sun's sunglasses).
+ *   'all'   — everything, in one pass (default; used by non-layered callers).
+ *
+ * The game loop calls it once per phase across ALL planets, so back accessories
+ * land behind every body and front ones in front of every body — an accessory
+ * can never cover a neighbouring planet (only the sunglasses ride on top).
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {Matter.Body} body
  * @param {Map} bodyLvl   bodyId → level index (from physics.js)
  */
-export function drawBody(ctx, body, bodyLvl, totalMs = 0) {
+export function drawBody(ctx, body, bodyLvl, totalMs = 0, phase = 'all') {
     const lvl = bodyLvl.get(body.id);
     if (lvl === undefined) return;
 
     // Convert physics angle back to visual angle (undoes the spawn correction)
     const vAngle = body.angle + polyCorr(lvl);
+    const wantBack  = phase === 'all' || phase === 'back';
+    const wantBody  = phase === 'all' || phase === 'body';
+    const wantFront = phase === 'all' || phase === 'front';
 
     if (hasImg(lvl)) {
         const rad = r(lvl);
         const ro  = body.renderOffset;        // set by physics.js for silhouette bodies
         const sprite = spriteForMood(lvl, currentExpr(body, totalMs));
+        const accs  = SHAPES[lvl].accessories;
+        const bmps  = accessoryBmps[lvl];
         ctx.save();
         ctx.translate(body.position.x, body.position.y);
         ctx.rotate(vAngle);
-        if (ro) ctx.translate(ro.x, ro.y);    // align image w/ collider when silhouette is off-centre
-        ctx.drawImage(sprite, -rad, -rad, rad * 2, rad * 2);
+        // Accessories are pure paint (the collider is a plain circle). Anything
+        // not flagged 'front' is drawn behind, so it never covers a planet.
+        if (accs && wantBack) {
+            for (let i = 0; i < accs.length; i++) {
+                if (accs[i].layer !== 'front') drawAccessory(ctx, bmps[i], rad, accs[i]);
+            }
+        }
+        if (wantBody) {
+            ctx.save();
+            if (ro) ctx.translate(ro.x, ro.y);   // align image w/ collider when silhouette is off-centre
+            ctx.drawImage(sprite, -rad, -rad, rad * 2, rad * 2);
+            ctx.restore();
+        }
+        if (accs && wantFront) {
+            for (let i = 0; i < accs.length; i++) {
+                if (accs[i].layer === 'front') drawAccessory(ctx, bmps[i], rad, accs[i]);
+            }
+        }
         ctx.restore();
-    } else {
+    } else if (wantBody) {
         drawProcedural(ctx, lvl, body.position.x, body.position.y, vAngle);
     }
 
-    if (DEBUG_COLLIDERS) drawColliderOverlay(ctx, body);
+    if (DEBUG_COLLIDERS && wantBody) drawColliderOverlay(ctx, body);
 }
 
 /**

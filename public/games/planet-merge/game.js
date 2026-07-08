@@ -15,6 +15,7 @@ import {
   loadOutlines,
   wakeAllShapes,
   separateOverlapping,
+  separatePenetrations,
   getOutlineSets,
 } from "./physics.js";
 import { TUNING } from "./tuning.js";
@@ -63,6 +64,8 @@ import {
   getForceDestroy,
   onDropModeChange,
   onForcePowerChange,
+  onScenarioCapture,
+  onScenarioPlay,
   recordDevDrop,
   resetDevDrops,
   recordDevGame,
@@ -215,6 +218,7 @@ let chainBase = 0;
 let chainScorePrev = 0;
 let powerCharges = 0;
 let destroyCharges = 0;
+let destroyDropsRemaining = 0;
 let chooseReadyMs = 0;
 let chooseRotateMs = 0;
 
@@ -229,6 +233,7 @@ const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.8;
 const BOARD_FULL_CHECK_MS = 96;
 const BOARD_FULL_ARM_FROM_BOTTOM_RATIO = 0.8;
 const SIDE_WALL_ESCAPE_SLACK = 4;
+const DESTROY_DROP_GRACE = 3;
 const deathReplayHistory = new Map();
 const rimEscapedIds = new Set();
 let deathReplay = null;
@@ -496,7 +501,6 @@ const chooseLabel = document.getElementById("choose-label");
 const destroyOverlay = document.getElementById("destroy-overlay");
 const destroyTextEl = document.getElementById("destroy-text");
 const destroyCopyEl = document.getElementById("destroy-copy");
-const destroySkipBtn = document.getElementById("destroy-skip");
 const DESTROY_HELP_KEY = "planet-merge-destroy-help-seen";
 let destroyHelpSeenThisSession = false;
 
@@ -620,25 +624,37 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
 /* ── ANTI-BALANCE: nudge planets off the top of other planets ───────────
    Two circles in vertical contact are at unstable equilibrium — physically
    the top one should always roll off, but Matter.js's friction + sleeping
-   happily lets it sit there forever. On every persistent planet-on-planet
-   contact whose normal is nearly vertical and where the top body isn't
-   already sliding sideways, push the top body a hair toward whichever side
-   it's already leaning. */
+   happily lets it sit there forever. So when a planet is perched on the apex
+   of ONE other planet, push it a hair toward whichever side it's leaning.
+
+   Critically, only a *solo* perch is nudged. A planet nestled in a pocket
+   between several neighbours is laterally supported and physically stable —
+   nudging it every tick just makes it fight its neighbours forever, which is
+   the "settled pile keeps jittering / can't sit still" bug. So we first count
+   each planet's planet-on-planet contacts this tick and skip anything with
+   more than one (or that has already gone to sleep). */
 Events.on(engine, "collisionActive", ({ pairs }) => {
+  // Pass 1: count planet-planet contacts per body, and collect the near-vertical
+  // (stacked) pairs. Walls/floor have no bodyLvl, so they don't count as support.
+  const contactCount = new Map();
+  const stacked = [];
   for (const pair of pairs) {
     const bA = pair.bodyA.parent;
     const bB = pair.bodyB.parent;
     if (!bodyLvl.has(bA.id) || !bodyLvl.has(bB.id)) continue;
+    contactCount.set(bA.id, (contactCount.get(bA.id) || 0) + 1);
+    contactCount.set(bB.id, (contactCount.get(bB.id) || 0) + 1);
+    if (Math.abs(pair.collision.normal.x) <= 0.08) stacked.push({ bA, bB });
+  }
 
-    // Near-vertical contact normal → one body is stacked on the other.
-    const n = pair.collision.normal;
-    if (Math.abs(n.x) > 0.08) continue;
-
+  // Pass 2: topple only the lone, awake, slow perches.
+  for (const { bA, bB } of stacked) {
     const top = bA.position.y < bB.position.y ? bA : bB;
     const bot = top === bA ? bB : bA;
 
-    // Already sliding off — let physics take over.
-    if (Math.abs(top.velocity.x) > 0.25) continue;
+    if (top.isSleeping) continue;                       // settled — leave it be
+    if ((contactCount.get(top.id) || 0) > 1) continue;  // supported by neighbours
+    if (Math.abs(top.velocity.x) > 0.25) continue;      // already sliding off
 
     const dx = top.position.x - bot.position.x;
     const dir =
@@ -647,7 +663,6 @@ Events.on(engine, "collisionActive", ({ pairs }) => {
           ? -1
           : 1 // dead-centre → random side
         : Math.sign(dx); // off-centre → fall toward that side
-    if (top.isSleeping) Sleeping.set(top, false);
     Body.setVelocity(top, {
       x: top.velocity.x + dir * 0.15,
       y: top.velocity.y,
@@ -679,7 +694,7 @@ function registerChain(x, y, base) {
   // still allows it. Unlock messages fire when a threshold is first crossed;
   // otherwise the running chain number is shown, scaled up.
   const canEliminate = curLevel().eliminate;
-  const canChoose = curLevel().choose && !autoPilotActive;
+  const canChoose = choosePowerAllowed();
   let text, fontSize, color, dur;
   if (canEliminate && chainCount === BALANCE.DESTROY_UNLOCK) {
     text = "Destroy Power Unlocked!";
@@ -719,14 +734,13 @@ function registerChain(x, y, base) {
     playSelect();
   }
   if (canEliminate && chainCount === BALANCE.DESTROY_UNLOCK) {
-    destroyCharges = 1;
+    armDestroyPower();
     // Destroy supersedes Choose Planet; having both prompts active at once is
     // confusing. Drop any pending choose charge when destroy unlocks.
     if (powerCharges > 0) {
       powerCharges = 0;
       updatePowerUI();
     }
-    updateDestroyUI();
     playTargetLock();
   }
 }
@@ -741,8 +755,12 @@ function chooseReadyDuration() {
   return Math.max(0, BALANCE.CHOOSE_READY_MS ?? 3000);
 }
 
+function choosePowerAllowed() {
+  return curLevel().choose && !autoPilotActive;
+}
+
 function chooseCountdownActive() {
-  return powerCharges > 0 && chooseReadyMs > 0;
+  return choosePowerAllowed() && powerCharges > 0 && chooseReadyMs > 0;
 }
 
 function syncChooseReadyUI() {
@@ -752,7 +770,10 @@ function syncChooseReadyUI() {
 }
 
 function updatePowerUI() {
-  const active = powerCharges > 0;
+  if (!choosePowerAllowed() && powerCharges > 0) {
+    powerCharges = 0;
+  }
+  const active = choosePowerAllowed() && powerCharges > 0;
   const wasActive = canvasWrapper.classList.contains("power-active");
   canvasWrapper.classList.toggle("power-active", active);
   if (active && !wasActive) {
@@ -783,6 +804,10 @@ function advanceChoosePlanet() {
 }
 
 function tickChooseRotation(dt) {
+  if (autoPilotActive) {
+    clearChoosePower();
+    return;
+  }
   if (powerCharges <= 0 || !round.playing || round.gameOver || destroyCharges > 0) {
     chooseReadyMs = 0;
     chooseRotateMs = 0;
@@ -818,28 +843,43 @@ function updateDestroyUI() {
   const active = destroyCharges > 0;
   canvas.classList.toggle("destroy-armed", active);
   if (!destroyOverlay) return;
-  // Position is fully CSS-driven (static, just below the danger line) so the
-  // prompt stays put while the player moves their cursor over the board.
-  destroyOverlay.style.display = active ? "flex" : "none";
-  if (!active) return;
-  const showHelp = !destroyHelpSeen();
+  const showHelp = active && !destroyHelpSeen();
+  // The explanation is shown once. Later charges only show target crosshairs.
+  destroyOverlay.style.display = showHelp ? "flex" : "none";
   destroyOverlay.classList.toggle("has-help", showHelp);
-  destroyOverlay.classList.toggle("compact", !showHelp);
+  destroyOverlay.classList.remove("compact");
   if (destroyCopyEl) destroyCopyEl.hidden = !showHelp;
   if (showHelp) markDestroyHelpSeen();
 }
 
+function armDestroyPower() {
+  destroyCharges = 1;
+  destroyDropsRemaining = DESTROY_DROP_GRACE;
+  updateDestroyUI();
+}
+
+function clearDestroyPower() {
+  destroyCharges = 0;
+  destroyDropsRemaining = 0;
+  updateDestroyUI();
+}
+
+function tickDestroyDropExpiry() {
+  if (destroyCharges <= 0 || getForceDestroy()) return;
+  destroyDropsRemaining = Math.max(0, destroyDropsRemaining - 1);
+  if (destroyDropsRemaining <= 0) clearDestroyPower();
+}
+
 function syncForcedPowersFromDev() {
   if (getForceDestroy()) {
-    destroyCharges = 1;
+    armDestroyPower();
     if (powerCharges > 0) {
       powerCharges = 0;
       updatePowerUI();
     }
   } else {
-    destroyCharges = 0;
+    clearDestroyPower();
   }
-  updateDestroyUI();
 
   if (autoPilotActive) {
     powerCharges = 0;
@@ -1150,6 +1190,7 @@ function tickAutoPilot(dt) {
     stopAutoPilot();
     return;
   }
+  if (powerCharges > 0 || chooseReadyMs > 0 || chooseRotateMs > 0) clearChoosePower();
   const { minX, maxX } = dropBounds(curLvl);
   const motionSpeed = autoPilotMotionSpeed();
   let nextX = dropX + autoPilotDir * AUTO_PILOT_BASE_SWEEP * motionSpeed * dt;
@@ -1161,7 +1202,7 @@ function tickAutoPilot(dt) {
     autoPilotDir = 1;
   }
   dropX = Math.max(minX, Math.min(maxX, nextX));
-  if (canDrop && destroyCharges === 0 && !chooseCountdownActive()) {
+  if (canDrop && !chooseCountdownActive()) {
     const sx = clampedDropX();
     if (!dropBlockedAt(sx, curLvl)) drop({ skipBlockedCheck: true });
   }
@@ -1205,11 +1246,9 @@ function useDestroyPower(clientX, clientY) {
   }
   // Wake the whole field so planets stacked above the destroyed ones fall.
   wakeAllShapes();
-  destroyCharges = 0;
-  updateDestroyUI();
+  clearDestroyPower();
   if (getForceDestroy()) {
-    destroyCharges = 1;
-    updateDestroyUI();
+    armDestroyPower();
   }
   return true;
 }
@@ -1219,8 +1258,7 @@ function useDestroyPower(clientX, clientY) {
 // but not these gameplay charges.
 function revokeBannedCharges() {
   if (!curLevel().eliminate && !getForceDestroy() && destroyCharges > 0) {
-    destroyCharges = 0;
-    updateDestroyUI();
+    clearDestroyPower();
   }
   if (!curLevel().choose && !getForceChoose() && powerCharges > 0) {
     powerCharges = 0;
@@ -1307,13 +1345,14 @@ function flushVanishes() {
 
 /* ── DROP ────────────────────────────────────────────────────────────── */
 function drop({ skipBlockedCheck = false } = {}) {
-  if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return;
-  if (chooseCountdownActive()) return;
+  if (!canDrop || round.gameOver || perksOpen() || levelInfoOpen() || isProtected()) return false;
+  if (chooseCountdownActive()) return false;
   const { minX, maxX } = dropBounds(curLvl);
   const sx = Math.max(minX, Math.min(maxX, dropX));
   // A planet in the way at this spot: refuse (the preview shows the red cross).
   // Refusing must NOT reset the chain, only a real drop starts a fresh one.
-  if (!skipBlockedCheck && dropBlockedAt(sx, curLvl)) return;
+  if (!skipBlockedCheck && dropBlockedAt(sx, curLvl)) return false;
+  const destroyWasActive = destroyCharges > 0;
   // Every drop starts a fresh chain — powers are earned by chains spawned
   // from ONE drop's cascade, never by accumulation across drops.
   resetChain();
@@ -1334,8 +1373,10 @@ function drop({ skipBlockedCheck = false } = {}) {
     powerCharges = 1;
     updatePowerUI();
   }
+  if (destroyWasActive) tickDestroyDropExpiry();
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
   maybeAutoShake(); // Level 7+: a drop may kick off a random earthquake burst
+  return true;
 }
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
@@ -1502,6 +1543,7 @@ function frame(ts) {
       flushVanishes();
       const tickShapes = collectLiveShapes();
       preventIllegalContainerEscapes(tickShapes);
+      separatePenetrations(tickShapes);
       recordDeathReplayHistory(tickShapes);
       checkOver(tickShapes);
       checkBoardFull(PHYS_STEP, tickShapes);
@@ -1573,17 +1615,22 @@ function frame(ts) {
      line is gone: losing is about falling out of the container now.) */
   drawShield(ctx);
 
-  /* Effects → bodies → score popups (draw order matters) */
+  /* Effects → bodies → score popups (draw order matters). Bodies render in three
+     global passes so decorative accessories are layered against EVERY planet, not
+     just their own: all back accessories (Saturn's ring, the Sun's corona) go
+     behind every body, then all bodies + faces, then front accessories (the Sun's
+     sunglasses) on top. That way an accessory can never cover a neighbouring
+     planet. */
   const renderShapes = collectLiveShapes();
   drawFlashes(ctx, flashes, totalMs);
   if (deathCamera) drawDeathReplayTrail(ctx, deathCamera);
-  for (const { body } of renderShapes) {
-    if (deathCamera && deathReplay && body.id === deathReplay.culpritId) {
-      drawBody(ctx, replayBodyFor(body, deathCamera.sample), bodyLvl, totalMs);
-    } else {
-      drawBody(ctx, body, bodyLvl, totalMs);
-    }
-  }
+  const bodyToDraw = (body) =>
+    deathCamera && deathReplay && body.id === deathReplay.culpritId
+      ? replayBodyFor(body, deathCamera.sample)
+      : body;
+  for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "back");
+  for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "body");
+  for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "front");
   drawUnlockGlows(
     ctx,
     unlockGlows,
@@ -1599,7 +1646,7 @@ function frame(ts) {
   const markerX = clampedDropX();
   const markerTilt = updatePlayerTilt(markerX);
   const skipShipBeam = mobilePerfMode();
-  const showingWaiting = canDrop && !round.gameOver && destroyCharges === 0;
+  const showingWaiting = canDrop && !round.gameOver;
   const showingChooseCountdown = showingWaiting && chooseCountdownActive();
   const waitingBlocked = showingWaiting && !showingChooseCountdown && dropBlockedAt(markerX, curLvl, renderShapes);
   const handoff = currentNextHandoff();
@@ -1706,9 +1753,8 @@ canvas.addEventListener("mousemove", (e) => {
 
 canvas.addEventListener("click", (e) => {
   // When destroy power is armed, the click selects a target instead of
-  // dropping. A missed click is a no-op (don't burn the charge or drop).
-  if (destroyCharges > 0) {
-    useDestroyPower(e.clientX, e.clientY);
+  // dropping only if it actually hits a target. Empty-space clicks still throw.
+  if (destroyCharges > 0 && useDestroyPower(e.clientX, e.clientY)) {
     return;
   }
   if (autoPilotActive) return;
@@ -1755,8 +1801,7 @@ canvas.addEventListener(
   (e) => {
     e.preventDefault();
     const t = e.changedTouches[0];
-    if (destroyCharges > 0) {
-      if (t) useDestroyPower(t.clientX, t.clientY);
+    if (destroyCharges > 0 && t && useDestroyPower(t.clientX, t.clientY)) {
       clearTouchAimCache();
       return;
     }
@@ -1787,17 +1832,6 @@ document.addEventListener("keydown", (e) => {
     drop();
   }
 });
-
-if (destroySkipBtn) {
-  destroySkipBtn.addEventListener("click", () => {
-    destroyCharges = 0;
-    updateDestroyUI();
-    if (getForceDestroy()) {
-      destroyCharges = 1;
-      updateDestroyUI();
-    }
-  });
-}
 
 autoPilotStartBtn?.addEventListener("click", toggleAutoPilot);
 autoPilotCrazyBtn?.addEventListener("click", toggleAutoPilotCrazy);
@@ -1868,9 +1902,9 @@ function resetGameState() {
   // Choose is always available; Eliminate only while the level allows it. The
   // dev-panel force-on toggles keep a charge primed for testing.
   powerCharges = getForceChoose() ? 1 : 0;
-  destroyCharges = getForceDestroy() ? 1 : 0;
+  if (getForceDestroy()) armDestroyPower();
+  else clearDestroyPower();
   updatePowerUI();
-  updateDestroyUI();
 
   overlayEl.classList.remove("visible");
   drawNext(nxtCtx, nxtCanvas, nxtLvl);
@@ -2068,9 +2102,11 @@ syncShipSkin();
 // Silent auto-save. Called when the player leaves mid-game; there is no manual
 // save button. Skips when there's nothing meaningful to save (no round active
 // or after a loss).
-function saveGame() {
-  if (!round.playing || round.gameOver) return;
-  writeSave({
+// Build the v2 round blob (level + score + charges + every body's transform).
+// Shared by the silent auto-save and the dev "save scenario" tool, both of
+// which rebuild a live round through restoreGame().
+function buildRoundSnapshot() {
+  return {
     v: 2,
     level: getLevel(),
     score,
@@ -2079,9 +2115,15 @@ function saveGame() {
     nxtLvl,
     powerCharges,
     destroyCharges,
+    destroyDropsRemaining,
     seenLevels: [...seenLevels],
     bodies: snapshotBodies(),
-  });
+  };
+}
+
+function saveGame() {
+  if (!round.playing || round.gameOver) return;
+  writeSave(buildRoundSnapshot());
 }
 
 function restoreGame(data) {
@@ -2145,9 +2187,16 @@ function restoreGame(data) {
 
   // Restore the saved charges; drop a charge if this level bans that power.
   powerCharges = getForceChoose() ? 1 : curLevel().choose ? data.powerCharges || 0 : 0;
-  destroyCharges = getForceDestroy() ? 1 : curLevel().eliminate ? data.destroyCharges || 0 : 0;
+  if (getForceDestroy()) {
+    armDestroyPower();
+  } else if (curLevel().eliminate && data.destroyCharges > 0) {
+    destroyCharges = data.destroyCharges;
+    destroyDropsRemaining = Math.max(1, data.destroyDropsRemaining ?? DESTROY_DROP_GRACE);
+    updateDestroyUI();
+  } else {
+    clearDestroyPower();
+  }
   updatePowerUI();
-  updateDestroyUI();
 
   applyLegendMode(droppableLvls);
   showLegend();
@@ -2214,6 +2263,14 @@ onDropModeChange((lvl) => {
 });
 
 onForcePowerChange(syncForcedPowersFromDev);
+
+// Dev "Scenarios": capture the live board so a bug arrangement can be replayed
+// later, and load a saved one back in. Play reuses restoreGame (the Continue
+// path), so a scenario drops straight into a live, playable round.
+onScenarioCapture(() => (round.playing && !round.gameOver ? buildRoundSnapshot() : null));
+onScenarioPlay((data) => {
+  if (data && Array.isArray(data.bodies)) restoreGame(data);
+});
 
 drawNext(nxtCtx, nxtCanvas, nxtLvl);
 // Re-draw NEXT once the currently-pending asset actually loads (SVGs are async)

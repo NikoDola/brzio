@@ -233,6 +233,112 @@ clearSaveBtn?.addEventListener("click", () => {
   }
 });
 
+/* ── Test Scenarios (dev) ─────────────────────────────────────────────────
+   Snapshot the current board so a specific bug arrangement (e.g. a heavy
+   planet crushing a small one) can be replayed later to check a fix. Stored in
+   localStorage, independent of the player's auto-save. game.js owns the physics
+   world + round state, so it registers the capture/play hooks below and this
+   file only handles the storage and the cards. */
+const SCENARIOS_KEY = "pm_dev_scenarios";
+const saveScenarioBtn = document.getElementById("save-scenario-btn");
+const saveScenarioMsg = document.getElementById("save-scenario-msg");
+const scenarioListEl = document.getElementById("scenario-list");
+
+let captureScenario = () => null; // game.js: () => round-snapshot | null
+let playScenario = () => {}; // game.js: (snapshot) => void
+export function onScenarioCapture(cb) {
+  captureScenario = cb;
+}
+export function onScenarioPlay(cb) {
+  playScenario = cb;
+}
+
+function loadScenarios() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SCENARIOS_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveScenarios(list) {
+  try {
+    localStorage.setItem(SCENARIOS_KEY, JSON.stringify(list));
+  } catch (_) {}
+}
+
+function flashScenarioMsg(text) {
+  if (!saveScenarioMsg) return;
+  saveScenarioMsg.textContent = text;
+  setTimeout(() => {
+    saveScenarioMsg.textContent = "";
+  }, 1500);
+}
+
+function renderScenarios() {
+  if (!scenarioListEl) return;
+  const list = loadScenarios();
+  scenarioListEl.innerHTML = "";
+  if (list.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "scenario-empty";
+    empty.textContent = "No saved scenarios yet.";
+    scenarioListEl.appendChild(empty);
+    return;
+  }
+  for (const sc of list) {
+    const card = document.createElement("div");
+    card.className = "scenario-card";
+
+    const play = document.createElement("button");
+    play.className = "scenario-play";
+    play.type = "button";
+    play.title = "Load this scenario into the board";
+    play.textContent = "▶";
+    play.addEventListener("click", () => {
+      if (sc.data) playScenario(sc.data);
+    });
+
+    const name = document.createElement("span");
+    name.className = "scenario-name";
+    name.textContent = `Scenario ${sc.seq}`;
+
+    const meta = document.createElement("span");
+    meta.className = "scenario-meta";
+    meta.textContent = `${sc.count} planet${sc.count === 1 ? "" : "s"}`;
+
+    const del = document.createElement("button");
+    del.className = "scenario-del";
+    del.type = "button";
+    del.title = "Delete scenario";
+    del.textContent = "✕";
+    del.addEventListener("click", () => {
+      saveScenarios(loadScenarios().filter((s) => s.id !== sc.id));
+      renderScenarios();
+    });
+
+    card.append(play, name, meta, del);
+    scenarioListEl.appendChild(card);
+  }
+}
+
+saveScenarioBtn?.addEventListener("click", () => {
+  const data = captureScenario();
+  if (!data || !Array.isArray(data.bodies) || data.bodies.length === 0) {
+    flashScenarioMsg("start a round first");
+    return;
+  }
+  const list = loadScenarios();
+  const seq = list.reduce((m, s) => Math.max(m, s.seq || 0), 0) + 1;
+  list.push({ id: Date.now(), seq, count: data.bodies.length, data });
+  saveScenarios(list);
+  renderScenarios();
+  flashScenarioMsg("saved!");
+});
+
+renderScenarios();
+
 /* ── Physics editor (mass + impact + shake) ───────────────────────────────
    Tune how heavy each planet is and how hard impacts hit, live. Defaults
    reproduce the shipping physics exactly: Mass Power 2 = flat density (mass
@@ -324,7 +430,7 @@ physicsApplyJsonBtn.addEventListener("click", () => {
 });
 
 physicsResetBtn.addEventListener("click", () => {
-  TUNING.massPower = 2.7; // restore the shipping default
+  TUNING.massPower = 2.0; // restore the shipping default (flat density)
   TUNING.impactStrength = 1;
   SHAPES.forEach((_, i) => {
     TUNING.massMult[i] = 1;

@@ -80,6 +80,18 @@ body {
 .planet-icon { position: relative; display: block; width: 100%; height: 100%; }
 .planet-icon > img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .planet-icon > .planet-face { position: absolute; inset: 0; }
+/* Decorative accessories (Saturn's ring, the Sun's corona + sunglasses). Size,
+   position and aspect come from inline styles set in planet-icons.js (mirroring
+   the canvas ratios); this rule just handles layering. `.is-back` drops the
+   piece below the in-flow body img (z-index) so it peeks out around the edges
+   without covering the face; front pieces layer above everything. object-fit
+   fill matches how the canvas stretches the same artwork. */
+.planet-icon > .planet-accessory {
+    position: absolute;
+    object-fit: fill;
+    pointer-events: none;
+}
+.planet-icon > .planet-accessory.is-back { z-index: -1; }
 
 @media (max-width: 480px) {
     #planet-legend { gap: 5px; padding: 2px 8px 6px; }
@@ -583,18 +595,6 @@ body.fullscreen #dev-panel { display: flex; }
 
 #destroy-overlay #destroy-copy[hidden] {
     display: none;
-}
-
-#destroy-overlay #destroy-skip {
-    flex-shrink: 0;
-    pointer-events: auto; /* button must be clickable */
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
 }
 
 #destroy-overlay[style*="display:none"] {
@@ -1592,11 +1592,13 @@ body.fullscreen #dev-panel { display: flex; }
     align-items: center;
     gap: 8px;
     padding: 20px 26px;
-    width: 200px;
+    width: min(220px, calc(100vw - 48px));
     border-radius: 16px;
-    background: linear-gradient(160deg, #1c2c4e, #0e1730);
-    border: 2px solid rgba(125, 223, 255, 0.7);
+    background: linear-gradient(160deg, rgba(28, 44, 78, 0.82), rgba(8, 13, 28, 0.8));
+    border: 2px solid rgba(125, 223, 255, 0.58);
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(125, 223, 255, 0.35);
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
     pointer-events: none;
     transition: transform 0.6s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.5s ease;
     font-family: 'Fredoka', 'Segoe UI', sans-serif;
@@ -1903,6 +1905,76 @@ html.dev-mode #dev-panel {
     font-size: 11px;
     opacity: 0.55;
 }
+
+/* ── Dev test-scenario cards ─────────────────────────────────────────────── */
+.scenario-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scenario-empty {
+    font-size: 11px;
+    opacity: 0.4;
+    font-style: italic;
+}
+
+.scenario-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 6px 8px;
+}
+
+.scenario-play,
+.scenario-del {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.scenario-play {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+    padding-left: 2px; /* optically centre the ▶ glyph */
+    background: rgba(29, 209, 161, 0.18);
+    border: 1px solid #1DD1A1;
+    color: #1DD1A1;
+}
+
+.scenario-play:hover { background: #1DD1A1; color: #06231b; }
+
+.scenario-name {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.scenario-meta {
+    flex-shrink: 0;
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.scenario-del {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    color: #FF8A8A;
+}
+
+.scenario-del:hover { background: rgba(255, 107, 107, 0.3); color: #fff; }
 
 .dev-physics-editor {
     order: 3;

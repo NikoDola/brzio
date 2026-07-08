@@ -66,8 +66,7 @@
                 <div id="choose-label" class="current-label">Drop Planet!</div>
                 <div id="destroy-overlay" style="display:none">
                     <div id="destroy-text">Eliminate<br>Planets</div>
-                    <div id="destroy-copy">Click a planet to destroy all matching sibling planets, or choose Skip to keep going.</div>
-                    <button id="destroy-skip" type="button">Skip</button>
+                    <div id="destroy-copy">Click a planet to destroy all matching sibling planets. If unused, Eliminate disappears after 3 drops.</div>
                 </div>
                 <div id="game-over-overlay">
                     <h2>Game Over</h2>
@@ -239,6 +238,12 @@
                     <button id="clear-save-btn" class="dev-pill dev-pill-danger" type="button">CLEAR</button>
                     <span id="clear-save-msg" class="dev-hint"></span>
                 </div>
+                <div class="dev-row">
+                    <span class="dev-label">Scenarios</span>
+                    <button id="save-scenario-btn" class="dev-pill" type="button">&plus; Save</button>
+                    <span id="save-scenario-msg" class="dev-hint"></span>
+                </div>
+                <div id="scenario-list" class="scenario-list"></div>
                 <div class="dev-row">
                     <span class="dev-label">Auto-Drop</span>
                     <button id="auto-drop-btn" class="dev-pill">OFF</button>

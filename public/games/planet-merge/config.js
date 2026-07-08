@@ -196,15 +196,29 @@ export const SHAPES = [
 
     {   /* ── 10  Saturn ───────────────────────────────────────────────── */
         name:      'Saturn',
-        size:      72,
+        size:      61,      // 15% smaller than the old 72; the ring scales with it
         sides:     0,
         color:     '#d4b676',
         glow:      '#8a7038',
         pts:       512,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_saturn.svg',
-        outline:   true,    // body + rings as separate collider pieces
+        asset:     'planet_saturn_body.svg',
+        expressions: true,  // bare body + face overlays (casual/hurt/sad), like the other planets
+        // Decorative ring: drawn behind ALL planets (not part of the collider),
+        // so Saturn stays a plain circle that merges like everything else and the
+        // ring never covers a neighbouring planet. Ratios are fractions of the
+        // body diameter (ring SVG is 343.9×77.9, body 200×200) so it scales.
+        accessories: [
+            {
+                asset:  'planet_saturn_extra.svg',
+                layer:  'back',
+                wRatio: 330 / 200,   // ring width  ÷ body diameter
+                hRatio: 77.9 / 200,  // ring height ÷ body diameter
+                xRatio: 3 / 312,     // nudge ~3px right at Saturn's size (÷ body diameter)
+                yRatio: 10 / 312,    // nudge ~10px down at Saturn's size (÷ body diameter)
+            },
+        ],
     },
 
     {   /* ── 11  Jupiter ──────────────────────────────────────────────── */
@@ -222,15 +236,29 @@ export const SHAPES = [
 
     {   /* ── 12  Sun — MAX (two Suns touching → both vanish!) ─────────── */
         name:      'Sun',
-        size:      95,
+        size:      85,      // 20% smaller than the old 95; accessories scale with it
         sides:     0,
         color:     '#F8EFBA',
         glow:      '#f9ca24',
         pts:       2048,
         droppable: false,
         dropRate:  0,
-        asset:     'planet_sun.svg',
-        outline:   true,    // disc + rays caught as collider silhouette
+        asset:     'planet_sun_body.svg',
+        expressions: true,  // plain disc body + face overlays (casual/hurt/sad)
+        // Two decorative accessories, both pure paint (never collide). The corona
+        // sits behind the disc, inflated 20px so its flame bumps poke past the
+        // edge; the sunglasses sit in front, over the face.
+        accessories: [
+            { asset: 'planet_sun_accesories.svg',  layer: 'back',  inflatePx: 65 },
+            {
+                asset:  'planet_sun_accesories2.svg',
+                layer:  'front',
+                wRatio: 228 / 200,   // glasses width  ÷ body diameter
+                hRatio: 71 / 200,    // glasses height ÷ body diameter
+                xRatio: 0,             // centred horizontally
+                yRatio: 0,         // nudged up over the eyes
+            },
+        ],
     },
 
 ];
