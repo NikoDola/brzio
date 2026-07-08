@@ -233,8 +233,12 @@ const DEATH_REPLAY_DURATION_MS = 2900;
 const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.8;
 const BOARD_FULL_CHECK_MS = 96;
 const BOARD_FULL_ARM_FROM_BOTTOM_RATIO = 0.8;
+const BOARD_FULL_ARM_MIN_AGE_MS = 1600;
+const DANGER_DASH_OFFSET_Y = 50;
 const SIDE_WALL_ESCAPE_SLACK = 4;
 const DESTROY_DROP_GRACE = 3;
+const EARTH_LVL = SHAPES.findIndex((shape) => shape.name === "Earth");
+const BOARD_ROOM_TEST_LVL = EARTH_LVL >= 0 ? EARTH_LVL : Math.min(6, SHAPES.length - 1);
 const deathReplayHistory = new Map();
 const rimEscapedIds = new Set();
 let deathReplay = null;
@@ -499,6 +503,25 @@ function drawDeathReplayCaption(ctx) {
   ctx.shadowColor = "rgba(125, 223, 255, 0.7)";
   ctx.shadowBlur = 12;
   ctx.fillText(label, W / 2, y + 25);
+  ctx.restore();
+}
+
+function drawDangerDashes(ctx, progress = 0) {
+  const y = PLAYER_CONTAINER_Y + PLAYER_MARKER_H / 2 + DANGER_DASH_OFFSET_Y;
+  const pulse = 0.5 + 0.5 * Math.sin(totalMs * 0.012);
+  const alpha = Math.min(0.96, 0.54 + pulse * 0.22 + progress * 0.2);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 70, 70, ${alpha})`;
+  ctx.lineWidth = 4 + progress * 2;
+  ctx.lineCap = "round";
+  ctx.setLineDash([18, 14]);
+  ctx.lineDashOffset = -totalMs * 0.04;
+  ctx.shadowColor = "rgba(255, 70, 70, 0.55)";
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(WALL_X + 12, y);
+  ctx.lineTo(W - WALL_X - 12, y);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -929,7 +952,7 @@ function markDestroyHelpSeen() {
 function drawDestroyTargets(shapes = collectLiveShapes()) {
   const pulse = 0.55 + 0.45 * Math.sin(totalMs * 0.008);
   ctx.save();
-  ctx.strokeStyle = `rgba(255, 105, 180, ${pulse})`; // pink
+  ctx.strokeStyle = `rgba(237, 10, 237, ${pulse})`; // pink
   ctx.lineWidth = 9;
   for (const { body, lvl } of shapes) {
     if (!droppableLvls.includes(lvl)) continue;
@@ -1397,10 +1420,10 @@ function drop({ skipBlockedCheck = false } = {}) {
 }
 
 /* ── GAME OVER ───────────────────────────────────────────────────────── */
-// No danger line any more: the container is open at the top and the run ends
-// only after a planet has actually fallen out of the visible canvas after
-// escaping through the open top. If physics nudges a planet through a side wall
-// or floor while it is still inside the board, push it back instead.
+// The red dashed line is only a warning. Falling out still ends only after a
+// planet has escaped through the open top and fallen out of the visible canvas.
+// If physics nudges a planet through a side wall or floor while it is still
+// inside the board, push it back instead.
 function checkOver(shapes = collectLiveShapes()) {
   if (isProtected()) return; // shielded while shaking: no game over
   for (const { body, lvl } of shapes) {
@@ -1441,10 +1464,10 @@ function checkOver(shapes = collectLiveShapes()) {
    blocked look (dimmed, red cross, hurt face). Board planets are treated as
    circles; close enough for a hint and a refusal.
 
-   checkBoardFull: the second lose condition. When EVERY spot across the width
-   is blocked, there is nowhere left to drop; if that holds for NO_ROOM_MS the
-   run ends. The dwell time rides out a chain mid-cascade, where planets fly
-   everywhere for a moment but the board still has room once it settles. */
+   checkBoardFull: the second lose condition. When EVERY sampled spot across
+   the width is blocked for an Earth-sized drop, the run ends after NO_ROOM_MS.
+   The dwell time rides out a chain mid-cascade, where planets fly everywhere
+   for a moment but the board still has room once it settles. */
 function dropBlockedAt(sx, lvl, shapes = collectLiveShapes()) {
   const rad = r(lvl);
   for (const { body, rad: otherRad } of shapes) {
@@ -1457,10 +1480,10 @@ function dropBlockedAt(sx, lvl, shapes = collectLiveShapes()) {
 }
 
 function boardFull(shapes = collectLiveShapes()) {
-  const { minX, maxX } = dropBounds(curLvl);
+  const { minX, maxX } = dropBounds(BOARD_ROOM_TEST_LVL);
   const steps = 24;
   for (let i = 0; i <= steps; i++) {
-    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, curLvl, shapes)) return false;
+    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, BOARD_ROOM_TEST_LVL, shapes)) return false;
   }
   return true;
 }
@@ -1469,7 +1492,10 @@ let noRoomMs = 0;
 let boardFullCheckMs = 0;
 function boardFullArmed(shapes = collectLiveShapes()) {
   const armY = H - (H - WALL_TOP) * BOARD_FULL_ARM_FROM_BOTTOM_RATIO;
-  return shapes.some(({ body, rad }) => body.position.y - rad <= armY);
+  return shapes.some(({ body, rad }) => {
+    if (totalMs - (bodyBorn.get(body.id) || 0) < BOARD_FULL_ARM_MIN_AGE_MS) return false;
+    return body.position.y - rad <= armY;
+  });
 }
 
 function checkBoardFull(dt, shapes = collectLiveShapes()) {
@@ -1504,7 +1530,7 @@ function endGame(reason = "unknown", detail = {}) {
       reason === "planet-out"
         ? `Lost because ${culpritName || "a planet"} fell out of the board.`
         : reason === "no-room"
-          ? "Lost because there was no room for the next planet."
+          ? "Lost because there was no room for an Earth-sized drop."
           : "Lost because the run ended.";
   }
   reportGameEnd("lost", score, getLevel());
@@ -1633,8 +1659,7 @@ function frame(ts) {
   ctx.strokeRect(WALL_X - WALL + 1, WALL_TOP, W - 2 * (WALL_X - WALL) - 2, H - WALL_TOP - 1);
 
 
-  /* Rainbow shield arch, only while a shake has it raised. (The red danger
-     line is gone: losing is about falling out of the container now.) */
+  /* Rainbow shield arch, only while a shake has it raised. */
   drawShield(ctx);
 
   /* Effects → bodies → score popups (draw order matters). Bodies render in three
@@ -1662,6 +1687,9 @@ function frame(ts) {
     totalMs,
   );
   if (destroyCharges > 0) drawDestroyTargets(renderShapes);
+  if (round.playing && !round.gameOver && !deathCamera && !isProtected() && boardFullArmed(renderShapes)) {
+    drawDangerDashes(ctx, Math.min(1, noRoomMs / BALANCE.NO_ROOM_MS));
+  }
   drawPopups(ctx, popups, totalMs);
 
   applyPendingTouchAim();
@@ -2198,7 +2226,7 @@ function restoreGame(data) {
   // Re-create each saved planet with its exact position, facing, and motion.
   // spawn() sets a default angle/velocity, so override both afterwards. Born
   // at totalMs 0 → every restored body gets the normal 1.6s grace before the
-  // danger-line check can fire, so resuming never instantly ends the game.
+  // lose checks can fire, so resuming never instantly ends the game.
   for (const b of data.bodies) {
     const body = spawn(b.x, b.y, b.lvl, 0);
     Body.setAngle(body, b.angle || 0);

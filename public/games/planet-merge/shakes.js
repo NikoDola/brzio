@@ -8,7 +8,7 @@
    orange → yellow → green as it climbs. Resets each new game.
 
    While shaking, a rainbow arch shields the top: planets bounce off it and
-   the danger-line check is suspended, so a shake can never cost you the
+   the lose checks are suspended, so a shake can never cost you the
    game... unless Level 6+ turns the shield off (see levels.js's `rainbow`
    flag). Level 7+ also fires shake bursts on their own (the earthquake). */
 import { LAYOUT, r, BALANCE } from "./config.js";
@@ -30,7 +30,7 @@ let shakeStreak = 1; // multiplier; clicking again ramps it 1.3x (capped)
 let lastShakeAt = 0;
 
 // While shaking, a rainbow arch shields the top: planets bounce off it and the
-// game-over danger check is suspended (see isProtected()).
+// game-over checks are suspended (see isProtected()).
 let protectUntil = 0;
 let protectActive = false;
 
@@ -171,7 +171,7 @@ shakesPanelEl?.addEventListener("click", () => {
   lastShakeAt = now;
   applyPop(shakeStreak);
   // Rainbow shield only from levels that still allow it (off at Level 6+), so a
-  // late-game shake no longer buys immunity from the danger line.
+  // late-game shake no longer buys immunity from the lose checks.
   if (rainbowEnabled()) protectUntil = now + BALANCE.PROTECT_MS;
   shakePct = Math.max(0, shakePct - BALANCE.SHAKE_COST);
   updateShakeUI();
@@ -195,7 +195,7 @@ export function maybeAutoShake() {
 }
 
 // True while the rainbow shield is up: game.js uses this to suspend the
-// danger-line check (checkOver) and to block new drops (drop()).
+// lose checks and to block new drops (drop()).
 export function isProtected() {
   return protectActive;
 }
@@ -211,8 +211,7 @@ export function tickShield() {
 }
 
 // Draws the rainbow shield arch while a shake has it raised. Nothing is drawn
-// otherwise (the old red danger line is gone: losing is about falling out of
-// the container, not crossing a height). Called every frame from game.js.
+// otherwise. Called every frame from game.js.
 export function drawShield(ctx) {
   if (!protectActive) return;
   ctx.save();

@@ -1,6 +1,6 @@
 # Planet Merge
 
-A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus. The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded there's nowhere left to drop.
+A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus. The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded that an Earth-sized planet has nowhere left to drop.
 
 Before diving in here, read [`../CLAUDE.md`](../CLAUDE.md). It covers the rules shared by every game on the site (iframe embedding, scroll locking, dev mode) and the site-wide writing rule: no em dashes, anywhere.
 
@@ -60,7 +60,7 @@ The game thinks in a fixed canvas that is **840 wide by 1160 tall**, no matter w
 A few key spots on that canvas:
 
 - The playfield's inner edges sit at `WALL_X` = 60, so planets live between x=60 and x=780. The visible walls are 20px thick and drawn just outside those edges.
-- The side walls only start at y=108 (`WALL_TOP` in config.js); above that the container is open air. The physics floor spans just the inner width, so a planet pushed over a wall has nothing to land on and falls out of the world. There is no danger line.
+- The side walls only start at y=108 (`WALL_TOP` in config.js); above that the container is open air. The physics floor spans just the inner width, so a planet pushed over a wall has nothing to land on and falls out of the world. A red dashed warning line appears 50px below the ship once older board planets reach the top fifth of the container, but it is only a warning. Freshly dropped falling planets are ignored for this warning. It is not a collision boundary.
 - The ship (the "player marker") is centred at y=73 and follows the pointer horizontally. The planet waiting to drop hangs just below it, so its y depends on its own radius (see `dropYFor` in game.js), roughly y=155 plus the radius.
 - `BASE_R` = 216 is the radius of a hypothetical size-100 planet. The Sun is size 95, so the biggest real planet has a radius of about 205px. Every planet's radius is `size / 100 * BASE_R`.
 
@@ -275,12 +275,12 @@ The whole thing lives in levels.js and re-renders from `curLevel()` every time i
 
 When two Suns touch, they pop, you get a flat bonus (`VANISH_BONUS`, 4096), and the game keeps going. There's no victory screen. A run only ends by losing.
 
-### How you lose (two ways, no danger line)
+### How you lose (two ways, one warning line)
 
 Both lose checks live in game.js, and the game-over overlay names the reason (`#loss-reason`).
 
 1. **A planet falls out of the container** (`checkOver`). The side walls stop at `WALL_TOP`, so an overfull stack can push a planet over the rim. Escapes are tracked honestly: a planet only counts as escaping if it actually crossed the open rim while outside the walls (`rimEscapedIds`); anything else outside the x range is a tunneling glitch and gets pushed back in. An escapee that tips back inside the container is forgiven. The run ends only when the escaped planet has fallen past the bottom of the canvas. The shake shield (`isProtected`) suspends this check, and every planet gets a 1.6s grace after spawning (which also protects freshly-restored saves).
-2. **The board is full** (`checkBoardFull`). Every possible drop spot across the width is blocked, and it stays that way for `NO_ROOM_MS` (900ms, config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle. The check only arms once the stack actually reaches the top fifth of the container, runs on a 96ms sampling cadence, and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
+2. **The board is full** (`checkBoardFull`). Every sampled drop spot across the width is blocked for an Earth-sized planet, and it stays that way for `NO_ROOM_MS` (900ms, config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle. The check only arms once older board planets reach the top fifth of the container, which is also when the red dashed warning line appears 50px below the ship. Freshly dropped falling planets are ignored for 1.6s, so the warning does not flash just because a new planet enters from the top. It runs on a 96ms sampling cadence and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
 
 ### The death replay
 
