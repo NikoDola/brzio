@@ -60,6 +60,15 @@ const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
 const combinedBmps = SHAPES.map(() => ({ casual: null, hurt: null, sad: null }));
 const accessoryBmps = SHAPES.map(() => []);  // lvl → array of baked accessory bitmaps (index matches SHAPES[lvl].accessories)
 
+// The source Images are retained after baking so every bitmap can be re-baked:
+// a GPU process reset (driver crash, laptop sleep, memory pressure) silently
+// wipes the contents of offscreen canvases, and without the originals every
+// sprite would stay invisible for the rest of the session. See the
+// context-loss self-heal block below.
+const bodyImgs = SHAPES.map(() => null);   // lvl → loaded body Image
+const faceImgs = SHAPES.map(() => null);   // lvl → { casual, hurt, sad } loaded Images
+const accImgs  = SHAPES.map(() => []);     // lvl → array of loaded accessory Images
+
 function bakeCombinedSprite(lvl, faceBmp) {
     const body = bodyBmps[lvl];
     if (!body) return null;
@@ -90,6 +99,7 @@ SHAPES.forEach((s, i) => {
     const img = new Image();
     img.src = `assets/images/${s.asset}`;
     img.onload = () => {
+        bodyImgs[i] = img;
         bodyBmps[i] = bakeBitmap(img, i);
         rebuildCombinedSprites(i);
         _assetLoadCbs.forEach((cb) => cb(i));
@@ -128,6 +138,7 @@ SHAPES.forEach((s, i) => {
         const img = new Image();
         img.src = `assets/images/${acc.asset}`;
         img.onload = () => {
+            accImgs[i][ai] = img;
             accessoryBmps[i][ai] = bakeAccessory(img, i, acc);
             _assetLoadCbs.forEach((cb) => cb(i));
         };
@@ -138,6 +149,7 @@ SHAPES.forEach((s, i) => {
 let playerMarkerBmp = null;
 let playerMarkerShadowBmp = null;
 let playerMarkerAsset = "";
+let playerMarkerImg = null;   // retained for context-loss re-baking
 
 function bakePlayerMarker(img) {
     const c = document.createElement('canvas');
@@ -154,6 +166,7 @@ export function setPlayerMarkerAsset(asset) {
     img.src = `assets/images/${asset}`;
     img.onload = () => {
         if (asset !== playerMarkerAsset) return;
+        playerMarkerImg = img;
         playerMarkerBmp = bakePlayerMarker(img);
         playerMarkerShadowBmp = bakeSilhouette(playerMarkerBmp);
     };
@@ -191,6 +204,8 @@ const exprBmps = SHAPES.map((s, i) => {
         const img = new Image();
         img.src = `assets/images/${base}_${mood}.svg`;
         img.onload  = () => {
+            if (!faceImgs[i]) faceImgs[i] = {};
+            faceImgs[i][mood] = img;
             slot[mood] = bakeBitmap(img, i);
             rebuildCombinedSprites(i);
             _assetLoadCbs.forEach((cb) => cb(i));
@@ -198,6 +213,66 @@ const exprBmps = SHAPES.map((s, i) => {
         img.onerror = () => {};  // art may not exist yet: fall back to bare body
     }
     return slot;
+});
+
+/* ── CONTEXT-LOSS SELF-HEAL ──────────────────────────────────────────────
+   Every sprite is pre-baked into an offscreen canvas (see the performance
+   notes in CLAUDE.md). The catch: when the browser's GPU process resets
+   (driver crash, laptop sleep, memory pressure), the contents of EVERY canvas
+   backing store are wiped. The visible game canvas repaints each frame so
+   procedural drawing (walls, stars, beam) keeps working, but the baked
+   bitmaps are drawn once and never again, so the ship and all planets turn
+   permanently invisible until the page is reloaded.
+
+   The heal: planets are opaque at their centre, so if a baked body bitmap's
+   centre pixel reads fully transparent, its backing store was lost. Re-bake
+   everything from the retained Images (a few ms of work). Checked on a slow
+   timer and whenever the tab becomes visible again, which is when losses
+   typically surface. */
+function rebakeAll() {
+    SHAPES.forEach((s, i) => {
+        if (bodyImgs[i]) bodyBmps[i] = bakeBitmap(bodyImgs[i], i);
+        const faces = faceImgs[i];
+        if (faces && exprBmps[i]) {
+            for (const mood of MOODS) {
+                if (faces[mood]) exprBmps[i][mood] = bakeBitmap(faces[mood], i);
+            }
+        }
+        rebuildCombinedSprites(i);
+        (s.accessories || []).forEach((acc, ai) => {
+            if (accImgs[i][ai]) accessoryBmps[i][ai] = bakeAccessory(accImgs[i][ai], i, acc);
+        });
+        if (bodyImgs[i]) _assetLoadCbs.forEach((cb) => cb(i));
+    });
+    if (playerMarkerImg) {
+        playerMarkerBmp = bakePlayerMarker(playerMarkerImg);
+        playerMarkerShadowBmp = bakeSilhouette(playerMarkerBmp);
+    }
+}
+
+function bakedBitmapsWiped() {
+    const lvl = bodyBmps.findIndex(Boolean);
+    if (lvl < 0) return false;   // nothing baked yet: nothing to heal
+    const bmp = bodyBmps[lvl];
+    try {
+        const px = bmp
+            .getContext('2d')
+            .getImageData(Math.floor(bmp.width / 2), Math.floor(bmp.height / 2), 1, 1).data;
+        return px[3] === 0;
+    } catch (_) {
+        return false;
+    }
+}
+
+function healBakedBitmaps(trigger) {
+    if (!bakedBitmapsWiped()) return;
+    console.warn(`[renderer] baked sprites lost their contents (${trigger}); re-baking from retained images`);
+    rebakeAll();
+}
+
+setInterval(() => healBakedBitmaps('periodic check'), 4000);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') healBakedBitmaps('tab became visible');
 });
 
 /** Which face a planet should show right now, from its hit timestamp. Pure

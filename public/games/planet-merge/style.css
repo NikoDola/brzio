@@ -865,11 +865,10 @@ body.fullscreen #dev-panel { display: flex; }
 #game-stat-btn:active { transform: scale(0.98); }
 .game-stat-icon { font-size: 17px; }
 
-/* Resume button. Hidden unless a saved game exists in localStorage; shown
-   above the mode buttons so a returning player can jump straight back in. */
-/* Resume popup: shown over the picker when a saved game exists. Continue (top)
-   resumes and consumes the save; New Game (bottom) discards it. */
-#resume-overlay {
+/* Continue button and save-warning popup. Continue is hidden unless a saved
+   game exists. The popup appears only when New Game would discard that save. */
+#resume-overlay,
+#new-game-confirm {
     display: none;
     position: absolute;
     inset: 0;
@@ -880,7 +879,8 @@ body.fullscreen #dev-panel { display: flex; }
     background: rgba(6, 10, 20, 0.62);
     border-radius: 14px;
 }
-#resume-overlay.visible { display: flex; }
+#resume-overlay.visible,
+#new-game-confirm.visible { display: flex; }
 
 /* Branded card: space-blue gradient, soft border, layered shadow with a faint
    yellow brand glow, so the popup reads as a contained box. */
@@ -907,6 +907,15 @@ body.fullscreen #dev-panel { display: flex; }
     color: #fff;
     line-height: 1.4;
 }
+.resume-title {
+    margin: 0;
+    color: #FECA57;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: 0;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.32), 0 8px 18px rgba(254,202,87,0.24);
+}
 .resume-btn {
     padding: 14px 18px;
     border-radius: 16px;
@@ -927,6 +936,12 @@ body.fullscreen #dev-panel { display: flex; }
     color: #0c1f15;
 }
 .resume-btn-primary:hover { background: linear-gradient(135deg, #8ee066, #63d491); }
+.resume-btn-danger {
+    background: linear-gradient(135deg, #ffd23f, #f0932b);
+    border-color: transparent;
+    color: #2a1a05;
+}
+.resume-btn-danger:hover { background: linear-gradient(135deg, #ffdd62, #f6a345); }
 
 .resume-or {
     display: flex;

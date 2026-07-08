@@ -5,7 +5,8 @@
    Small pools of Audio clones for the pop so cascading merges can overlap
    without each new pop cutting off the previous one (single Audio.play()
    restarts mid-clip). Laser and target-lock fire one at a time, so a single
-   Audio instance each is enough.
+   Audio instance each is enough. The target-lock hold sound loops while
+   Eliminate is armed.
 
    Also owns the Settings sound toggle: it's the only thing that touches
    the mute flag, so the click handler lives here instead of in settings.js. */
@@ -50,8 +51,13 @@ function makeSfx(file, volume) {
 }
 const laserSfx = makeSfx("laser.mp3", 0.55);
 const targetLockSfx = makeSfx("target-lock.mp3", 0.6);
+const targetLockConstantSfx = makeSfx("target-lock-constant.mp3", 0.42);
 const selectSfx = makeSfx("select-sound.mp3", 0.6);
 const perkSfx = makeSfx("peark.mp3", 0.7);
+targetLockConstantSfx.loop = true;
+let targetLockConstantWanted = false;
+let targetLockConstantTimer = 0;
+
 function playOnce(sfx) {
   if (!soundOn) return;
   try {
@@ -60,9 +66,64 @@ function playOnce(sfx) {
   } catch {}
 }
 export const playLaser = () => playOnce(laserSfx);
-export const playTargetLock = () => playOnce(targetLockSfx);
 export const playSelect = () => playOnce(selectSfx);
 export const playPerk = () => playOnce(perkSfx);
+
+function playTargetLockConstantNow() {
+  if (!targetLockConstantWanted || !soundOn) return;
+  try {
+    targetLockConstantSfx.currentTime = 0;
+    targetLockConstantSfx.play().catch(() => {});
+  } catch {}
+}
+
+export function startTargetLockConstant(delayMs = 0) {
+  targetLockConstantWanted = true;
+  if (targetLockConstantTimer) {
+    clearTimeout(targetLockConstantTimer);
+    targetLockConstantTimer = 0;
+  }
+  if (delayMs > 0) {
+    targetLockConstantTimer = setTimeout(() => {
+      targetLockConstantTimer = 0;
+      playTargetLockConstantNow();
+    }, delayMs);
+    return;
+  }
+  playTargetLockConstantNow();
+}
+
+export function stopTargetLockConstant() {
+  targetLockConstantWanted = false;
+  if (targetLockConstantTimer) {
+    clearTimeout(targetLockConstantTimer);
+    targetLockConstantTimer = 0;
+  }
+  try {
+    targetLockConstantSfx.pause();
+    targetLockConstantSfx.currentTime = 0;
+  } catch {}
+}
+
+export function playTargetLockThenConstant() {
+  targetLockConstantWanted = true;
+  if (!soundOn) return;
+  if (targetLockConstantTimer) {
+    clearTimeout(targetLockConstantTimer);
+    targetLockConstantTimer = 0;
+  }
+  try {
+    targetLockSfx.currentTime = 0;
+    targetLockSfx.addEventListener("ended", () => {
+      if (targetLockConstantWanted) playTargetLockConstantNow();
+    }, { once: true });
+    targetLockSfx.play().catch(() => {
+      if (targetLockConstantWanted) playTargetLockConstantNow();
+    });
+  } catch {
+    if (targetLockConstantWanted) playTargetLockConstantNow();
+  }
+}
 
 /* Explanation-clip playback for perks with an `audio` field. Exported so
    perks.js doesn't need its own file-loading logic for a single feature. */
@@ -87,5 +148,13 @@ soundToggle?.addEventListener("click", () => {
     localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
   } catch {}
   renderSoundToggle();
-  if (soundOn) playSelect(); // tiny confirmation blip
+  if (soundOn) {
+    playSelect(); // tiny confirmation blip
+    if (targetLockConstantWanted) startTargetLockConstant();
+  } else {
+    try {
+      targetLockConstantSfx.pause();
+      targetLockConstantSfx.currentTime = 0;
+    } catch {}
+  }
 });

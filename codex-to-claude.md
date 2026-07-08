@@ -2,7 +2,7 @@
 
 ## Current Task
 
-Planet Merge warning and no-room loss change.
+Planet Merge ongoing changes.
 
 ## Changes Made
 
@@ -15,6 +15,9 @@ Planet Merge warning and no-room loss change.
 - Updated stale `shakes.js` comments that still referred to the old danger-line wording.
 - Follow-up fix: `boardFullArmed()` now ignores bodies younger than 1.6s so the warning line does not appear just because a freshly dropped planet is falling through the top zone.
 - Rounded the choose/drop prompt boxes in `public/games/planet-merge/style.css`.
+- Added a `New Game` confirmation popup when a local save exists, so saved progress is not discarded until the player confirms.
+- Renamed `assets/sounds/tarteg-lock-constant.mp3` to `target-lock-constant.mp3` and wired it as a looping Eliminate armed sound.
+- Eliminate now plays the full target-lock sequence whenever a charge newly arms: `target-lock.mp3` first, then the constant beep loop.
 
 ## Notes
 
@@ -22,4 +25,6 @@ Planet Merge warning and no-room loss change.
 - The warning line is gated by older board planets in the top zone, not the incoming falling planet.
 - `dropBlockedAt()` still uses the current planet for normal player drop refusal.
 - `boardFull()` now uses `BOARD_ROOM_TEST_LVL`, which resolves to Earth by name.
+- The start screen `New Game` button now opens `#new-game-confirm` if `loadSave()` returns a saved game.
+- `playTargetLockThenConstant()` starts the normal lock sound, then loops `target-lock-constant.mp3` until `clearDestroyPower()` or game over stops it. Restored saved charges start the constant loop directly because they are already armed.
 - Keep future mechanic changes synced across code, `posts.json`, and this handoff file.

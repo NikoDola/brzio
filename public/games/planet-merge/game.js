@@ -38,7 +38,17 @@ import {
   reportGameEnd,
 } from "./analytics.js";
 import "./background.js";
-import { playPop, playGroundHit, playPlanetHit, playLaser, playTargetLock, playSelect, playPerk } from "./audio.js";
+import {
+  playPop,
+  playGroundHit,
+  playPlanetHit,
+  playLaser,
+  playTargetLockThenConstant,
+  playSelect,
+  playPerk,
+  startTargetLockConstant,
+  stopTargetLockConstant,
+} from "./audio.js";
 import { round } from "./state.js";
 import { applyLegendMode, showLegend, hideLegend } from "./planet-icons.js";
 import { earnPerk, perkCardEl, perksOverlayEl, openToLastEarnedTab, renderPerksGrid, perksOpen } from "./perks.js";
@@ -774,14 +784,13 @@ function registerChain(x, y, base) {
     playSelect();
   }
   if (canEliminate && chainCount === BALANCE.DESTROY_UNLOCK) {
-    armDestroyPower();
+    armDestroyPower({ lockSound: true });
     // Destroy supersedes Choose Planet; having both prompts active at once is
     // confusing. Drop any pending choose charge when destroy unlocks.
     if (powerCharges > 0) {
       powerCharges = 0;
       updatePowerUI();
     }
-    playTargetLock();
   }
 }
 
@@ -892,15 +901,21 @@ function updateDestroyUI() {
   if (showHelp) markDestroyHelpSeen();
 }
 
-function armDestroyPower() {
+function armDestroyPower({ lockSound = true } = {}) {
+  const wasActive = destroyCharges > 0;
   destroyCharges = 1;
   destroyDropsRemaining = DESTROY_DROP_GRACE;
   updateDestroyUI();
+  if (!wasActive) {
+    if (lockSound) playTargetLockThenConstant();
+    else startTargetLockConstant();
+  }
 }
 
 function clearDestroyPower() {
   destroyCharges = 0;
   destroyDropsRemaining = 0;
+  stopTargetLockConstant();
   updateDestroyUI();
 }
 
@@ -1523,6 +1538,7 @@ function endGame(reason = "unknown", detail = {}) {
   if (round.gameOver) return;
   round.gameOver = true;
   stopAutoPilot();
+  clearDestroyPower();
   finalEl.textContent = formatScore(score);
   const culpritName = detail.lvl !== undefined ? SHAPES[detail.lvl]?.name : "";
   if (lossReasonEl) {
@@ -2063,11 +2079,24 @@ restartEl.addEventListener("click", () => {
 const playBtnEl = document.getElementById("play-btn");
 const playLabelEl = playBtnEl?.querySelector(".play-label");
 const resumeContinueBtn = document.getElementById("resume-continue");
+const newGameConfirmEl = document.getElementById("new-game-confirm");
+const cancelNewGameBtn = document.getElementById("cancel-new-game");
+const confirmNewGameBtn = document.getElementById("confirm-new-game");
+
+function hideNewGameConfirm() {
+  newGameConfirmEl?.classList.remove("visible");
+}
+
+function showNewGameConfirm() {
+  newGameConfirmEl?.classList.add("visible");
+  cancelNewGameBtn?.focus();
+}
 
 function syncStartResumeUI() {
   const hasSave = !!loadSave();
   if (playLabelEl) playLabelEl.textContent = hasSave ? "New Game" : "Play";
   if (resumeContinueBtn) resumeContinueBtn.hidden = !hasSave;
+  if (!hasSave) hideNewGameConfirm();
 }
 
 window.addEventListener("planet-merge-save-change", syncStartResumeUI);
@@ -2080,9 +2109,22 @@ playBtnEl?.addEventListener("click", () => {
       startGame();
       return;
     }
-    clearSave();
-    syncStartResumeUI();
+    showNewGameConfirm();
+    return;
   }
+  startGame();
+});
+
+cancelNewGameBtn?.addEventListener("click", () => {
+  playSelect();
+  hideNewGameConfirm();
+});
+
+confirmNewGameBtn?.addEventListener("click", () => {
+  playPop();
+  clearSave();
+  syncStartResumeUI();
+  hideNewGameConfirm();
   startGame();
 });
 
@@ -2243,6 +2285,7 @@ function restoreGame(data) {
     destroyCharges = data.destroyCharges;
     destroyDropsRemaining = Math.max(1, data.destroyDropsRemaining ?? DESTROY_DROP_GRACE);
     updateDestroyUI();
+    startTargetLockConstant();
   } else {
     clearDestroyPower();
   }
