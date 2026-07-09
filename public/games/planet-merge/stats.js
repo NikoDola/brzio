@@ -5,6 +5,7 @@ const HIGH_KEY = "pm_high_score";
 const GAMES_KEY = "pm_games_played";
 const TIME_KEY = "pm_play_time_ms";
 const CHAIN_KEY = "pm_best_chain";
+const POINTS_KEY = "pm_points"; // lifetime points balance (future skin currency)
 
 // Shared localStorage helpers (also used by settings.js for the parent-limit
 // minutes value) so every numeric setting reads/writes the same safe way.
@@ -26,6 +27,20 @@ let highScore = loadNum(HIGH_KEY);
 let gamesPlayed = loadNum(GAMES_KEY);
 let totalPlayMs = loadNum(TIME_KEY);
 let bestChain = loadNum(CHAIN_KEY);
+let pointsBalance = loadNum(POINTS_KEY);
+
+/* ── Points wallet ────────────────────────────────────────────────────────
+   Every finished run banks its final score here (game.js endGame). Shown on
+   the start screen; later this becomes the currency for buying skins. */
+export function addPoints(n) {
+  const amount = Math.max(0, Math.floor(n || 0));
+  if (!amount) return;
+  pointsBalance += amount;
+  saveNum(POINTS_KEY, pointsBalance);
+}
+export function getPoints() {
+  return pointsBalance;
+}
 
 export function recordHigh(score) {
   if (score > highScore) {
@@ -118,11 +133,13 @@ export function clearStats() {
     localStorage.removeItem(GAMES_KEY);
     localStorage.removeItem(TIME_KEY);
     localStorage.removeItem(CHAIN_KEY);
+    localStorage.removeItem(POINTS_KEY);
   } catch {}
   highScore = 0;
   gamesPlayed = 0;
   totalPlayMs = 0;
   bestChain = 0;
+  pointsBalance = 0;
   playClockStart = 0;
   updateStatsUI();
 }

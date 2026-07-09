@@ -35,7 +35,10 @@
                 </button>
                 <button class="hud-cell" id="level-panel" type="button" aria-label="Current level rules">
                     <span class="panel-label">LEVEL</span>
-                    <span class="hud-value" id="level-value">1</span>
+                    <span class="hud-level-line">
+                        <span id="level-icon" class="level-icon" aria-hidden="true"></span>
+                        <span class="hud-value" id="level-value">1</span>
+                    </span>
                 </button>
                 <div class="hud-cell" id="shakes-panel">
                     <div class="shakes-fill" id="shakes-fill"></div>
@@ -89,6 +92,9 @@
                         </div>
                         <button class="ship-arrow" id="ship-next" type="button" aria-label="Next ship">&rsaquo;</button>
                     </div>
+                    <div class="points-chip" title="Points earned across all your runs. Every finished game adds its score here.">
+                        <span aria-hidden="true">⭐</span> <span id="points-balance">0</span> points
+                    </div>
                     <div class="start-content">
                         <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
                         <button id="play-btn" type="button">
@@ -100,6 +106,19 @@
                             Game Statistic
                         </button>
                     </div>
+                </div>
+            </div>
+            <!-- Mode chooser: opens from Play / New Game. Rows are rendered by
+                 game.js from MODES (levels.js) so lock and WON states are live.
+                 Each row's info button opens #level-overlay for that mode,
+                 which sits later in the DOM so the card stacks on top. -->
+            <div id="mode-overlay">
+                <div class="perks-inner">
+                    <div class="perks-header">
+                        <h2 class="perks-title">Choose Level</h2>
+                        <button id="mode-close" type="button" aria-label="Close">✕</button>
+                    </div>
+                    <div class="mode-list" id="mode-list"></div>
                 </div>
             </div>
             <div id="new-game-confirm" role="dialog" aria-modal="true" aria-labelledby="new-game-confirm-title">
@@ -284,6 +303,10 @@
                 <div class="dev-row">
                     <span class="dev-label">Destroy Power</span>
                     <button id="force-destroy-btn" class="dev-pill">OFF</button>
+                </div>
+                <div class="dev-row" title="Mark every mode won so all Levels are selectable without grinding two Suns.">
+                    <span class="dev-label">Modes</span>
+                    <button id="unlock-modes-btn" class="dev-pill" type="button">Unlock all</button>
                 </div>
                 <div class="dev-stats">
                     <span>Drops <b id="stat-drops">0</b></span>

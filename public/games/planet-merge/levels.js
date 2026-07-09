@@ -1,113 +1,71 @@
 /* ════════════════════════════════════════════════════════════════════════
-   levels.js: the difficulty ladder, the droppable roster, and the
-   level-up toast
+   levels.js: the selectable game MODES (shown to players as "Level N"),
+   win/unlock tracking, the win banner, and the level info card
    ════════════════════════════════════════════════════════════════════════
 
-   One endless mode. Difficulty steps up by score. Each LEVELS entry:
-     from      → score needed to ENTER this level
-     drops     → droppable planet levels while at this level
-     eliminate → can the chain still grant the Eliminate (destroy) power
-     choose    → can the chain still grant the Choose-your-next-planet power
-     rainbow   → do shakes raise the rainbow shield (and suspend game-over)?
-                 defaults to true; set false to make shaking risky (Level 6+)
-     autoShake → do shakes fire on their own on random drops, with the manual
-                 shake button locked out? defaults to false (Level 7+ earthquake)
-     title/now/next → level-up toast copy (what changed, what's coming next)
-     card      → optional visual on the level-up toast (see levelCardHTML):
-                   { type: "planet", lvl }            a plain planet icon
-                   { type: "icon", icon: "shake" }    a power icon, no cross-out
-                   { type: "ban", planet: lvl }       a planet, crossed out
-                   { type: "ban", icon: "eliminate" } the destroy power, crossed out
-                   { type: "ban", icon: "choose" }    the choose power, crossed out
-                   { type: "ban", icon: "rainbow" }   the rainbow shield, crossed out
-   `level` is 1-based (LEVELS[level - 1] is the current row). Append rows to
-   extend the ramp, nothing else needs to change. Level 1's card never shows
-   (the game starts there, so no entry toast fires for it). */
+   The old single endless run that ramped through score thresholds is gone.
+   A player now picks a mode from the New Game chooser, and that mode's rules
+   hold for the WHOLE run (like the old easy/normal/hard). Each MODES entry:
+     num       → 1-based mode number ("Level 1" in the UI)
+     iconLvl   → SHAPES index drawn as the mode's face in the chooser + HUD
+     drops     → droppable planet levels for the entire run
+     eliminate → can chains grant the Eliminate (destroy) power
+     choose    → can chains grant the Choose-your-next-planet power
+     rainbow   → do shakes raise the rainbow shield? false = shaking is risky
+     autoShake → earthquakes fire on their own (reserved for future modes)
+     scoreMult → every point earned in this mode is multiplied by this
+     blurb     → one-liner for the info card
+
+   WINNING: make two Suns touch (they vanish for the bonus). The run does NOT
+   end; the win is recorded (localStorage) and the next mode unlocks. Twelve
+   modes are planned; three exist. `getLevel()` stays the analytics label. */
 import { SHAPES } from "./config.js";
 import { planetIconHTML, applyLegendMode } from "./planet-icons.js";
 import { playPerk } from "./audio.js";
 
-const LEVELS = [
+export const MODES = [
   {
-    from: 0,
-    drops: [1, 2, 3, 4, 5], // Moon, Pluto, Mercury, Mars, Venus (no Stars yet)
+    num: 1,
+    name: "Level 1",
+    iconLvl: 0, // the Star icon fronts the no-Stars mode; deliberate for now
+    drops: [1, 2, 3, 4, 5], // Moon, Pluto, Mercury, Mars, Venus
     eliminate: true,
     choose: true,
-    title: "Level 1",
-    now: "",
-    next: "Next: Stars start dropping",
-    card: null,
+    rainbow: true,
+    scoreMult: 1.2,
+    blurb: "The opening run. Moon through Venus drop, no Stars yet, and the rainbow shield keeps your shakes safe.",
   },
   {
-    from: 3000,
-    drops: [0, 1, 2, 3, 4, 5], // Stars join the pool (Venus still drops)
+    num: 2,
+    name: "Level 2",
+    iconLvl: 1, // Moon
+    drops: [0, 1, 2, 3, 4, 5], // Stars join the pool
     eliminate: true,
     choose: true,
-    title: "Level 2",
-    now: "Stars now drop too!",
-    next: "Next: Venus stops dropping",
-    card: { type: "planet", lvl: 0 }, // Stars
+    rainbow: true,
+    scoreMult: 1.4,
+    blurb: "Stars join the drop pool and crowd the board faster. The rainbow shield still protects your shakes.",
   },
   {
-    from: 7000,
-    drops: [0, 1, 2, 3, 4], // Venus removed from the pool
+    num: 3,
+    name: "Level 3",
+    iconLvl: 2, // Pluto
+    drops: [0, 1, 2, 3, 4, 5],
     eliminate: true,
     choose: true,
-    title: "Level 3",
-    now: "Venus stops dropping",
-    next: "Next: Eliminate power turns off",
-    card: { type: "ban", planet: 5 }, // Venus, crossed out
-  },
-  {
-    from: 12000,
-    drops: [0, 1, 2, 3, 4],
-    eliminate: false, // no more Eliminate power
-    choose: true,
-    title: "Level 4",
-    now: "Eliminate power disabled",
-    next: "Next: Choose power turns off",
-    card: { type: "ban", icon: "eliminate" },
-  },
-  {
-    from: 15000,
-    drops: [0, 1, 2, 3, 4],
-    eliminate: false,
-    choose: false, // no more Choose power
-    title: "Level 5",
-    now: "Choose power disabled",
-    next: "Next: no rainbow shield on shakes",
-    card: { type: "ban", icon: "choose" },
-  },
-  {
-    from: 20000,
-    drops: [0, 1, 2, 3, 4],
-    eliminate: false,
-    choose: false,
-    rainbow: false, // shakes stop raising the rainbow shield: shaking can now cost you the game
-    title: "Level 6",
-    now: "No rainbow shield on shakes",
-    next: "Next: shakes go automatic",
-    card: { type: "ban", icon: "rainbow" },
-  },
-  {
-    from: 250000,
-    drops: [0, 1, 2, 3, 4],
-    eliminate: false,
-    choose: false,
-    rainbow: false,
-    autoShake: true, // random earthquakes fire by themselves; the manual shake button is locked out
-    title: "Level 7",
-    now: "Auto earthquake! Shakes fire on their own",
-    next: "Final level!",
-    card: { type: "icon", icon: "shake" },
+    rainbow: false, // shaking can now throw a planet out and end the run
+    scoreMult: 1.5,
+    blurb: "No rainbow shield. A careless shake can throw a planet over the rim and end the run.",
   },
 ];
-let level = 1;
-export const getLevel = () => level;
-export const curLevel = () => LEVELS[level - 1];
-// Shakes raise the rainbow shield (and suspend game-over) unless a level turns
-// it off. Auto-shake levels fire shake bursts on their own AND lock out the
-// manual shake button. Both default on/off when a level row omits the field.
+
+let mode = 1;
+export const getLevel = () => mode;
+export const curLevel = () => MODES[mode - 1];
+export const modeScoreMult = () => curLevel().scoreMult ?? 1;
+// Shakes raise the rainbow shield unless the mode turns it off. No current
+// mode uses autoShake; the earthquake machinery in shakes.js stays dormant
+// until a future mode flips it on.
 export const rainbowEnabled = () => curLevel().rainbow !== false;
 export const autoShakeEnabled = () => curLevel().autoShake === true;
 
@@ -130,8 +88,8 @@ rebuildDropTable();
 // Dev panel "Drop" selector: 'weighted' (default), 'random' (uniform across
 // all 12), or a specific level index that always drops that planet.
 let dropMode = "weighted";
-export function setDropMode(mode) {
-  dropMode = mode;
+export function setDropMode(m) {
+  dropMode = m;
 }
 
 export function pickLvl() {
@@ -155,146 +113,112 @@ export function firstDrop() {
   return Math.random() < 0.5 ? small[0] : small[Math.min(1, small.length - 1)];
 }
 
-// Reset to Level 1 (new game) or jump straight to a saved level (resume).
-// Both rebuild the roster; resetGameState/restoreGame in game.js call these
-// instead of touching `level` directly.
+/* ── MODE SELECTION ──────────────────────────────────────────────────────
+   The New Game chooser (game.js) calls setMode(n) before startGame(). Play
+   Again keeps the current mode (resetLevel just re-applies it); Continue
+   restores the saved one. */
+export function setMode(n) {
+  mode = Math.min(MODES.length, Math.max(1, n || 1));
+  rebuildDropTable();
+  applyLegendMode(droppableLvls);
+  updateLevelHud();
+}
+// Re-apply the CURRENT mode (new game / Play Again keeps the player's pick).
 export function resetLevel() {
-  level = 1;
-  rebuildDropTable();
+  setMode(mode);
+}
+export function restoreLevel(savedMode) {
+  setMode(savedMode || 1);
+}
+
+/* ── WINS + UNLOCKS ──────────────────────────────────────────────────────
+   Winning a mode (two Suns touched) unlocks the next one. Wins persist in
+   localStorage; the dev panel can wipe or grant them for testing. */
+const WINS_KEY = "pm_mode_wins";
+
+function loadWins() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(WINS_KEY) || "[]");
+    return new Set(Array.isArray(arr) ? arr.filter((n) => Number.isInteger(n)) : []);
+  } catch {
+    return new Set();
+  }
+}
+let wonModes = loadWins();
+
+function saveWins() {
+  try {
+    localStorage.setItem(WINS_KEY, JSON.stringify([...wonModes]));
+  } catch {}
+}
+
+export const isModeWon = (n) => wonModes.has(n);
+export const isModeUnlocked = (n) => n <= 1 || wonModes.has(n - 1);
+
+let onWinsChanged = () => {};
+// game.js registers this to refresh the New Game chooser when a win lands.
+export function onModeWinsChange(cb) {
+  onWinsChanged = cb;
+}
+
+/** Record a win (two Suns touched). First time only: persist, banner, and
+ *  refresh anything showing lock states. The run keeps going regardless. */
+export function markModeWon(n) {
+  if (wonModes.has(n)) return;
+  wonModes.add(n);
+  saveWins();
+  showWinToast(n);
   updateLevelHud();
+  onWinsChanged();
 }
-export function restoreLevel(savedLevel) {
-  level = savedLevel || 1;
-  rebuildDropTable();
+
+// Dev helpers (dev-panel.js): unlock everything silently / wipe all wins.
+export function unlockAllModes() {
+  MODES.forEach((m) => wonModes.add(m.num));
+  saveWins();
   updateLevelHud();
+  onWinsChanged();
+}
+export function clearModeWins() {
+  wonModes.clear();
+  try {
+    localStorage.removeItem(WINS_KEY);
+  } catch {}
+  updateLevelHud();
+  onWinsChanged();
 }
 
-/* ── LEVEL-UP TOAST ──────────────────────────────────────────────────────
-   When the score crosses a LEVELS threshold the level steps up: the roster and
-   power rules change and a banner slides in from the top for ~2.6s announcing
-   what changed plus a preview of the next level. It never pauses the game; a
-   chain that crosses two thresholds queues both banners.
-
-   Charge revocation (dropping a held Choose/Eliminate charge the moment a
-   level bans it) stays in game.js: it owns powerCharges/destroyCharges, so it
-   calls checkLevelUp(score) and then checks curLevel().eliminate/.choose
-   itself right after. */
-const levelToastQueue = [];
-let levelToastPlaying = false;
-
-export function checkLevelUp(score) {
-  let leveled = false;
-  while (level < LEVELS.length && score >= LEVELS[level].from) {
-    level++;
-    leveled = true;
-    rebuildDropTable();
-    applyLegendMode(droppableLvls);
-    levelToastQueue.push(curLevel());
-  }
-  if (leveled) {
-    updateLevelHud();
-    if (levelInfoOpen()) renderLevelCard(); // card is live, keep it honest
-  }
-  if (leveled && !levelToastPlaying) playNextLevelToast();
-}
-
-function playNextLevelToast() {
-  if (!levelToastQueue.length) {
-    levelToastPlaying = false;
-    return;
-  }
-  levelToastPlaying = true;
-  showLevelToast(levelToastQueue.shift(), playNextLevelToast);
-}
-
-/* Inline SVG for the two powers, used by the crossed-out level cards. Eliminate
-   is the pink target crosshair (matches drawDestroyTargets); Choose is the cyan
-   cycle arrows (matches the ‹ › planet-swap arrows). */
-const POWER_SVG = {
-  eliminate: `<svg class="level-toast-svg eliminate" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="7"></circle>
-      <line x1="12" y1="1" x2="12" y2="5"></line>
-      <line x1="12" y1="19" x2="12" y2="23"></line>
-      <line x1="1" y1="12" x2="5" y2="12"></line>
-      <line x1="19" y1="12" x2="23" y2="12"></line>
-      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"></circle>
-    </svg>`,
-  choose: `<svg class="level-toast-svg choose" viewBox="0 0 24 24" aria-hidden="true">
-      <polyline points="9 5 3 12 9 19"></polyline>
-      <polyline points="15 5 21 12 15 19"></polyline>
-    </svg>`,
-  // Rainbow arch (the shake shield). Each band carries its own colour inline, so
-  // it stays a rainbow even under the crossed-out level card.
-  rainbow: `<svg class="level-toast-svg rainbow" viewBox="0 0 24 24" aria-hidden="true" fill="none">
-      <path d="M3 18a9 9 0 0 1 18 0" stroke="#ff3b3b"></path>
-      <path d="M6 18a6 6 0 0 1 12 0" stroke="#ffd23f"></path>
-      <path d="M9 18a3 3 0 0 1 6 0" stroke="#3bd16f"></path>
-    </svg>`,
-  // Seismograph-style bars for the auto-shake / earthquake level.
-  shake: `<svg class="level-toast-svg shake" viewBox="0 0 24 24" aria-hidden="true">
-      <line x1="4" y1="9" x2="4" y2="15"></line>
-      <line x1="8" y1="5" x2="8" y2="19"></line>
-      <line x1="12" y1="8" x2="12" y2="16"></line>
-      <line x1="16" y1="4" x2="16" y2="20"></line>
-      <line x1="20" y1="9" x2="20" y2="15"></line>
-    </svg>`,
-};
-
-/* Build the optional visual for a level-up toast from its `card` descriptor.
-   A "ban" card lays a no-smoking-style red ring + slash over the icon behind. */
-function levelCardHTML(card) {
-  if (!card) return "";
-  if (card.type === "planet") {
-    return `<div class="level-toast-visual">${planetIconHTML(card.lvl)}</div>`;
-  }
-  if (card.type === "icon") {
-    return `<div class="level-toast-visual">${POWER_SVG[card.icon] || ""}</div>`;
-  }
-  if (card.type === "ban") {
-    const icon =
-      card.planet !== undefined ? planetIconHTML(card.planet) : POWER_SVG[card.icon] || "";
-    return `<div class="level-toast-visual banned">
-        <div class="level-toast-behind">${icon}</div>
-        <div class="level-toast-ban" aria-hidden="true"></div>
-      </div>`;
-  }
-  return "";
-}
-
-function showLevelToast(lv, done) {
+/* ── WIN BANNER ──────────────────────────────────────────────────────────
+   Reuses the .level-toast styling from the old level-up banner: slides in
+   from the top for ~2.6s, never pauses the game. */
+function showWinToast(n) {
+  const next = MODES[n]; // undefined when the last mode was won
+  const iconLvl = next ? next.iconLvl : MODES[n - 1].iconLvl;
   const toast = document.createElement("div");
   toast.className = "level-toast";
   toast.innerHTML = `
-    ${levelCardHTML(lv.card)}
-    <div class="level-toast-title">${lv.title}</div>
-    ${lv.now ? `<div class="level-toast-now">${lv.now}</div>` : ""}
-    ${lv.next ? `<div class="level-toast-next">${lv.next}</div>` : ""}`;
+    <div class="level-toast-visual">${planetIconHTML(iconLvl)}</div>
+    <div class="level-toast-title">${MODES[n - 1].name} complete!</div>
+    <div class="level-toast-now">Two Suns touched. You won!</div>
+    ${next ? `<div class="level-toast-next">${next.name} unlocked</div>` : `<div class="level-toast-next">All levels complete!</div>`}`;
   document.body.appendChild(toast);
   playPerk();
   requestAnimationFrame(() => toast.classList.add("show"));
-
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    toast.remove();
-    done();
-  };
   setTimeout(() => {
     toast.classList.remove("show");
-    setTimeout(finish, 500);
+    setTimeout(() => toast.remove(), 500);
   }, 2600);
 }
 
-/* ── LEVEL HUD CELL + CURRENT-LEVEL CARD ─────────────────────────────────
-   The LEVEL cell sits between Settings and SHAKES in the HUD and shows the
-   current level number. Clicking it opens #level-overlay: a card that spells
-   out the live LEVELS row as bullets (what drops, which powers still work,
-   rainbow shield, manual vs automatic shakes) plus the next threshold.
+/* ── LEVEL HUD CELL + INFO CARD ──────────────────────────────────────────
+   The LEVEL cell shows the mode's planet icon + number. Clicking it opens
+   #level-overlay with the card for the CURRENT mode. The New Game chooser's
+   info buttons open the same card for any mode via openModeInfo(n).
    game.js checks levelInfoOpen() in drop() so the spacebar can't fire a
    planet under the card. */
 const levelPanelEl = document.getElementById("level-panel");
 const levelValueEl = document.getElementById("level-value");
+const levelIconEl = document.getElementById("level-icon");
 const levelOverlayEl = document.getElementById("level-overlay");
 const levelTitleEl = document.getElementById("level-title");
 const levelBodyEl = document.getElementById("level-body");
@@ -303,11 +227,12 @@ const levelCloseEl = document.getElementById("level-close");
 export const levelInfoOpen = () => !!levelOverlayEl?.classList.contains("visible");
 
 function updateLevelHud() {
-  if (levelValueEl) levelValueEl.textContent = String(level);
+  if (levelValueEl) levelValueEl.textContent = String(mode);
+  if (levelIconEl) levelIconEl.innerHTML = planetIconHTML(curLevel().iconLvl);
 }
 
 /* One card bullet: green check when a mechanic is on, red cross when the
-   level has taken it away. */
+   mode takes it away. */
 function ruleHTML(on, onText, offText) {
   return `<li class="level-rule ${on ? "on" : "off"}">
       <span class="level-rule-mark" aria-hidden="true">${on ? "✓" : "✗"}</span>
@@ -315,49 +240,52 @@ function ruleHTML(on, onText, offText) {
     </li>`;
 }
 
-function renderLevelCard() {
+function renderLevelCard(n = mode) {
   if (!levelBodyEl) return;
-  const lv = curLevel();
-  if (levelTitleEl) levelTitleEl.textContent = `Level ${level}`;
-  const icons = lv.drops
+  const m = MODES[n - 1];
+  if (!m) return;
+  if (levelTitleEl) {
+    levelTitleEl.innerHTML = `${m.name}${isModeWon(n) ? ' <span class="mode-won-badge">WON</span>' : ""}`;
+  }
+  const icons = m.drops
     .map((l) => `<span class="level-drop-icon" title="${SHAPES[l].name}">${planetIconHTML(l)}</span>`)
     .join("");
-  const nextRow = LEVELS[level]; // undefined on the final level
-  const nextLine = nextRow
-    ? `${lv.next} (at ${nextRow.from.toLocaleString()} points)`
-    : lv.next;
   levelBodyEl.innerHTML = `
-    <div class="level-drops-label">Dropping now</div>
+    <p class="level-blurb">${m.blurb}</p>
+    <div class="level-drops-label">Dropping in this level</div>
     <div class="level-drops-icons">${icons}</div>
     <ul class="level-rules">
       ${ruleHTML(
-        lv.choose !== false,
+        m.choose !== false,
         "Choose power: a 3 merge chain lets you pick your next planet",
-        "Choose power: turned off at this level",
+        "Choose power: turned off in this level",
       )}
       ${ruleHTML(
-        lv.eliminate !== false,
+        m.eliminate !== false,
         "Eliminate power: a 5 merge chain lets you wipe out one planet type",
-        "Eliminate power: turned off at this level",
+        "Eliminate power: turned off in this level",
       )}
       ${ruleHTML(
-        lv.rainbow !== false,
+        m.rainbow !== false,
         "Rainbow shield: shaking is safe, the run can't end mid-shake",
         "Rainbow shield: gone, a careless shake can end the run",
       )}
-      ${ruleHTML(
-        lv.autoShake !== true,
-        "Shake button: merges fill the meter, tap SHAKES to fire one",
-        "Shake button: locked, earthquakes fire on their own after drops",
-      )}
+      <li class="level-rule on">
+        <span class="level-rule-mark" aria-hidden="true">★</span>
+        <span>Points multiplier: every point counts x${m.scoreMult}</span>
+      </li>
     </ul>
-    <div class="level-next">${nextLine}</div>`;
+    <div class="level-next">Win by making two Suns touch. The run keeps going after, so chase the score.</div>`;
 }
 
-levelPanelEl?.addEventListener("click", () => {
-  renderLevelCard();
+/** Open the info card for any mode (used by the New Game chooser's ⓘ buttons
+ *  and by the in-run LEVEL cell). */
+export function openModeInfo(n = mode) {
+  renderLevelCard(n);
   levelOverlayEl?.classList.add("visible");
-});
+}
+
+levelPanelEl?.addEventListener("click", () => openModeInfo(mode));
 levelCloseEl?.addEventListener("click", () =>
   levelOverlayEl?.classList.remove("visible"),
 );

@@ -9,7 +9,7 @@ import { SHAPES } from "./config.js";
 import { setDebugColliders } from "./renderer.js";
 import { applyTuningToBodies, wakeAllShapes, engine } from "./physics.js";
 import { TUNING } from "./tuning.js";
-import { setDropMode } from "./levels.js";
+import { setDropMode, unlockAllModes, clearModeWins } from "./levels.js";
 import { clearEarnedPerks } from "./perks.js";
 import { clearStats } from "./stats.js";
 import { clearSave, checkResume } from "./save-storage.js";
@@ -163,6 +163,11 @@ forceDestroyBtn.addEventListener("click", () => {
   notifyForcePowerChange();
 });
 
+// Mark every mode won so Levels 2+ can be tested without grinding two Suns.
+document.getElementById("unlock-modes-btn")?.addEventListener("click", () => {
+  unlockAllModes();
+});
+
 syncForcePowerButtons();
 
 /* ── Dev panel open/close + drag ─────────────────────────────────────────── */
@@ -222,7 +227,8 @@ window.addEventListener("resize", () => {
    glow can be retested from scratch without hand-clearing browser storage. */
 clearSaveBtn?.addEventListener("click", () => {
   clearEarnedPerks();
-  clearStats();
+  clearStats(); // includes the points balance
+  clearModeWins();
   clearSave();
   checkResume();
   if (clearSaveMsg) {

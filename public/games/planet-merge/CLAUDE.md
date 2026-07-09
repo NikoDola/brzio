@@ -1,6 +1,6 @@
 # Planet Merge
 
-A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus. The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded that an Earth-sized planet has nowhere left to drop.
+A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus, winning the current level (the run keeps going). The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded that a Venus-sized planet has nowhere left to drop.
 
 Before diving in here, read [`../CLAUDE.md`](../CLAUDE.md). It covers the rules shared by every game on the site (iframe embedding, scroll locking, dev mode) and the site-wide writing rule: no em dashes, anywhere.
 
@@ -37,10 +37,10 @@ Each file has one job. Don't copy logic between them.
 | [renderer.js](renderer.js) | All the drawing on the canvas: planets and their faces, the ship marker and its beam, the big sky score with the ship's shadow, effects, previews. It only reads game state and paints it. It never changes anything. |
 | [game.js](game.js) | The brain and the entry point. Game loop, input, merges, the chain counter, superpowers, autopilot, the death replay, ship skins, save/restore, fullscreen, restart. |
 | [state.js](state.js) | The tiny shared `round` flags (playing, game over) every other module reads. |
-| [levels.js](levels.js) | The `LEVELS` ladder: the drop roster per level, power bans, the level-up toast, and the LEVEL hud cell with its current-level card. |
+| [levels.js](levels.js) | The selectable `MODES` ("Level 1/2/3"): rosters, rainbow/power flags, score multipliers, win/unlock persistence, the win banner, and the mode info card behind the LEVEL hud cell and the chooser's ⓘ buttons. |
 | [shakes.js](shakes.js) | The SHAKES meter, the shake itself, the rainbow shield, and the auto earthquake. |
 | [perks.js](perks.js) | The `PERKS` list, the perks overlay, unlock toasts and animations. |
-| [stats.js](stats.js) | Lifetime stats (games, best score, play time, best chain) in localStorage. |
+| [stats.js](stats.js) | Lifetime stats (games, best score, play time, best chain) and the points wallet (`pm_points`) in localStorage. |
 | [settings.js](settings.js) | The Settings overlay: How to Play copy, sound toggle wiring, parent PIN, daily play-time limit. |
 | [save-storage.js](save-storage.js) | The localStorage plumbing behind auto-save and the Continue button. |
 | [audio.js](audio.js) | All sound effects and the mute flag. |
@@ -87,7 +87,7 @@ When a board planet overlaps the drop spot, the waiting planet dims to 0.7 opaci
 
 All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest. Each one carries a few settings: its size, score value, drop weighting, which image file it uses, and whether it has face expressions or decorative accessories. **Every planet is a plain circle collider now** (`sides: 0`, no `outline`), so shape never affects physics.
 
-One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It's decided by the `drops` list on each level in levels.js (the per-planet `dropRate` is still used, as the weighting within that roster). The `droppable` flag only feeds `rndLvl()` in config.js, which nothing calls anymore. In the live game, level 1 drops Moon, Pluto, Mercury, Mars, and Venus. Level 2 adds Stars. From level 3 on, Venus stops dropping. Every other planet only ever shows up by merging.
+One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It's decided by the `drops` list on each level in levels.js (the per-planet `dropRate` is still used, as the weighting within that roster). The `droppable` flag only feeds `rndLvl()` in config.js, which nothing calls anymore. In the live game the roster comes from the selected mode: Level 1 drops Moon, Pluto, Mercury, Mars, and Venus; Levels 2 and 3 add Stars. Every other planet only ever shows up by merging.
 
 Most planets are `expressions: true`: the body SVG is faceless (`planet_earth_body.svg`) and separate casual/hurt/sad face overlays share its viewBox (`planet_earth_casual.svg` etc). A hit planet flinches (hurt, 1s), sulks (sad, 2s), then relaxes. Missing face files fail silently, so art can land incrementally.
 
@@ -109,7 +109,7 @@ Hit enough merges in one drop and you earn a power:
 2. Then the waiting planet **auto-cycles** through the current level's droppable roster, one planet every `CHOOSE_ROTATE_MS` (0.5s).
 3. The player picks by timing the normal drop tap. The drop consumes the charge.
 
-Choose is off at level 5+, and also whenever autopilot is on (an auto-cycling planet under an auto-dropper is chaos).
+Choose is on in all three current modes; it still switches off whenever autopilot is on (an auto-cycling planet under an auto-dropper is chaos).
 
 **5 merges in one drop earns Eliminate (destroy).** Pulsing pink crosshairs appear, but only on planets of droppable sizes: the big merge-only planets can't be wiped. Click (or tap) a target and every planet of that type is destroyed. Details that matter:
 
@@ -118,7 +118,7 @@ Choose is off at level 5+, and also whenever autopilot is on (an auto-cycling pl
 - The explanation overlay shows only the first time ever (localStorage `planet-merge-destroy-help-seen`). Later charges just show crosshairs.
 - Destroy supersedes Choose: earning it clears any pending Choose charge, so the two prompts never stack.
 
-Eliminate is off from level 4 on. If you're holding a charge and cross into a level that bans that power, the charge is taken away right then (`revokeBannedCharges`). You can't smuggle a power into a level that forbids it.
+Eliminate is on in all three current modes too. `revokeBannedCharges` still exists for the dev force-toggles and for future modes that ban a power: a banned power's held charge is taken away on the spot.
 
 (For the record: this used to be a timer-based combo system, with a 3-second window carrying across drops. That's gone on purpose. Chains are a per-drop skill reward, so please don't bring the timer back.)
 
@@ -221,7 +221,7 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 
 | Control | What it does |
 |---|---|
-| **Local Storage CLEAR** | Wipes perks, stats, and the saved game for testing (leaves saved scenarios alone) |
+| **Local Storage CLEAR** | Wipes perks, stats, the points balance, mode wins, and the saved game for testing (leaves saved scenarios alone) |
 | **Scenarios** | Save the current board as a replayable test case (stored in `pm_dev_scenarios`); each card's ▶ loads that exact planet arrangement back in via the same restore path as Continue. For reproducing physics bugs and checking a fix holds. |
 | **Auto-Drop** | Keeps dropping at a fixed spot for stress-testing |
 | **Speed** | Runs physics 1x to 10x faster |
@@ -229,59 +229,54 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 | **Drop** | Which planet drops: weighted (normal), random (any of the 12 equally), or a specific one |
 | **Colliders** | Overlays the real physics shapes for debugging |
 | **Choose / Destroy Power** | Force a power permanently armed (it re-arms after each use) for UI work |
+| **Modes: Unlock all** | Marks every mode won so Levels 2+ are selectable without grinding two Suns |
 | **Planet Physics** | Live sliders for mass power, impact kick, shake strength and falloff, plus a JSON editor and a fill-the-shake-meter button |
 | **Solver Iter** | Live contact-solver iterations (position 6-20; velocity follows at ~0.6x). Shipping value 14/8. For finding the cheapest setting that still holds the anti-crush fix: lower it, replay a crush Scenario, watch for embedding |
 | **Stats** | Drops, games, average score this session, and Phys: physics ms per frame (avg / max over ~2s; ~8 ms is the 60 Hz budget) |
 
 ---
 
-## One endless mode that ramps up
+## Selectable levels (modes)
 
-There's no easy, normal, or hard. There is one endless mode that gets harder as your **score** climbs. A boolean called `playing` (state.js) tracks whether a round is active.
+The score-threshold ladder is gone. The player picks a **mode** (shown as "Level 1/2/3" in the UI) from the New Game chooser, and that mode's rules hold for the WHOLE run, like the old easy/normal/hard. Twelve modes are planned; three exist. A boolean called `playing` (state.js) tracks whether a round is active.
 
-The **start screen** shows the ship-skin selector, a Play button (relabelled "New Game" when a save exists, alongside a Continue button), and a Game Statistic button opening the shared stats/perks overlay. The merge-order legend under the game hides on the start screen, and hides the Star icon until Stars actually drop (level 2).
+The modes live in the `MODES` array at the top of levels.js. Each row: the planet icon it wears (`iconLvl`), which planets drop, whether chains can grant each power, whether shakes raise the rainbow shield, and the mode's **score multiplier**. To add a mode, append a row: the chooser, the info card, and the unlock chain follow automatically.
 
-The difficulty ladder is a table called `LEVELS` near the top of levels.js. Each row says: the score you need to reach it, which planets can drop, whether chains can still grant each power, and the text and artwork for its level-up popup. To stretch the ramp out, just add rows. Nothing else needs to change.
+The modes as shipped (both powers on in all three):
 
-The levels as shipped:
+- **Level 1** (Stars icon, x1.2 points): drops Moon, Pluto, Mercury, Mars, Venus. No Stars. Yes, the no-Stars mode wears the Star icon; deliberate for now.
+- **Level 2** (Moon icon, x1.4 points): Stars join the drop pool.
+- **Level 3** (Pluto icon, x1.5 points): same roster as Level 2, but no rainbow shield, so shaking can end the run.
 
-- **Level 1** (score 0): drops Moon, Pluto, Mercury, Mars, Venus. No Stars yet.
-- **Level 2** (score 3000): Stars start dropping.
-- **Level 3** (score 7000): Venus stops dropping.
-- **Level 4** (score 12000): the Eliminate power turns off.
-- **Level 5** (score 15000): the "pick your next planet" power turns off.
-- **Level 6** (score 20000): shakes stop raising the rainbow shield. See "The Shake meter" below. From here on a shake no longer protects you, so shaking can actually end the run.
-- **Level 7** (score 250000): auto earthquake, the final level. The manual shake button is locked out (clicking it just says the shakes are automatic now), and instead each drop has a random chance to fire a shake burst on its own, 1 to 6 in a row. Most drops stay quiet, some erupt. With no rainbow shield, an unlucky burst can topple your stack.
+**Winning and unlocking:** you win a mode by making two Suns touch (the vanish). The run does NOT end; the win is stored in localStorage (`pm_mode_wins`), a banner slides in ("Level 1 complete! Level 2 unlocked", reusing the old level-toast styling), and the next mode becomes selectable. `isModeUnlocked(n)` is simply "n is 1 or mode n-1 was won". The dev panel's "Unlock all" pill grants every win for testing; the Local Storage CLEAR wipes them.
 
-Two level fields drive that: `rainbow` (defaults to true; set false to drop the shield, level 6) and `autoShake` (defaults to false; set true for the earthquake, level 7). Older rows just leave both off.
+The **start screen** shows the ship-skin selector, the **points balance chip** (see Scoring), a Play button (relabelled "New Game" when a save exists, alongside a Continue button), and a Game Statistic button. Play (after the save-loss confirm, if any) opens the **mode chooser** (`#mode-overlay`): one row per mode with the planet icon, the name, a multiplier subline, a lock (with "Win Level N-1 to unlock") or a WON badge, and an ⓘ button opening that mode's info card. Rows are rebuilt on every open so lock/WON states are always current. Play Again after a loss stays in the same mode without the chooser; Continue restores the saved mode. The merge-order legend hides the Star icon in modes where Stars don't drop.
 
-The level-up popup shows either a plain planet (level 2 shows Stars), a plain power icon (level 7's seismograph bars for the earthquake), or, for levels that take something away, that thing behind a red no-smoking-style ring and slash (level 3's Venus, level 4's Eliminate, level 5's Choose, level 6's rainbow). Level 1 has no popup, since it's where you start.
+### The LEVEL cell and the mode info card
 
-Whenever the score changes, the game checks if you've crossed into a new level. If so it updates which planets drop, takes away any power the new level bans, and slides a level-up banner in from the top for a couple of seconds. It never pauses the game, and if a single chain vaults you past two levels at once, you get both banners.
+The hud bar has a LEVEL cell between Settings and SHAKES showing the current mode's planet icon and number. Clicking it opens the info card (same overlay pattern as perks and settings) for the mode being played: its blurb, which planets drop (as icons), whether Choose and Eliminate work, the rainbow shield state, the points multiplier, and the win rule. The chooser's ⓘ buttons open the same card for any mode (`openModeInfo(n)` in levels.js), and it stacks above the chooser because `#level-overlay` comes later in the DOM at the same z-index.
 
-### The LEVEL cell and the current-level card
-
-The hud bar has a LEVEL cell between Settings and SHAKES showing the current level number. Clicking it opens a card (same overlay pattern as perks and settings) that spells out the live `LEVELS` row as bullets: which planets drop right now (as icons), whether the Choose and Eliminate powers still work, whether the rainbow shield is up, and whether shakes are manual or automatic, each with a green check or a red cross. A callout at the bottom shows what changes at the next level and the score it takes to get there.
-
-The whole thing lives in levels.js and re-renders from `curLevel()` every time it opens, so it can never drift from the ladder: edit a `LEVELS` row and the card follows. If a chain levels you up while the card is open, it re-renders in place. Dropping is blocked while the card is open (game.js checks `levelInfoOpen()` in `drop()`), the game itself keeps running.
+The card renders from the `MODES` row every time it opens, so it can never drift: edit a row and the card follows. Dropping is blocked while the card is open (game.js checks `levelInfoOpen()` in `drop()`), the game itself keeps running.
 
 ### Scoring
 
 - Each merge is worth the points of the planet you merged (defined in config.js). Points double per size: Stars are worth 1, Moon 2, on up to the Sun at 2048.
 - A **chain** (several merges from one drop) multiplies the whole chain's points by how long it was. Five merges worth 10 points total become 10 x 5 = 50. The score climbs live as the chain plays out, and resets on the next drop.
+- The **mode multiplier** (x1.2 / x1.4 / x1.5) applies to every point as it lands on the score: the chain bookkeeping stays in raw units and only the added delta is multiplied (`modeScoreMult()` in registerChain and the vanish bonus). The +N popups show the multiplied value.
 - Note that the score counts **points**, not merges. Merges are counted separately, because some perks care about the raw number of merges.
 - On screen the score is shortened past a thousand (12,400 shows as 12.4k, then m).
+- **The points wallet:** when a run ends, its final score is added to a lifetime balance (`pm_points`, stats.js `addPoints`/`getPoints`) shown as the chip on the start screen. It is the future currency for buying ship skins; nothing spends it yet. Abandoning a saved run via New Game forfeits its unbanked score, by design.
 
-### Two Suns (still endless, no win screen)
+### Two Suns (the win, still no end screen)
 
-When two Suns touch, they pop, you get a flat bonus (`VANISH_BONUS`, 4096), and the game keeps going. There's no victory screen. A run only ends by losing.
+When two Suns touch, they pop, you get a flat bonus (`VANISH_BONUS` 4096, times the mode multiplier), the mode is marked WON (`markModeWon` in flushVanishes), and the game keeps going. There's no victory screen, only the unlock banner. A run only ends by losing.
 
 ### How you lose (two ways, one warning line)
 
 Both lose checks live in game.js, and the game-over overlay names the reason (`#loss-reason`).
 
 1. **A planet falls out of the container** (`checkOver`). The side walls stop at `WALL_TOP`, so an overfull stack can push a planet over the rim. Escapes are tracked honestly: a planet only counts as escaping if it actually crossed the open rim while outside the walls (`rimEscapedIds`); anything else outside the x range is a tunneling glitch and gets pushed back in. An escapee that tips back inside the container is forgiven. The run ends only when the escaped planet has fallen past the bottom of the canvas. The shake shield (`isProtected`) suspends this check, and every planet gets a 1.6s grace after spawning (which also protects freshly-restored saves).
-2. **The board is full** (`checkBoardFull`). Every sampled drop spot across the width is blocked for an Earth-sized planet, and it stays that way for `NO_ROOM_MS` (900ms, config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle. The check only arms once older board planets reach the top fifth of the container, which is also when the red dashed warning line appears 50px below the ship. Freshly dropped falling planets are ignored for 1.6s, so the warning does not flash just because a new planet enters from the top. It runs on a 96ms sampling cadence and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
+2. **The board is full** (`checkBoardFull`). Every sampled drop spot across the width is blocked for a Venus-sized planet (`BOARD_ROOM_TEST_LVL` in game.js; it was Earth once, but the bigger probe blocked spots from far below the drop row and ended runs that still looked mid-height), and it stays that way for `NO_ROOM_MS` (900ms, config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle. The check only arms once older board planets reach the top fifth of the container, which is also when the red dashed warning line appears 50px below the ship. Freshly dropped falling planets are ignored for 1.6s, so the warning does not flash just because a new planet enters from the top. It runs on a 96ms sampling cadence and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
 
 ### The death replay
 
@@ -295,10 +290,10 @@ There's a SHAKES bar in the HUD that fills as you merge: +1% per merge normally,
 
 One subtlety that used to be a bug: merges set off by the shake itself keep feeding the meter in odd increments, so it can land on a value below one click's cost. The last click always spends whatever remains, so the meter reaches exactly 0, disarms, and starts refilling. Never bring back a "must have at least SHAKE_COST" guard; that strands the meter at 3% armed and unclickable.
 
-Normally a shake also throws up a rainbow arch across the top for 4 seconds and suspends the game-over check while it's active, so a shake can never cost you the run. The arch is not just paint: physics.js adds a real bouncy segmented ceiling along the same curve, so popped planets bounce back down instead of escaping. New drops are blocked while the shield is up. That safety net is what levels 6 and 7 take away:
+Normally a shake also throws up a rainbow arch across the top for 4 seconds and suspends the game-over check while it's active, so a shake can never cost you the run. The arch is not just paint: physics.js adds a real bouncy segmented ceiling along the same curve, so popped planets bounce back down instead of escaping. New drops are blocked while the shield is up.
 
-- **Level 6** turns the rainbow off (`rainbow: false`). You can still shake, but there's no shield and no game-over pause, so a badly-timed shake can throw a planet over the wall and out, ending the run.
-- **Level 7** turns on the auto earthquake (`autoShake: true`). The manual button stops working (it shows a brief notice instead), and drops randomly trigger shake bursts on their own. The auto-shake ignores the meter entirely, it's a hazard now, not something you spend.
+- **Level 3 turns the rainbow off** (`rainbow: false` on its `MODES` row). You can still shake, but there's no shield and no game-over pause, so a badly-timed shake can throw a planet over the wall and out, ending the run.
+- The **auto earthquake** (`autoShake: true`, `maybeAutoShake` in shakes.js: the manual button locks and drops randomly fire 1-6 shake bursts on their own) is fully built but dormant: no current mode enables it. It's reserved for a future mode; don't delete it.
 
 ---
 
@@ -318,7 +313,7 @@ A simple achievement system. Everything runs off the `PERKS` list near the top o
 
 ## Auto-save, resume, and parent controls
 
-- **Auto-save is silent.** There is no save button. When the tab is hidden mid-round (close, app switch, screen lock), `saveGame()` snapshots the run (level, score, merge count, current/next planet, both power charges including the destroy expiry counter, and every body's position/angle/velocity) into localStorage `pm_saved_game` (a `v: 2` blob; older versions are silently dropped).
+- **Auto-save is silent.** There is no save button. When the tab is hidden mid-round (close, app switch, screen lock), `saveGame()` snapshots the run (mode, score, merge count, current/next planet, both power charges including the destroy expiry counter, and every body's position/angle/velocity) into localStorage `pm_saved_game` (a `v: 3` blob; older versions, including ladder-era v2 saves, are silently dropped).
 - **The start screen offers a one-time Continue.** Resuming consumes the save (no rewinding to the same point twice); leaving again writes a fresh one. Clicking New Game wipes it. Restored charges are re-checked against the current level's bans, and every restored body gets the normal spawn grace so resuming can never instantly lose.
 - **Parent controls** (settings.js): an optional daily play-time limit, guarded by an optional 4-digit PIN. It only blocks STARTING a new round, never cuts a live one. `startGame()` checks `dailyLimitReached()` and shows a message on the start screen instead.
 - Settings also hosts the How to Play copy (desktop and mobile variants) and the sound toggle (the mute flag itself lives in audio.js).

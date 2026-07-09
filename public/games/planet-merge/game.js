@@ -50,9 +50,9 @@ import {
   stopTargetLockConstant,
 } from "./audio.js";
 import { round } from "./state.js";
-import { applyLegendMode, showLegend, hideLegend } from "./planet-icons.js";
+import { applyLegendMode, showLegend, hideLegend, planetIconHTML } from "./planet-icons.js";
 import { earnPerk, perkCardEl, perksOverlayEl, openToLastEarnedTab, renderPerksGrid, perksOpen } from "./perks.js";
-import { recordHigh, recordBestChain, recordGamePlayed, startPlayClock, bankPlayTime, updateStatsUI } from "./stats.js";
+import { recordHigh, recordBestChain, recordGamePlayed, startPlayClock, bankPlayTime, updateStatsUI, addPoints, getPoints } from "./stats.js";
 import { dailyLimitReached, showLimitMsg } from "./settings.js";
 import {
   curLevel,
@@ -62,8 +62,15 @@ import {
   firstDrop,
   resetLevel,
   restoreLevel,
-  checkLevelUp,
   levelInfoOpen,
+  MODES,
+  setMode,
+  modeScoreMult,
+  isModeUnlocked,
+  isModeWon,
+  markModeWon,
+  openModeInfo,
+  onModeWinsChange,
 } from "./levels.js";
 import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield } from "./shakes.js";
 import {
@@ -247,8 +254,11 @@ const BOARD_FULL_ARM_MIN_AGE_MS = 1600;
 const DANGER_DASH_OFFSET_Y = 50;
 const SIDE_WALL_ESCAPE_SLACK = 4;
 const DESTROY_DROP_GRACE = 3;
-const EARTH_LVL = SHAPES.findIndex((shape) => shape.name === "Earth");
-const BOARD_ROOM_TEST_LVL = EARTH_LVL >= 0 ? EARTH_LVL : Math.min(6, SHAPES.length - 1);
+// The no-room probe. Venus, not Earth: the probe's radius blocks spots from
+// well below the drop row (reach = probe radius + planet radius), so an
+// Earth-sized probe ended runs while the stack still looked mid-height.
+const VENUS_LVL = SHAPES.findIndex((shape) => shape.name === "Venus");
+const BOARD_ROOM_TEST_LVL = VENUS_LVL >= 0 ? VENUS_LVL : Math.min(5, SHAPES.length - 1);
 const deathReplayHistory = new Map();
 const rimEscapedIds = new Set();
 let deathReplay = null;
@@ -735,7 +745,9 @@ function registerChain(x, y, base) {
   // as a delta each merge so the score climbs live (5 merges worth 10 → 50).
   chainBase += base;
   const contribution = chainBase * chainCount;
-  score += contribution - chainScorePrev;
+  // Chain bookkeeping stays in raw units; the mode's score multiplier is
+  // applied only to what actually lands on the score (Level 1 x1.2, etc).
+  score += Math.round((contribution - chainScorePrev) * modeScoreMult());
   chainScorePrev = contribution;
 
   if (chainCount < 2) return;
@@ -1308,9 +1320,9 @@ function useDestroyPower(clientX, clientY) {
   return true;
 }
 
-// A level that just banned a power drops any charge still in the player's
-// hand. Called right after checkLevelUp(score), which owns the level itself
-// but not these gameplay charges.
+// A mode that bans a power drops any charge still in the player's hand. All
+// three current modes allow both powers, so today this only matters for the
+// dev force-toggles and for future modes that reintroduce bans.
 function revokeBannedCharges() {
   if (!curLevel().eliminate && !getForceDestroy() && destroyCharges > 0) {
     clearDestroyPower();
@@ -1350,7 +1362,6 @@ function flushMerges() {
     mergeCount++;
     scoreEl.textContent = formatScore(score);
     recordHigh(score);
-    checkLevelUp(score);
     revokeBannedCharges();
     earnPerk(`merge-${newLvl}`); // first time this planet is created
     if (mergeCount >= 200) earnPerk("win-200");
@@ -1385,16 +1396,18 @@ function flushVanishes() {
     // Two Suns just disappeared — wake the whole field so any stack
     // above the vanish point collapses into the gap.
     wakeAllShapes();
-    // Endless mode: two Suns pay a big bonus and the run keeps going.
-    score += VANISH_BONUS;
+    // Two Suns pay a big bonus and the run keeps going. Touching them is also
+    // how a mode is WON: record it (first time shows the unlock banner).
+    const bonus = Math.round(VANISH_BONUS * modeScoreMult());
+    score += bonus;
     mergeCount++;
     scoreEl.textContent = formatScore(score);
     recordHigh(score);
-    checkLevelUp(score);
     revokeBannedCharges();
+    markModeWon(getLevel());
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
-    popups.push({ x: mx, y: my, t: totalMs, text: "+" + VANISH_BONUS, big: true });
+    popups.push({ x: mx, y: my, t: totalMs, text: "+" + bonus, big: true });
   }
 }
 
@@ -1480,7 +1493,8 @@ function checkOver(shapes = collectLiveShapes()) {
    circles; close enough for a hint and a refusal.
 
    checkBoardFull: the second lose condition. When EVERY sampled spot across
-   the width is blocked for an Earth-sized drop, the run ends after NO_ROOM_MS.
+   the width is blocked for a Venus-sized drop (BOARD_ROOM_TEST_LVL), the run
+   ends after NO_ROOM_MS.
    The dwell time rides out a chain mid-cascade, where planets fly everywhere
    for a moment but the board still has room once it settles. */
 function dropBlockedAt(sx, lvl, shapes = collectLiveShapes()) {
@@ -1546,12 +1560,14 @@ function endGame(reason = "unknown", detail = {}) {
       reason === "planet-out"
         ? `Lost because ${culpritName || "a planet"} fell out of the board.`
         : reason === "no-room"
-          ? "Lost because there was no room for an Earth-sized drop."
+          ? `Lost because there was no room for a ${SHAPES[BOARD_ROOM_TEST_LVL].name}-sized drop.`
           : "Lost because the run ended.";
   }
   reportGameEnd("lost", score, getLevel());
   clearSave(); // a finished game shouldn't offer a resume
   bankPlayTime();
+  addPoints(score); // the run's score joins the lifetime points balance
+  syncPointsUI();
   if (mergeCount < 100) earnPerk("lose-under-100"); // play the game in reverse
   if (mergeCount < 150) earnPerk("lose-under-150");
   const replayStarted =
@@ -2062,6 +2078,7 @@ function showStartScreen() {
   syncAutoPilotUI();
   syncStartResumeUI();
   hideLegend();
+  hideModeChooser();
   overlayEl.classList.remove("visible");
   startOverlayEl.classList.add("visible");
 }
@@ -2097,22 +2114,102 @@ function syncStartResumeUI() {
   if (playLabelEl) playLabelEl.textContent = hasSave ? "New Game" : "Play";
   if (resumeContinueBtn) resumeContinueBtn.hidden = !hasSave;
   if (!hasSave) hideNewGameConfirm();
+  syncPointsUI();
 }
 
 window.addEventListener("planet-merge-save-change", syncStartResumeUI);
 
+/* ── MODE CHOOSER (New Game → pick a Level) ───────────────────────────────
+   Rows are rebuilt on every open so lock/WON states are always current. A
+   row: [planet icon] Level N + subline, and an ⓘ button opening the same
+   info card the in-run LEVEL cell uses (levels.js renders it). Locked rows
+   say what unlocks them and don't start a game. */
+const modeOverlayEl = document.getElementById("mode-overlay");
+const modeListEl = document.getElementById("mode-list");
+const modeCloseEl = document.getElementById("mode-close");
+const pointsBalanceEl = document.getElementById("points-balance");
+
+// Lifetime points balance on the start screen (banked at each game over;
+// later this becomes the currency for buying ship skins).
+function syncPointsUI() {
+  if (pointsBalanceEl) pointsBalanceEl.textContent = formatScore(getPoints());
+}
+
+function hideModeChooser() {
+  modeOverlayEl?.classList.remove("visible");
+}
+
+function renderModeChooser() {
+  if (!modeListEl) return;
+  modeListEl.innerHTML = "";
+  for (const m of MODES) {
+    const unlocked = isModeUnlocked(m.num);
+    const row = document.createElement("div");
+    row.className = `mode-row${unlocked ? "" : " locked"}`;
+
+    const icon = document.createElement("span");
+    icon.className = "mode-row-icon";
+    icon.innerHTML = planetIconHTML(m.iconLvl);
+
+    const text = document.createElement("span");
+    text.className = "mode-row-text";
+    const sub = unlocked
+      ? `x${m.scoreMult} points${isModeWon(m.num) ? ' · <span class="mode-won-badge">WON</span>' : ""}`
+      : `Win ${MODES[m.num - 2]?.name || "the previous level"} to unlock`;
+    text.innerHTML = `<span class="mode-row-name">${m.name}${unlocked ? "" : " 🔒"}</span>
+      <span class="mode-row-sub">${sub}</span>`;
+
+    const info = document.createElement("button");
+    info.type = "button";
+    info.className = "mode-row-info";
+    info.setAttribute("aria-label", `About ${m.name}`);
+    info.textContent = "ⓘ";
+    info.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openModeInfo(m.num);
+    });
+
+    row.append(icon, text, info);
+    if (unlocked) {
+      row.addEventListener("click", () => {
+        playPop();
+        hideModeChooser();
+        setMode(m.num);
+        startGame();
+      });
+    }
+    modeListEl.appendChild(row);
+  }
+}
+
+function showModeChooser() {
+  renderModeChooser();
+  modeOverlayEl?.classList.add("visible");
+}
+
+modeCloseEl?.addEventListener("click", () => {
+  playSelect();
+  hideModeChooser();
+});
+
+// A win landing mid-run keeps the chooser honest if it's somehow open, and
+// the dev Unlock Modes button refreshes it the same way.
+onModeWinsChange(() => {
+  if (modeOverlayEl?.classList.contains("visible")) renderModeChooser();
+});
+
 playBtnEl?.addEventListener("mouseenter", () => playPlanetHit());
 playBtnEl?.addEventListener("click", () => {
   playPop();
+  if (dailyLimitReached()) {
+    startGame(); // blocked inside startGame, which shows the limit message
+    return;
+  }
   if (loadSave()) {
-    if (dailyLimitReached()) {
-      startGame();
-      return;
-    }
     showNewGameConfirm();
     return;
   }
-  startGame();
+  showModeChooser();
 });
 
 cancelNewGameBtn?.addEventListener("click", () => {
@@ -2125,7 +2222,7 @@ confirmNewGameBtn?.addEventListener("click", () => {
   clearSave();
   syncStartResumeUI();
   hideNewGameConfirm();
-  startGame();
+  showModeChooser();
 });
 
 resumeContinueBtn?.addEventListener("click", () => {
@@ -2194,12 +2291,13 @@ syncShipSkin();
 // Silent auto-save. Called when the player leaves mid-game; there is no manual
 // save button. Skips when there's nothing meaningful to save (no round active
 // or after a loss).
-// Build the v2 round blob (level + score + charges + every body's transform).
+// Build the v3 round blob (mode + score + charges + every body's transform).
 // Shared by the silent auto-save and the dev "save scenario" tool, both of
-// which rebuild a live round through restoreGame().
+// which rebuild a live round through restoreGame(). `level` holds the MODE
+// number now; v2 ladder-era saves are dropped by loadSave.
 function buildRoundSnapshot() {
   return {
-    v: 2,
+    v: 3,
     level: getLevel(),
     score,
     mergeCount,

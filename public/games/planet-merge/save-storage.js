@@ -43,8 +43,9 @@ export function loadSave() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    // v2 = the single-mode level format; older saves are silently dropped.
-    if (!d || d.v !== 2 || !Array.isArray(d.bodies)) return null;
+    // v3 = the selectable-modes format (`level` = mode number); older saves
+    // from the score-ladder era are silently dropped.
+    if (!d || d.v !== 3 || !Array.isArray(d.bodies)) return null;
     return d;
   } catch (_) {
     return null;
