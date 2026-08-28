@@ -112,6 +112,8 @@ body {
 
 /* ── TOP HUD BAR: four equal cells above the playfield ─────────────────── */
 #hud-bar {
+    position: relative;
+    z-index: 3;
     display: flex;
     width: var(--canvas-w);
     box-sizing: border-box;
@@ -518,6 +520,14 @@ body.fullscreen #dev-panel { display: flex; }
 
 #canvas-wrapper {
     position: relative;
+    /* Pull the playfield underneath the lower edge of the HUD. The player
+       marker is drawn at the top of the canvas, so this gives the ship a
+       deliberate cockpit-overlap effect and saves vertical space without
+       changing the board's internal physics coordinates. */
+    margin-top: -22px;
+    /* Foreground layer: the ship should sit on top of the HUD cards and
+       their animated fills, like it is flying out of the interface. */
+    z-index: 4;
     /* No border-radius/box-shadow/background here on purpose: this box spans
        the FULL canvas, including the open area above the container's cut
        walls. Rounding or shadowing it drew a visible "capsule" behind the
@@ -1264,6 +1274,35 @@ body.fullscreen #dev-panel { display: flex; }
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-right: 18px;
+    /* Firefox: use the same warm yellow accent as the section headings. */
+    scrollbar-color: #FECA57 transparent;
+    scrollbar-width: thin;
+}
+
+/* Branded scrollbar for Chromium, Safari, and Edge. The transparent track
+   lets the navy panel show through and removes the browser arrow buttons. */
+.settings-body::-webkit-scrollbar {
+    width: 10px;
+}
+.settings-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.settings-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #FECA57 0%, #f7b83f 100%);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 44px;
+}
+.settings-body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #ffe08a 0%, #FECA57 100%);
+    background-clip: padding-box;
+}
+.settings-body::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .settings-section { margin-bottom: 22px; }

@@ -13,8 +13,8 @@ export const LAYOUT = {
     WALL:         20,     // wall thickness (px) — +40%
     WALL_X:       60,     // inner playfield edge; makes the container 10% narrower while keeping the same canvas size
     DROP_GAP:     8,      // gap between the player marker bottom and the current waiting planet
-    PLAYER_MARKER_W: 212.5, // 25% larger than the previous holder, still 10:7
-    PLAYER_MARKER_H: 148.75, // keeps the same 10:7 ratio
+    PLAYER_MARKER_W: 191.25, // 10% smaller for a lighter HUD overlap, still 10:7
+    PLAYER_MARKER_H: 133.875, // keeps the same 10:7 ratio
     PLAYER_MARKER_NEXT_SLOT_SCALE: 0.32, // next planet inside the holder, 20% smaller than before
     PLAYER_MARKER_PLANET_BOTTOM_PAD: 0.05, // held planet sits 5% above the holder bottom
     PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/

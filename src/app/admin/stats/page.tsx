@@ -292,6 +292,7 @@ function summarise(events: StatEvent[]): GameSummary[] {
     if (e.event === "open") g.opens++;
     else if (e.event === "start") g.starts++;
     else if (e.event === "quit") g.quits++;
+    else if (e.event === "win") g.wins++;
     else if (e.event === "game_over") {
       g.finishes++;
       g.scoreSum += e.score;

@@ -15,6 +15,7 @@
 //   open      - the game loaded (written at most once per browser tab session)
 //   start     - the player entered a round (carries mode)
 //   game_over - a round ended on its own (carries score + outcome + duration)
+//   win       - two Suns touched after at least five minutes of play; once per mode
 //   quit      - the player left mid-round (best-effort beacon, once per round)
 
 const ENDPOINT = "/api/stats";
@@ -22,6 +23,8 @@ const GAME = "planet-merge";
 const OPEN_FLAG = "pm_open_reported"; // sessionStorage key, dedupes opens
 const PLAYER_ID_KEY = "pm_player_id"; // persistent random id, survives IP changes
 const PLAYER_NAME_KEY = "pm_player_name"; // optional nickname the player typed
+const WIN_FLAG_PREFIX = "pm_win_reported_"; // local dedupe, one win per mode
+const MIN_WIN_DURATION_MS = 5 * 60 * 1000;
 
 // Random per-session id so the server can tell a "quit" beacon apart from the
 // "game_over" of the same round.
@@ -189,6 +192,25 @@ export function reportGameStart(mode) {
   endReported = false;
   quitReported = false;
   send("start", { mode });
+}
+
+// Report a first mode win only after a real five-minute round. The client gate
+// avoids needless writes for trivial/automated attempts; the server enforces
+// the same minimum independently. markModeWon() supplies the two-Suns trigger.
+export function reportModeWin(mode, score) {
+  const durationMs = startedAt ? Date.now() - startedAt : 0;
+  if (durationMs < MIN_WIN_DURATION_MS) return false;
+
+  const flag = `${WIN_FLAG_PREFIX}${mode}`;
+  try {
+    if (localStorage.getItem(flag)) return false;
+    localStorage.setItem(flag, "1");
+  } catch {
+    // If storage is blocked, the server-side duration gate still applies.
+  }
+
+  send("win", { mode, score, durationMs });
+  return true;
 }
 
 export function reportGameEnd(outcome, score, mode) {

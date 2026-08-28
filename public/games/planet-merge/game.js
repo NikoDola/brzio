@@ -35,6 +35,7 @@ import {
   initAnalytics,
   reportOpen,
   reportGameStart,
+  reportModeWin,
   reportGameEnd,
 } from "./analytics.js";
 import "./background.js";
@@ -1019,9 +1020,11 @@ function clampedDropX(lvl = curLvl) {
 
 function dropBounds(lvl = curLvl) {
   const rad = r(lvl);
-  const markerHalf = PLAYER_MARKER_W / 2;
-  const minX = Math.max(WALL_X + rad + 2, markerHalf);
-  const maxX = Math.min(W - WALL_X - rad - 2, W - markerHalf);
+  // The planet, not the decorative ship, determines the playable edge. The
+  // ship is allowed to overhang the container slightly so a small Moon can
+  // actually reach both inside walls when the player aims fully left/right.
+  const minX = WALL_X + rad + 2;
+  const maxX = W - WALL_X - rad - 2;
   return { minX, maxX };
 }
 
@@ -1404,7 +1407,8 @@ function flushVanishes() {
     scoreEl.textContent = formatScore(score);
     recordHigh(score);
     revokeBannedCharges();
-    markModeWon(getLevel());
+    const wonMode = getLevel();
+    if (markModeWon(wonMode)) reportModeWin(wonMode, score);
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
     popups.push({ x: mx, y: my, t: totalMs, text: "+" + bonus, big: true });

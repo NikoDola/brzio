@@ -164,12 +164,13 @@ export function onModeWinsChange(cb) {
 /** Record a win (two Suns touched). First time only: persist, banner, and
  *  refresh anything showing lock states. The run keeps going regardless. */
 export function markModeWon(n) {
-  if (wonModes.has(n)) return;
+  if (wonModes.has(n)) return false;
   wonModes.add(n);
   saveWins();
   showWinToast(n);
   updateLevelHud();
   onWinsChanged();
+  return true;
 }
 
 // Dev helpers (dev-panel.js): unlock everything silently / wipe all wins.

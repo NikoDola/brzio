@@ -18,7 +18,8 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
  */
 export const runtime = "nodejs";
 
-const ALLOWED_EVENTS = new Set(["open", "start", "game_over", "quit", "pong"]);
+const ALLOWED_EVENTS = new Set(["open", "start", "game_over", "win", "quit", "pong"]);
+const MIN_WIN_DURATION_MS = 5 * 60 * 1000;
 
 // Firestore doc ids can't contain "/". Player ids are client-generated, so bound + sanitise.
 function safeDocId(id: string): string {
@@ -119,6 +120,13 @@ export async function POST(req: NextRequest) {
   const score = asInt(data.score, 0, MAX_SCORE);
   const durationMs = asInt(data.durationMs, 0, MAX_DURATION_MS);
   const client = cleanClient(data.client);
+
+  // A win is emitted by the two-Suns gameplay hook. The client gate keeps
+  // normal traffic cheap, while this server gate rejects instant/farmed wins.
+  // The same player/mode is also deduped in localStorage by the game client.
+  if (event === "win" && (!mode || durationMs < MIN_WIN_DURATION_MS)) {
+    return NextResponse.json({ error: "win duration too short" }, { status: 400 });
+  }
 
   // A "pong" answers an admin live-check: refresh the player's presence doc
   // (one per player, overwritten) and stop. It is never logged as an event, so
