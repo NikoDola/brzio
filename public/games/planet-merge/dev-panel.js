@@ -44,6 +44,24 @@ const physicsApplyJsonBtn = document.getElementById("physics-apply-json-btn");
 const physicsConfigJsonEl = document.getElementById("physics-config-json");
 const clearSaveBtn = document.getElementById("clear-save-btn");
 const clearSaveMsg = document.getElementById("clear-save-msg");
+const clearPlanetsBtn = document.getElementById("clear-planets-btn");
+const clearPlanetsMsg = document.getElementById("clear-planets-msg");
+
+let clearPlanets = () => 0;
+export function onClearPlanets(callback) {
+  clearPlanets = callback;
+}
+
+clearPlanetsBtn?.addEventListener("click", () => {
+  if (!document.documentElement.classList.contains("dev-mode")) return;
+  const count = clearPlanets();
+  if (clearPlanetsMsg) {
+    clearPlanetsMsg.textContent = count ? `${count} cleared` : "empty";
+    setTimeout(() => {
+      clearPlanetsMsg.textContent = "";
+    }, 1500);
+  }
+});
 
 /* ── Auto-drop, sim speed, drop mode ─────────────────────────────────────── */
 let autoDropOn = false;

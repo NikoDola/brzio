@@ -432,60 +432,89 @@ export function separateOverlapping(newBody) {
     }
 }
 
+// Circle contact cleanup, in canvas pixels. Several gentle sweeps let a pocket
+// resolve against every neighbour instead of pushing a small planet back and
+// forth between two larger ones. The tolerance is below a visible sprite gap.
+const PEN_SLOP = 2;
+const PEN_RELAX = 0.4;
+const PEN_SWEEPS = 3;
+
 /**
- * Per-step safety net: no planet may sit DEEPLY inside another. Matter's solver
- * allows a couple of px of resting overlap (fine), but a small planet can get
- * driven right into a big one by a merge, a wall clamp, or a hard drop, and then
- * it stays embedded — either frozen (both bodies asleep, so the solver ignores
- * the pair) or, worse, spun by friction as the deep contact churns.
- *
- * When a pair overlaps well beyond normal resting slop (`allowance`), we EASE
- * them apart along their centre line (the lighter body moves more) and zero both
- * bodies' linear AND angular velocity. Zeroing is what makes this safe: a plain
- * position teleport with velocity left alone makes the freed body orbit the
- * other's rim, and the leftover spin is exactly the "spinning like crazy" bug.
- * Killing the momentum lets them come apart cleanly and stop. The high allowance
- * means settled stacks never trip it, so normal piles are untouched.
- *
- * @param {{body: Matter.Body, rad: number}[]} shapes  live shapes (from collectLiveShapes)
+ * Resolve circle overlaps without repeatedly waking and stopping the pile.
+ * Position corrections preserve velocity; only inward relative motion is
+ * removed. Tangential motion and separating bounces remain intact.
+ * @param {{body: Matter.Body, rad: number}[]} shapes live shapes
  */
 export function separatePenetrations(shapes) {
     if (!shapes || shapes.length < 2) return;
-    for (let i = 0; i < shapes.length; i++) {
-        const a = shapes[i];
-        for (let j = i + 1; j < shapes.length; j++) {
-            const b = shapes[j];
-            const dx = b.body.position.x - a.body.position.x;
-            const dy = b.body.position.y - a.body.position.y;
-            const dist = Math.hypot(dx, dy);
-            const overlap = a.rad + b.rad - dist;
-            // Only act on a REAL burial, not the few px a small planet legitimately
-            // overlaps its neighbours when packed tight in a gap.
-            const allowance = Math.max(10, Math.min(a.rad, b.rad) * 0.2);
-            if (overlap <= allowance) continue;
+    for (let sweep = 0; sweep < PEN_SWEEPS; sweep++) {
+        let corrected = false;
+        for (let i = 0; i < shapes.length; i++) {
+            const a = shapes[i];
+            for (let j = i + 1; j < shapes.length; j++) {
+                const b = shapes[j];
+                const dx = b.body.position.x - a.body.position.x;
+                const dy = b.body.position.y - a.body.position.y;
+                const dist = Math.hypot(dx, dy);
+                const overlap = a.rad + b.rad - dist;
+                const excess = overlap - PEN_SLOP;
+                if (excess <= 0) continue;
+                corrected = true;
 
-            const push = (overlap - allowance) * 0.5;    // resolve half the excess per step
-            const nx = dist > 0.01 ? dx / dist : 0;
-            const ny = dist > 0.01 ? dy / dist : -1;     // straight up if coincident
-            // Split by inverse mass so the lighter (usually smaller) body gives way.
-            const total = a.body.mass + b.body.mass;
-            const aShare = total > 0 ? b.body.mass / total : 0.5;
-            const bShare = total > 0 ? a.body.mass / total : 0.5;
-            depenetrate(a.body, -nx * push * aShare, -ny * push * aShare, a.rad);
-            depenetrate(b.body,  nx * push * bShare,  ny * push * bShare, b.rad);
+                const push = excess * PEN_RELAX;
+                const nx = dist > 0.01 ? dx / dist : 0;
+                const ny = dist > 0.01 ? dy / dist : -1;     // straight up if coincident
+                // Split by inverse mass so the lighter (usually smaller) body gives way.
+                const total = a.body.mass + b.body.mass;
+                const aShare = total > 0 ? b.body.mass / total : 0.5;
+                const bShare = total > 0 ? a.body.mass / total : 0.5;
+                const deep = excess > Math.min(a.rad, b.rad) * 0.2;
+                depenetrate(a.body, -nx * push * aShare, -ny * push * aShare, a.rad, deep);
+                depenetrate(b.body,  nx * push * bShare,  ny * push * bShare, b.rad, deep);
+
+                // Sleeping bodies have no live velocity. Treat them as stationary
+                // for this impulse so a tiny correction cannot reanimate a stack.
+                const aInv = a.body.isSleeping ? 0 : a.body.inverseMass;
+                const bInv = b.body.isSleeping ? 0 : b.body.inverseMass;
+                const invTotal = aInv + bInv;
+                const av = aInv ? a.body.velocity : { x: 0, y: 0 };
+                const bv = bInv ? b.body.velocity : { x: 0, y: 0 };
+                const approaching = (bv.x - av.x) * nx + (bv.y - av.y) * ny;
+                if (approaching < 0 && invTotal > 0) {
+                    const impulse = -approaching / invTotal;
+                    if (aInv) Body.setVelocity(a.body, {
+                        x: av.x - nx * impulse * aInv,
+                        y: av.y - ny * impulse * aInv,
+                    });
+                    if (bInv) Body.setVelocity(b.body, {
+                        x: bv.x + nx * impulse * bInv,
+                        y: bv.y + ny * impulse * bInv,
+                    });
+                }
+            }
         }
+        if (!corrected) break;
     }
 }
 
-/** Nudge a body out of an embedding by (dx, dy): wake it, clamp inside the walls,
- *  and kill its linear + angular velocity so it can't orbit or keep spinning. */
-function depenetrate(body, dx, dy, rad) {
-    if (body.isSleeping) Sleeping.set(body, false);
-    const x = Math.max(WALL_X + rad, Math.min(W - WALL_X - rad, body.position.x + dx));
-    const y = Math.min(H - WALL - rad, body.position.y + dy);
+/** Correct position without turning the correction into extra momentum. */
+function depenetrate(body, dx, dy, rad, deep) {
+    if (deep) {
+        if (body.isSleeping) Sleeping.set(body, false);
+        Body.setAngularVelocity(body, 0);
+    }
+    let x = body.position.x + dx;
+    let y = body.position.y + dy;
+    // Confine planets already inside the container. A planet over the open
+    // rim or falling outside it must not be teleported back onto the board.
+    const minX = WALL_X + rad;
+    const maxX = W - WALL_X - rad;
+    if (body.position.y > WALL_TOP + rad * 0.42 &&
+        body.position.x >= minX - 2 && body.position.x <= maxX + 2) {
+        x = Math.max(minX, Math.min(maxX, x));
+        y = Math.min(H - WALL - rad, y);
+    }
     Body.setPosition(body, { x, y });
-    Body.setVelocity(body, { x: 0, y: 0 });
-    Body.setAngularVelocity(body, 0);
 }
 
 /**

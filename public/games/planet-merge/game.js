@@ -84,6 +84,7 @@ import {
   onForcePowerChange,
   onScenarioCapture,
   onScenarioPlay,
+  onClearPlanets,
   recordDevDrop,
   resetDevDrops,
   recordDevGame,
@@ -2458,6 +2459,24 @@ onDropModeChange((lvl) => {
 });
 
 onForcePowerChange(syncForcedPowersFromDev);
+
+onClearPlanets(() => {
+  const planets = Composite.allBodies(world).filter((body) => body.label === "shape");
+  for (const body of planets) despawn(body);
+  mergeQ.length = 0;
+  vanishQ.length = 0;
+  mergeSeen.clear();
+  flashes.length = 0;
+  popups.length = 0;
+  unlockGlows.length = 0;
+  deathReplayHistory.clear();
+  rimEscapedIds.clear();
+  nextDeathReplaySampleMs = 0;
+  noRoomMs = 0;
+  boardFullCheckMs = 0;
+  resetChain();
+  return planets.length;
+});
 
 // Dev "Scenarios": capture the live board so a bug arrangement can be replayed
 // later, and load a saved one back in. Play reuses restoreGame (the Continue
