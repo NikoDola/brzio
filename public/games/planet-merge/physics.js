@@ -49,14 +49,18 @@ export const world  = engine.world;
 const SPIN_DAMP = 0.985;  // per 8ms step ≈ 15% of spin left after 1s
 const SPIN_MAX  = 0.05;   // rad per step ≈ 1 revolution/second ceiling
 Events.on(engine, 'afterUpdate', () => {
-    for (const body of world.bodies) {
+    limitSpin(world.bodies);
+});
+
+export function limitSpin(bodies) {
+    for (const body of bodies) {
         if (body.label !== 'shape' || body.isSleeping) continue;
         let w = body.angularVelocity * SPIN_DAMP;
         if (w > SPIN_MAX) w = SPIN_MAX;
         else if (w < -SPIN_MAX) w = -SPIN_MAX;
         if (w !== body.angularVelocity) Body.setAngularVelocity(body, w);
     }
-});
+}
 
 // The container is a "U" with a cut-down rim: the side walls only start at
 // WALL_TOP, so an overfull stack can push planets over the edge. The floor
@@ -64,11 +68,12 @@ Events.on(engine, 'afterUpdate', () => {
 // land on and falls out of the world (game.js's checkOver ends the run).
 const wallOpts = { isStatic: true, label: 'wall', friction: 0.6, restitution: 0.1 };
 const SIDE_H = H - WALL_TOP;
-World.add(world, [
+export function createContainerBodies() { return [
     Bodies.rectangle(W / 2,          H - WALL / 2,        W - 2 * WALL_X, WALL,   { ...wallOpts, label: 'floor' }),  // floor (inner width only)
     Bodies.rectangle(WALL_X - WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // left
     Bodies.rectangle(W - WALL_X + WALL/2, WALL_TOP + SIDE_H/2, WALL,         SIDE_H, wallOpts),  // right
-]);
+]; }
+World.add(world, createContainerBodies());
 
 
 /* ── SHAKE SHIELD ARCH ───────────────────────────────────────────────────
@@ -87,17 +92,22 @@ export function archPoint(t) {
 }
 
 let shieldSegs = [];
+export function createShieldSegments() {
+    const segments = [];
+    const N = 16, opts = { isStatic: true, label: 'shield', friction: 0.2, restitution: 0.5 };
+    for (let i = 0; i < N; i++) {
+        const a = archPoint(i / N), b = archPoint((i + 1) / N);
+        const seg = Bodies.rectangle((a.x + b.x) / 2, (a.y + b.y) / 2,
+            Math.hypot(b.x - a.x, b.y - a.y) + 4, 8, opts);
+        Body.setAngle(seg, Math.atan2(b.y - a.y, b.x - a.x));
+        segments.push(seg);
+    }
+    return segments;
+}
 export function setShieldArch(on) {
     if (on) {
         if (shieldSegs.length) return;
-        const N = 16, opts = { isStatic: true, label: 'shield', friction: 0.2, restitution: 0.5 };
-        for (let i = 0; i < N; i++) {
-            const a = archPoint(i / N), b = archPoint((i + 1) / N);
-            const seg = Bodies.rectangle((a.x + b.x) / 2, (a.y + b.y) / 2,
-                Math.hypot(b.x - a.x, b.y - a.y) + 4, 8, opts);
-            Body.setAngle(seg, Math.atan2(b.y - a.y, b.x - a.x));
-            shieldSegs.push(seg);
-        }
+        shieldSegs = createShieldSegments();
         World.add(world, shieldSegs);
     } else if (shieldSegs.length) {
         World.remove(world, shieldSegs);
@@ -264,6 +274,17 @@ function samplePath(pathEl, sampleLength) {
  * @param {number} [angle]  visual rotation in radians (default 0)
  */
 export function spawn(x, y, lvl, totalMs, angle = 0) {
+    const body = createPlanetBody(x, y, lvl, angle);
+    World.add(world, body);
+    bodyLvl.set(body.id, lvl);
+    bodyBorn.set(body.id, totalMs);
+    active.add(body.id);
+    return body;
+}
+
+// Also used by the dev bot's private forecast world. Creating a body alone
+// must never register it in the live game or change its tracking maps.
+export function createPlanetBody(x, y, lvl, angle = 0, circleSides = CIRCLE_COLLIDER_SIDES) {
     const def  = SHAPES[lvl];
     const rad  = r(lvl);
     const opts = {
@@ -314,7 +335,7 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
             // A finer polygon shrinks the per-edge tilt below the friction
             // threshold so the planet bounces straight up. Phones use fewer
             // sides because Fast auto mode is CPU-bound by collision solving.
-            body = Bodies.circle(x, y, rad, opts, CIRCLE_COLLIDER_SIDES);
+            body = Bodies.circle(x, y, rad, opts, circleSides);
         }
     } else if (def.sides === 'plus') {
         body = Bodies.polygon(x, y, 4, rad, opts);      // square proxy
@@ -330,10 +351,6 @@ export function spawn(x, y, lvl, totalMs, angle = 0) {
     Body.setAngle(body, angle - polyCorr(lvl));
     Body.setAngularVelocity(body, 0);
 
-    World.add(world, body);
-    bodyLvl.set(body.id, lvl);
-    bodyBorn.set(body.id, totalMs);
-    active.add(body.id);
     return body;
 }
 
@@ -363,8 +380,8 @@ export function getOutlineSets(lvl) {
  * wake time, long enough for any unsupported body to actually start falling.
  */
 const WAKE_WINDOW_TICKS = -180; // ~1.4s extra on top of the default 60-tick threshold
-export function wakeAllShapes() {
-    for (const body of world.bodies) {
+export function wakeAllShapes(sourceWorld = world) {
+    for (const body of sourceWorld.bodies) {
         if (body.label !== 'shape') continue;
         if (body.isSleeping) Sleeping.set(body, false);
         body.sleepCounter = WAKE_WINDOW_TICKS;
@@ -395,17 +412,17 @@ export function applyTuningToBodies() {
  * Translate any overlapping neighbour out along the contact normal so the
  * new body starts clear.
  */
-export function separateOverlapping(newBody) {
-    const lvl = bodyLvl.get(newBody.id);
+export function separateOverlapping(newBody, sourceWorld = world, levels = bodyLvl) {
+    const lvl = levels.get(newBody.id);
     if (lvl === undefined) return;
     const newR = r(lvl);
     const region = {
         min: { x: newBody.position.x - newR * 2, y: newBody.position.y - newR * 2 },
         max: { x: newBody.position.x + newR * 2, y: newBody.position.y + newR * 2 },
     };
-    for (const other of Query.region(world.bodies, region)) {
+    for (const other of Query.region(sourceWorld.bodies, region)) {
         if (other === newBody || other.label !== 'shape' || other.isStatic) continue;
-        const otherLvl = bodyLvl.get(other.id);
+        const otherLvl = levels.get(other.id);
         if (otherLvl === undefined) continue;
         const otherR = r(otherLvl);
         const dx = other.position.x - newBody.position.x;

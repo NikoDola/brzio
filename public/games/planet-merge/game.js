@@ -18,6 +18,10 @@ import {
   separatePenetrations,
   getOutlineSets,
 } from "./physics.js";
+import { PHYS_STEP, DESTROY_DROP_GRACE, floorYFor,
+  dropBounds as planetDropBounds, dropYFor as planetDropY, dropBlockedAt as blockedDrop,
+  guardContainer, fallenPlanet, advanceRoomCheck, boardFullArmed as isBoardFullArmed,
+  applyImpactKick, nudgePerches } from './game-rules.js';
 import { TUNING } from "./tuning.js";
 import {
   drawBody,
@@ -73,7 +77,9 @@ import {
   openModeInfo,
   onModeWinsChange,
 } from "./levels.js";
-import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield } from "./shakes.js";
+import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield, tryShake } from "./shakes.js";
+import { createDevBot } from "./dev-bot.js";
+import { createDevSimulator } from "./dev-simulator.js";
 import {
   isAutoDropOn,
   getAutoDropX,
@@ -89,16 +95,16 @@ import {
   resetDevDrops,
   recordDevGame,
   recordPhysMs,
+  prepareBotControls,
 } from "./dev-panel.js";
 import { snapshotBodies, writeSave, loadSave, clearSave } from "./save-storage.js";
 
-const { Engine, Body, World, Events, Composite, Sleeping, Query } = Matter; // CDN global
+const { Engine, Body, World, Events, Composite, Query } = Matter; // CDN global
 const {
   W,
   H,
   WALL,
   WALL_X,
-  DROP_GAP,
   PLAYER_MARKER_W,
   PLAYER_MARKER_H,
   PLAYER_MARKER_NEXT_SLOT_SCALE,
@@ -198,6 +204,8 @@ let curLvl = firstDrop(); // shape currently waiting to drop
 let nxtLvl = pickLvl(); // shape shown in the NEXT preview
 let dropX = W / 2; // x position of the drop crosshair
 let canDrop = true;
+let devBot = null;
+let devSimulator = null;
 
 const PLAYER_TILT_MAX = 0.18; // ~10 degrees
 const PLAYER_TILT_PER_PX = 0.018;
@@ -250,17 +258,7 @@ const DEATH_REPLAY_HISTORY_MS = 2400;
 const DEATH_REPLAY_SAMPLE_MS = 80;
 const DEATH_REPLAY_DURATION_MS = 2900;
 const DEATH_REPLAY_ARM_FROM_BOTTOM_RATIO = 0.8;
-const BOARD_FULL_CHECK_MS = 96;
-const BOARD_FULL_ARM_FROM_BOTTOM_RATIO = 0.8;
-const BOARD_FULL_ARM_MIN_AGE_MS = 1600;
-const DANGER_DASH_OFFSET_Y = 50;
-const SIDE_WALL_ESCAPE_SLACK = 4;
-const DESTROY_DROP_GRACE = 3;
-// The no-room probe. Venus, not Earth: the probe's radius blocks spots from
-// well below the drop row (reach = probe radius + planet radius), so an
-// Earth-sized probe ended runs while the stack still looked mid-height.
-const VENUS_LVL = SHAPES.findIndex((shape) => shape.name === "Venus");
-const BOARD_ROOM_TEST_LVL = VENUS_LVL >= 0 ? VENUS_LVL : Math.min(5, SHAPES.length - 1);
+const DANGER_LINE_INSET_Y = 48;
 const deathReplayHistory = new Map();
 const rimEscapedIds = new Set();
 let deathReplay = null;
@@ -529,7 +527,7 @@ function drawDeathReplayCaption(ctx) {
 }
 
 function drawDangerDashes(ctx, progress = 0) {
-  const y = PLAYER_CONTAINER_Y + PLAYER_MARKER_H / 2 + DANGER_DASH_OFFSET_Y;
+  const y = WALL_TOP + DANGER_LINE_INSET_Y;
   const pulse = 0.5 + 0.5 * Math.sin(totalMs * 0.012);
   const alpha = Math.min(0.96, 0.54 + pulse * 0.22 + progress * 0.2);
   ctx.save();
@@ -646,25 +644,7 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
         playPlanetHit();
         playedPlanetThisTick = true;
       }
-      if (speed > BALANCE.IMPACT_KICK_MIN_SPEED) {
-        const n = pair.collision.normal; // points from B → A
-        const k = Math.min(speed, BALANCE.IMPACT_KICK_SPEED_CAP) * TUNING.impactStrength;
-        // Push A along the normal, B opposite — preserves the
-        // direction of the original impact, just amplified.
-        // sqrt(mass) instead of mass so heavy targets (Mars, Saturn)
-        // still feel a real shove when hit by a light Star, without
-        // sending the Star itself off the screen.
-        const mA = Math.sqrt(bodyA.mass);
-        const mB = Math.sqrt(bodyB.mass);
-        Body.setVelocity(bodyA, {
-          x: bodyA.velocity.x + (n.x * k) / mA,
-          y: bodyA.velocity.y + (n.y * k) / mA,
-        });
-        Body.setVelocity(bodyB, {
-          x: bodyB.velocity.x - (n.x * k) / mB,
-          y: bodyB.velocity.y - (n.y * k) / mB,
-        });
-      }
+      applyImpactKick(bodyA, bodyB, pair.collision.normal, speed);
     }
 
     const la = bodyLvl.get(bodyA.id);
@@ -695,42 +675,7 @@ Events.on(engine, "collisionStart", ({ pairs }) => {
    the "settled pile keeps jittering / can't sit still" bug. So we first count
    each planet's planet-on-planet contacts this tick and skip anything with
    more than one (or that has already gone to sleep). */
-Events.on(engine, "collisionActive", ({ pairs }) => {
-  // Pass 1: count planet-planet contacts per body, and collect the near-vertical
-  // (stacked) pairs. Walls/floor have no bodyLvl, so they don't count as support.
-  const contactCount = new Map();
-  const stacked = [];
-  for (const pair of pairs) {
-    const bA = pair.bodyA.parent;
-    const bB = pair.bodyB.parent;
-    if (!bodyLvl.has(bA.id) || !bodyLvl.has(bB.id)) continue;
-    contactCount.set(bA.id, (contactCount.get(bA.id) || 0) + 1);
-    contactCount.set(bB.id, (contactCount.get(bB.id) || 0) + 1);
-    if (Math.abs(pair.collision.normal.x) <= 0.08) stacked.push({ bA, bB });
-  }
-
-  // Pass 2: topple only the lone, awake, slow perches.
-  for (const { bA, bB } of stacked) {
-    const top = bA.position.y < bB.position.y ? bA : bB;
-    const bot = top === bA ? bB : bA;
-
-    if (top.isSleeping) continue;                       // settled — leave it be
-    if ((contactCount.get(top.id) || 0) > 1) continue;  // supported by neighbours
-    if (Math.abs(top.velocity.x) > 0.25) continue;      // already sliding off
-
-    const dx = top.position.x - bot.position.x;
-    const dir =
-      Math.abs(dx) < 0.3
-        ? Math.random() < 0.5
-          ? -1
-          : 1 // dead-centre → random side
-        : Math.sign(dx); // off-centre → fall toward that side
-    Body.setVelocity(top, {
-      x: top.velocity.x + dir * 0.15,
-      y: top.velocity.y,
-    });
-  }
-});
+Events.on(engine, "collisionActive", ({ pairs }) => nudgePerches(pairs, bodyLvl));
 
 /**
  * Register one merge against the current drop's chain. Bumps `chainCount`,
@@ -1019,19 +964,8 @@ function clampedDropX(lvl = curLvl) {
   return Math.max(minX, Math.min(maxX, dropX));
 }
 
-function dropBounds(lvl = curLvl) {
-  const rad = r(lvl);
-  // The planet, not the decorative ship, determines the playable edge. The
-  // ship is allowed to overhang the container slightly so a small Moon can
-  // actually reach both inside walls when the player aims fully left/right.
-  const minX = WALL_X + rad + 2;
-  const maxX = W - WALL_X - rad - 2;
-  return { minX, maxX };
-}
-
-function dropYFor(lvl = curLvl) {
-  return PLAYER_CONTAINER_Y + PLAYER_MARKER_H / 2 + DROP_GAP + r(lvl);
-}
+function dropBounds(lvl = curLvl) { return planetDropBounds(lvl); }
+function dropYFor(lvl = curLvl) { return planetDropY(lvl); }
 
 function chooseCountdownNumber() {
   return Math.max(1, Math.ceil(chooseReadyMs / 1000));
@@ -1061,74 +995,8 @@ function drawChooseCountdown(ctx, x, y, rad) {
   ctx.restore();
 }
 
-function floorYFor(lvl) {
-  return H - WALL - r(lvl) - 3;
-}
-
-function bodyOutsideContainerX(body, lvl) {
-  const rad = r(lvl);
-  return (
-    body.position.x < WALL_X + rad - SIDE_WALL_ESCAPE_SLACK ||
-    body.position.x > W - WALL_X - rad + SIDE_WALL_ESCAPE_SLACK
-  );
-}
-
-function bodyNoLongerVisible(body, lvl) {
-  return body.position.y - r(lvl) > H;
-}
-
-function bodyReachedOpenRim(body, lvl) {
-  const rad = r(lvl);
-  return body.position.y <= WALL_TOP + rad * 0.42;
-}
-
-function keepBodyInsideSideWalls(body, lvl) {
-  const rad = r(lvl);
-  const minX = WALL_X + rad + 2;
-  const maxX = W - WALL_X - rad - 2;
-  const x = Math.max(minX, Math.min(maxX, body.position.x));
-  if (Math.abs(x - body.position.x) < 0.01) return;
-  Body.setPosition(body, { x, y: body.position.y });
-  Body.setVelocity(body, { x: 0, y: body.velocity.y });
-  Body.setAngularVelocity(body, body.angularVelocity * 0.35);
-  Sleeping.set(body, false);
-}
-
-function recoverBodyAboveFloor(body, lvl) {
-  const rad = r(lvl);
-  Body.setPosition(body, {
-    x: Math.max(WALL_X + rad + 2, Math.min(W - WALL_X - rad - 2, body.position.x)),
-    y: floorYFor(lvl),
-  });
-  Body.setVelocity(body, { x: 0, y: 0 });
-  Body.setAngularVelocity(body, 0);
-  Sleeping.set(body, false);
-}
-
-function keepBodyAboveFloor(body, lvl) {
-  const maxContactY = H - WALL - r(lvl) + 2;
-  if (body.position.y <= maxContactY) return;
-  const y = floorYFor(lvl);
-  Body.setPosition(body, { x: body.position.x, y });
-  Body.setVelocity(body, {
-    x: body.velocity.x * 0.92,
-    y: Math.min(0, body.velocity.y),
-  });
-  Body.setAngularVelocity(body, body.angularVelocity * 0.65);
-  Sleeping.set(body, false);
-}
-
 function preventIllegalContainerEscapes(shapes = collectLiveShapes()) {
-  for (const { body, lvl } of shapes) {
-    if (rimEscapedIds.has(body.id)) continue;
-
-    const outside = bodyOutsideContainerX(body, lvl);
-    if (outside) {
-      if (bodyReachedOpenRim(body, lvl)) continue;
-      keepBodyInsideSideWalls(body, lvl);
-    }
-    keepBodyAboveFloor(body, lvl);
-  }
+  guardContainer(shapes, rimEscapedIds);
 }
 
 function updatePlayerTilt(markerX) {
@@ -1199,7 +1067,7 @@ function syncAutoPilotUI() {
     autoPilotActive = false;
     autoPilotSpeed = 1;
   }
-  const canShow = autoPilotAvailable() && round.playing && !round.gameOver;
+  const canShow = autoPilotAvailable() && round.playing && !round.gameOver && !round.botActive;
   if (autoPilotPanel) {
     autoPilotPanel.hidden = !canShow;
     autoPilotPanel.classList.toggle("auto-active", autoPilotActive);
@@ -1218,6 +1086,7 @@ function syncAutoPilotUI() {
 }
 
 function startAutoPilot() {
+  if (round.botActive) return;
   if (!autoPilotAvailable() || !round.playing || round.gameOver) return;
   autoPilotActive = true;
   autoPilotDir = dropX < W / 2 ? 1 : -1;
@@ -1300,7 +1169,11 @@ function useDestroyPower(clientX, clientY) {
   }
   if (!target) return false;
 
-  const lvl = bodyLvl.get(target.id);
+  return destroyPlanetLevel(bodyLvl.get(target.id));
+}
+
+function destroyPlanetLevel(lvl) {
+  if (destroyCharges <= 0 || round.gameOver) return false;
   // Destroy only works on the same set the player can drop from the top
   // (Stars through Mars on normal/hard; same plus Venus on easy). Bigger
   // planets are merge-only rewards and shouldn't be wipeable.
@@ -1310,6 +1183,7 @@ function useDestroyPower(clientX, clientY) {
   const victims = Composite.allBodies(world).filter(
     (b) => b.label === "shape" && bodyLvl.get(b.id) === lvl,
   );
+  if (!victims.length) return false;
   playLaser();
   for (const b of victims) {
     flashes.push({ x: b.position.x, y: b.position.y, t: totalMs, big: false });
@@ -1353,8 +1227,10 @@ function flushMerges() {
     // Wake the whole field so bodies stacked above the merge — even 3+
     // layers up, beyond any local radius — fall when their support goes.
     wakeAllShapes();
-    const sy = Math.min(Math.max(WALL_TOP + newR + 6, my), floorYFor(newLvl));
+    // Keep high merges at their contact point so they can spill over the rim.
+    const sy = Math.min(Math.max(newR, my), floorYFor(newLvl));
     const merged = spawn(mx, sy, newLvl, totalMs);
+    merged.mergedAt = totalMs;
     Body.setVelocity(merged, { x: 0, y: -3 });
     // Bigger body at the midpoint may intersect a neighbour — push them apart.
     separateOverlapping(merged);
@@ -1410,6 +1286,7 @@ function flushVanishes() {
     revokeBannedCharges();
     const wonMode = getLevel();
     if (markModeWon(wonMode)) reportModeWin(wonMode, score);
+    devBot?.win(totalMs);
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
     popups.push({ x: mx, y: my, t: totalMs, text: "+" + bonus, big: true });
@@ -1458,37 +1335,8 @@ function drop({ skipBlockedCheck = false } = {}) {
 // If physics nudges a planet through a side wall or floor while it is still
 // inside the board, push it back instead.
 function checkOver(shapes = collectLiveShapes()) {
-  if (isProtected()) return; // shielded while shaking: no game over
-  for (const { body, lvl } of shapes) {
-    const id = body.id;
-    if (totalMs - (bodyBorn.get(id) || 0) < 1600) continue; // grace period
-
-    const outside = bodyOutsideContainerX(body, lvl);
-    if (outside) {
-      if (bodyReachedOpenRim(body, lvl)) {
-        rimEscapedIds.add(id);
-      } else if (!rimEscapedIds.has(id)) {
-        keepBodyInsideSideWalls(body, lvl);
-        continue;
-      }
-    } else if (rimEscapedIds.has(id) && body.position.y > WALL_TOP + r(lvl)) {
-      rimEscapedIds.delete(id);
-    }
-
-    if (!rimEscapedIds.has(id) && !outside && body.position.y > floorYFor(lvl) + r(lvl) * 0.55) {
-      recoverBodyAboveFloor(body, lvl);
-      continue;
-    }
-
-    if (bodyNoLongerVisible(body, lvl)) {
-      endGame("planet-out", { body, lvl });
-      return;
-    }
-
-    if (body.position.y > H + 40 && !outside) {
-      recoverBodyAboveFloor(body, lvl);
-    }
-  }
+  const fallen = fallenPlanet(shapes, totalMs, bodyBorn, rimEscapedIds, isProtected());
+  if (fallen) endGame('planet-out', fallen);
 }
 
 /* ── DROP ROOM ───────────────────────────────────────────────────────────
@@ -1498,59 +1346,26 @@ function checkOver(shapes = collectLiveShapes()) {
    circles; close enough for a hint and a refusal.
 
    checkBoardFull: the second lose condition. When EVERY sampled spot across
-   the width is blocked for a Venus-sized drop (BOARD_ROOM_TEST_LVL), the run
-   ends after NO_ROOM_MS.
+   the width is blocked for a probe with 1.5 times the held planet's radius, the run ends
+   after NO_ROOM_MS. The real drop and blocked preview remain normal size.
+   An active Choose power checks every available planet before declaring loss.
    The dwell time rides out a chain mid-cascade, where planets fly everywhere
    for a moment but the board still has room once it settles. */
 function dropBlockedAt(sx, lvl, shapes = collectLiveShapes()) {
-  const rad = r(lvl);
-  for (const { body, rad: otherRad } of shapes) {
-    const dx = body.position.x - sx;
-    const dy = body.position.y - dropYFor(lvl);
-    const reach = rad + otherRad - 2; // small slack so a graze doesn't block
-    if (dx * dx + dy * dy < reach * reach) return true;
-  }
-  return false;
-}
-
-function boardFull(shapes = collectLiveShapes()) {
-  const { minX, maxX } = dropBounds(BOARD_ROOM_TEST_LVL);
-  const steps = 24;
-  for (let i = 0; i <= steps; i++) {
-    if (!dropBlockedAt(minX + ((maxX - minX) * i) / steps, BOARD_ROOM_TEST_LVL, shapes)) return false;
-  }
-  return true;
+  return blockedDrop(sx, lvl, shapes);
 }
 
 let noRoomMs = 0;
 let boardFullCheckMs = 0;
-function boardFullArmed(shapes = collectLiveShapes()) {
-  const armY = H - (H - WALL_TOP) * BOARD_FULL_ARM_FROM_BOTTOM_RATIO;
-  return shapes.some(({ body, rad }) => {
-    if (totalMs - (bodyBorn.get(body.id) || 0) < BOARD_FULL_ARM_MIN_AGE_MS) return false;
-    return body.position.y - rad <= armY;
-  });
-}
-
+function boardFullArmed(shapes) { return isBoardFullArmed(shapes, totalMs, bodyBorn); }
 function checkBoardFull(dt, shapes = collectLiveShapes()) {
-  // Only while the player could actually drop: cooldown chaos doesn't count,
-  // the shake shield suspends losing just like it does for checkOver, and an
-  // active falling escape gets priority so the death replay can show it.
-  if (!canDrop || isProtected() || chooseCountdownActive() || rimEscapedIds.size > 0 || !boardFullArmed(shapes)) {
-    noRoomMs = 0;
-    boardFullCheckMs = 0;
-    return;
-  }
-  boardFullCheckMs += dt;
-  if (boardFullCheckMs < BOARD_FULL_CHECK_MS) return;
-  const elapsed = boardFullCheckMs;
-  boardFullCheckMs = 0;
-  if (!boardFull(shapes)) {
-    noRoomMs = 0;
-    return;
-  }
-  noRoomMs += elapsed;
-  if (noRoomMs >= BALANCE.NO_ROOM_MS) endGame("no-room");
+  const result = advanceRoomCheck(dt, shapes, { canDrop, protectedNow: isProtected(),
+    choosing: chooseCountdownActive(), escapedIds: rimEscapedIds, now: totalMs, born: bodyBorn,
+    dropLvls: powerCharges > 0 && choosePowerAllowed() ? droppableLvls : [curLvl],
+    noRoomMs, checkMs: boardFullCheckMs });
+  noRoomMs = result.noRoomMs;
+  boardFullCheckMs = result.checkMs;
+  if (result.lost) endGame('no-room');
 }
 
 function endGame(reason = "unknown", detail = {}) {
@@ -1565,17 +1380,20 @@ function endGame(reason = "unknown", detail = {}) {
       reason === "planet-out"
         ? `Lost because ${culpritName || "a planet"} fell out of the board.`
         : reason === "no-room"
-          ? `Lost because there was no room for a ${SHAPES[BOARD_ROOM_TEST_LVL].name}-sized drop.`
+          ? powerCharges > 0 && choosePowerAllowed()
+            ? 'Lost because there was no safe room for any available planet.'
+            : `Lost because there was no safe room for a ${SHAPES[curLvl].name} drop.`
           : "Lost because the run ended.";
   }
   reportGameEnd("lost", score, getLevel());
-  clearSave(); // a finished game shouldn't offer a resume
+  if (!round.testing) clearSave();
   bankPlayTime();
   addPoints(score); // the run's score joins the lifetime points balance
   syncPointsUI();
   if (mergeCount < 100) earnPerk("lose-under-100"); // play the game in reverse
   if (mergeCount < 150) earnPerk("lose-under-150");
   const replayStarted =
+    !round.botActive &&
     reason === "planet-out" &&
     detail.body &&
     detail.lvl !== undefined &&
@@ -1583,6 +1401,7 @@ function endGame(reason = "unknown", detail = {}) {
   if (!replayStarted) overlayEl.classList.add("visible");
 
   recordDevGame(score);
+  devBot?.loss(totalMs, reason);
 }
 
 /* ── GAME LOOP ───────────────────────────────────────────────────────── */
@@ -1592,7 +1411,6 @@ function endGame(reason = "unknown", detail = {}) {
 // drops sim time instead of piling up more physics work. The small 8ms step
 // itself keeps fast bodies (a falling Star) from tunneling through concave
 // polygon planets (the Moon).
-const PHYS_STEP = 8; // ms per physics substep
 let physAcc = 0; // real ms waiting to be simulated
 
 function frame(ts) {
@@ -1606,10 +1424,13 @@ function frame(ts) {
   // Shake shield: raise the rainbow arch (and suspend the danger check) while a
   // shake is in progress; drop it once the window passes or the game ends.
   tickShield();
-  tickChooseRotation(dt);
+  if (!devBot?.thinking) tickChooseRotation(dt);
   tickAutoPilot(dt);
+  devBot?.tick();
 
-  if (!round.gameOver && round.playing) {
+  // Forecasts use a stable board. Their CPU time belongs to wall time, not
+  // the gameplay clock, so faster dev speeds cannot burn the test limit.
+  if (!round.gameOver && round.playing && !devBot?.thinking) {
     // Dev-panel Phys readout: time the whole physics drain (engine steps plus
     // the per-step passes below). Two performance.now() calls per frame; the
     // readout itself only touches the DOM twice a second in dev-panel.js.
@@ -1625,6 +1446,7 @@ function frame(ts) {
       }
       flushMerges();
       flushVanishes();
+      if (devBot?.betweenRounds) break;
       const tickShapes = collectLiveShapes();
       preventIllegalContainerEscapes(tickShapes);
       separatePenetrations(tickShapes);
@@ -1699,12 +1521,10 @@ function frame(ts) {
   /* Rainbow shield arch, only while a shake has it raised. */
   drawShield(ctx);
 
-  /* Effects → bodies → score popups (draw order matters). Bodies render in three
-     global passes so decorative accessories are layered against EVERY planet, not
-     just their own: all back accessories (Saturn's ring, the Sun's corona) go
-     behind every body, then all bodies + faces, then front accessories (the Sun's
-     sunglasses) on top. That way an accessory can never cover a neighbouring
-     planet. */
+  /* Effects → bodies → score popups (draw order matters). Back accessories
+     (Saturn's ring, the Sun's corona) go behind every planet. Jupiter's faded
+     body follows, then normal bodies + faces, then front accessories (the Sun's
+     sunglasses). This keeps decorations from covering neighbouring planets. */
   const renderShapes = collectLiveShapes();
   drawFlashes(ctx, flashes, totalMs);
   if (deathCamera) drawDeathReplayTrail(ctx, deathCamera);
@@ -1713,6 +1533,9 @@ function frame(ts) {
       ? replayBodyFor(body, deathCamera.sample)
       : body;
   for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "back");
+  for (const { body, lvl } of renderShapes) {
+    if (SHAPES[lvl].bodyLayer === 'rear') drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "rear");
+  }
   for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "body");
   for (const { body } of renderShapes) drawBody(ctx, bodyToDraw(body), bodyLvl, totalMs, "front");
   drawUnlockGlows(
@@ -1833,12 +1656,14 @@ function clearTouchAimCache() {
 }
 
 canvas.addEventListener("mousemove", (e) => {
+  if (round.botActive) return;
   if (autoPilotActive) return;
   const rect = canvas.getBoundingClientRect();
   dropX = (e.clientX - rect.left) * (W / rect.width);
 });
 
 canvas.addEventListener("click", (e) => {
+  if (round.botActive) return;
   // When destroy power is armed, the click selects a target instead of
   // dropping only if it actually hits a target. Empty-space clicks still throw.
   if (destroyCharges > 0 && useDestroyPower(e.clientX, e.clientY)) {
@@ -1856,6 +1681,7 @@ canvas.addEventListener(
   "touchstart",
   (e) => {
     e.preventDefault();
+    if (round.botActive) return;
     if (autoPilotActive) {
       clearTouchAimCache();
       return;
@@ -1873,6 +1699,7 @@ canvas.addEventListener(
   "touchmove",
   (e) => {
     e.preventDefault();
+    if (round.botActive) return;
     if (autoPilotActive) {
       clearTouchAimCache();
       return;
@@ -1887,6 +1714,7 @@ canvas.addEventListener(
   "touchend",
   (e) => {
     e.preventDefault();
+    if (round.botActive) return;
     const t = e.changedTouches[0];
     if (destroyCharges > 0 && t && useDestroyPower(t.clientX, t.clientY)) {
       clearTouchAimCache();
@@ -1914,6 +1742,7 @@ canvas.addEventListener(
 
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
+    if (round.botActive || e.target.closest('input, select, textarea, button')) return;
     e.preventDefault();
     if (autoPilotActive) return;
     drop();
@@ -2003,6 +1832,8 @@ function startGame() {
     return;
   }
   showLimitMsg(false);
+  devBot?.stop();
+  round.testing = false;
   round.playing = true;
   resetLevel();
   reportGameStart(getLevel());
@@ -2019,7 +1850,7 @@ function startGame() {
 // mid-round. Reads live game state so the snapshot is always current.
 reportOpen();
 initAnalytics(() => ({
-  active: round.playing && !round.gameOver,
+  active: round.playing && !round.gameOver && !round.testing,
   score,
   mode: getLevel(),
 }));
@@ -2055,6 +1886,8 @@ gameStatBtn?.addEventListener("click", () => {
 });
 
 function showStartScreen() {
+  devBot?.stop();
+  round.testing = false;
   // Wipe the board so nothing animates behind the overlay between rounds.
   Composite.allBodies(world)
     .filter((b) => b.label === "shape")
@@ -2089,6 +1922,7 @@ function showStartScreen() {
 }
 
 restartEl.addEventListener("click", () => {
+  if (round.testing) { devBot?.stop(); showStartScreen(); return; }
   if (!round.playing) {
     // Edge case: Play Again before ever starting a round just reopens the
     // start screen rather than launching an unprimed round.
@@ -2317,11 +2151,13 @@ function buildRoundSnapshot() {
 }
 
 function saveGame() {
-  if (!round.playing || round.gameOver) return;
+  if (!round.playing || round.gameOver || round.testing) return;
   writeSave(buildRoundSnapshot());
 }
 
 function restoreGame(data) {
+  devBot?.stop();
+  round.testing = false;
   round.playing = true;
   restoreLevel(data.level);
 
@@ -2484,6 +2320,66 @@ onClearPlanets(() => {
 onScenarioCapture(() => (round.playing && !round.gameOver ? buildRoundSnapshot() : null));
 onScenarioPlay((data) => {
   if (data && Array.isArray(data.bodies)) restoreGame(data);
+});
+
+function botPhysicsSettings() {
+  return { speed: getSimSpeed(), circleSides: mobilePerfMode() ? 32 : 64,
+    positionIterations: engine.positionIterations, velocityIterations: engine.velocityIterations };
+}
+
+devBot = createDevBot({
+  canStart: () => !devSimulator?.active,
+  settings: () => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
+    wallTop: WALL_TOP, dropRates: SHAPES.map(s => s.dropRate), planner: 'physics-next-v1' }),
+  onStart() {
+    saveGame();
+    bankPlayTime();
+    round.testing = true;
+    round.botActive = true;
+    stopAutoPilot();
+    clearTouchAimCache();
+    prepareBotControls();
+  },
+  onStop() {
+    round.botActive = false;
+    // Keep the test board isolated until a normal game starts or is restored.
+    syncAutoPilotUI();
+  },
+  startRound(level) {
+    setMode(level);
+    round.playing = true;
+    resetGameState();
+    applyLegendMode(droppableLvls);
+    showLegend();
+    for (const id of ['start-overlay', 'mode-overlay', 'level-overlay', 'perks-overlay', 'settings-overlay', 'new-game-confirm']) {
+      document.getElementById(id)?.classList.remove('visible');
+    }
+    syncAutoPilotUI();
+  },
+  state() {
+    const shapes = collectLiveShapes();
+    return { simMs: totalMs, score, gameOver: round.gameOver, curLvl, choosing: powerCharges > 0,
+      ready: round.playing && canDrop && !isProtected() && !chooseCountdownActive() && !perksOpen() && !levelInfoOpen(),
+      maxSpeed: shapes.reduce((max, { body }) => Math.max(max, body.isSleeping ? 0 : body.speed), 0),
+      needsRescue: noRoomMs > 0 || shapes.some(({ body, rad }) => totalMs - (bodyBorn.get(body.id) || 0) > 1800 && body.position.y - rad < WALL_TOP + 90) };
+  },
+  snapshot() {
+    return { curLvl, nxtLvl, destroyCharges, droppableLvls: [...droppableLvls],
+      tuning: structuredClone(TUNING), settings: botPhysicsSettings(),
+      bodies: collectLiveShapes().map(({ body, lvl }) => ({ lvl, x: body.position.x, y: body.position.y,
+        vx: body.velocity.x, vy: body.velocity.y, angle: body.angle, av: body.angularVelocity, sleeping: body.isSleeping })) };
+  },
+  drop(x) { dropX = x; const dropped = drop(); if (dropped) recordDevDrop(); return dropped; },
+  destroy: destroyPlanetLevel,
+  shake: () => curLevel().rainbow !== false && tryShake(),
+});
+
+devSimulator = createDevSimulator({
+  isBusy: () => Boolean(devBot?.active),
+  settings: () => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
+    layout: { ...LAYOUT }, balance: { ...BALANCE }, dropRates: SHAPES.map(s => s.dropRate),
+    planets: SHAPES.map(s => ({ name: s.name, size: s.size, pts: s.pts, sides: s.sides })),
+    simulationVersion: 1, knowledge: 'current-and-next', timing: 'normal-speed' }),
 });
 
 drawNext(nxtCtx, nxtCanvas, nxtLvl);

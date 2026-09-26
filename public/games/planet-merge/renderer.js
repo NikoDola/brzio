@@ -54,10 +54,10 @@ const _assetLoadCbs = [];
  *  artwork is available (the main game loop redraws every frame anyway). */
 export function onAssetLoad(cb) { _assetLoadCbs.push(cb); }
 
-const MOODS = ['casual', 'hurt', 'sad'];
+const MOODS = ['casual', 'hurt', 'sad', 'merge'];
 
 const bodyBmps   = SHAPES.map(() => null);  // lvl → baked body bitmap
-const combinedBmps = SHAPES.map(() => ({ casual: null, hurt: null, sad: null }));
+const combinedBmps = SHAPES.map(() => ({ casual: null, hurt: null, sad: null, merge: null }));
 const accessoryBmps = SHAPES.map(() => []);  // lvl → array of baked accessory bitmaps (index matches SHAPES[lvl].accessories)
 
 // The source Images are retained after baking so every bitmap can be re-baked:
@@ -66,7 +66,7 @@ const accessoryBmps = SHAPES.map(() => []);  // lvl → array of baked accessory
 // sprite would stay invisible for the rest of the session. See the
 // context-loss self-heal block below.
 const bodyImgs = SHAPES.map(() => null);   // lvl → loaded body Image
-const faceImgs = SHAPES.map(() => null);   // lvl → { casual, hurt, sad } loaded Images
+const faceImgs = SHAPES.map(() => null);   // lvl → loaded Images by mood
 const accImgs  = SHAPES.map(() => []);     // lvl → array of loaded accessory Images
 
 function bakeCombinedSprite(lvl, faceBmp) {
@@ -184,7 +184,8 @@ if (LAYOUT.PLAYER_MARKER_ASSET) {
    viewBox so it aligns when drawn at the same rect + rotation.
    File convention: body `planet_earth_body.svg` → `planet_earth_casual.svg`,
    `planet_earth_hurt.svg`, `planet_earth_sad.svg` (the `_body` suffix is
-   dropped to get the shared face stem). Missing files fail silently (planet
+   dropped to get the shared face stem). A new planet from a merge uses
+   `planet-merge_earth-merge.svg` briefly. Missing files fail silently (planet
    just shows the bare body) so art can be added incrementally.
 
    Mood sequence when a planet is hit (game.js stamps body.expr.hitAt):
@@ -193,16 +194,19 @@ if (LAYOUT.PLAYER_MARKER_ASSET) {
      after:               casual (resting face)                              */
 const EXPR_HURT_MS = 1000;  // flinch for a second the instant it's struck
 const EXPR_SAD_MS  = 2000;  // then sulks for two seconds, then back to casual
+const EXPR_MERGE_MS = 800; // new planet celebrates briefly after a merge
 
 const exprBmps = SHAPES.map((s, i) => {
     if (!s.asset || !s.expressions) return null;
     const base = s.asset.replace(/\.svg$/i, '').replace(/_body$/, '');
     // Slots fill in as each face SVG loads and bakes; a missing file just
     // leaves its slot null (planet shows the bare body until art exists).
-    const slot = { casual: null, hurt: null, sad: null };
-    for (const mood of ['casual', 'hurt', 'sad']) {
+    const slot = { casual: null, hurt: null, sad: null, merge: null };
+    for (const mood of MOODS) {
         const img = new Image();
-        img.src = `assets/images/${base}_${mood}.svg`;
+        img.src = mood === 'merge'
+            ? `assets/images/planet-merge_${s.name.toLowerCase()}-merge.svg`
+            : `assets/images/${base}_${mood}.svg`;
         img.onload  = () => {
             if (!faceImgs[i]) faceImgs[i] = {};
             faceImgs[i][mood] = img;
@@ -275,9 +279,10 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') healBakedBitmaps('tab became visible');
 });
 
-/** Which face a planet should show right now, from its hit timestamp. Pure
- *  read of body.expr + the clock — no state mutation (that lives in game.js). */
+/** Which face a planet should show right now, from its merge and hit timestamps.
+ *  Pure read of body state and the clock; game.js owns the timestamps. */
 function currentExpr(body, totalMs) {
+    if (Number.isFinite(body.mergedAt) && totalMs - body.mergedAt < EXPR_MERGE_MS) return 'merge';
     const e = body.expr;
     if (!e) return 'casual';
     const dt = totalMs - e.hitAt;
@@ -385,14 +390,17 @@ function accessoryRect(rad, acc) {
 function drawAccessory(ctx, bmp, rad, acc) {
     if (!bmp) return;
     const { w, h, cx, cy } = accessoryRect(rad, acc);
+    ctx.save();
+    ctx.globalAlpha *= acc.opacity ?? 1;
     ctx.drawImage(bmp, cx - w / 2, cy - h / 2, w, h);
+    ctx.restore();
 }
 
 /**
  * Draw one live physics body, in a given render `phase`:
- *   'back'  — only the accessories that sit BEHIND planets (everything except
- *             those flagged layer:'front').
- *   'body'  — only the planet body + face.
+ *   'back'  — accessories behind all planet bodies.
+ *   'rear'  — bodies flagged bodyLayer:'rear', behind normal bodies.
+ *   'body'  — normal planet bodies + faces.
  *   'front' — only layer:'front' accessories (the Sun's sunglasses).
  *   'all'   — everything, in one pass (default; used by non-layered callers).
  *
@@ -410,15 +418,16 @@ export function drawBody(ctx, body, bodyLvl, totalMs = 0, phase = 'all') {
 
     // Convert physics angle back to visual angle (undoes the spawn correction)
     const vAngle = body.angle + polyCorr(lvl);
+    const def = SHAPES[lvl];
     const wantBack  = phase === 'all' || phase === 'back';
-    const wantBody  = phase === 'all' || phase === 'body';
+    const wantBody  = phase === 'all' || phase === (def.bodyLayer || 'body');
     const wantFront = phase === 'all' || phase === 'front';
 
     if (hasImg(lvl)) {
         const rad = r(lvl);
         const ro  = body.renderOffset;        // set by physics.js for silhouette bodies
         const sprite = spriteForMood(lvl, currentExpr(body, totalMs));
-        const accs  = SHAPES[lvl].accessories;
+        const accs  = def.accessories;
         const bmps  = accessoryBmps[lvl];
         ctx.save();
         ctx.translate(body.position.x, body.position.y);
@@ -432,6 +441,7 @@ export function drawBody(ctx, body, bodyLvl, totalMs = 0, phase = 'all') {
         }
         if (wantBody) {
             ctx.save();
+            ctx.globalAlpha *= def.bodyOpacity ?? 1;
             if (ro) ctx.translate(ro.x, ro.y);   // align image w/ collider when silhouette is off-centre
             ctx.drawImage(sprite, -rad, -rad, rad * 2, rad * 2);
             ctx.restore();
@@ -446,7 +456,7 @@ export function drawBody(ctx, body, bodyLvl, totalMs = 0, phase = 'all') {
         drawProcedural(ctx, lvl, body.position.x, body.position.y, vAngle);
     }
 
-    if (DEBUG_COLLIDERS && wantBody) drawColliderOverlay(ctx, body);
+    if (DEBUG_COLLIDERS && (phase === 'all' || phase === 'body')) drawColliderOverlay(ctx, body);
 }
 
 /**

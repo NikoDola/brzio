@@ -17,7 +17,7 @@
       // Block wheel events from bubbling out and scrolling the parent page,
       // EXCEPT inside scrollable UI like the perks grid, which must scroll.
       window.addEventListener('wheel', (e) => {
-        if (e.target.closest && e.target.closest('.perks-grid, .settings-body, .level-body')) return;
+        if (e.target.closest && e.target.closest('.perks-grid, .settings-body, .level-body, #dev-body')) return;
         e.preventDefault();
       }, { passive: false });
     </script>
@@ -276,6 +276,72 @@
                     <span id="save-scenario-msg" class="dev-hint"></span>
                 </div>
                 <div id="scenario-list" class="scenario-list"></div>
+                <section id="smart-bot" aria-label="Smart bot testing">
+                    <div class="dev-section-title">Smart Bot</div>
+                    <div class="dev-row">
+                        <label class="dev-label" for="bot-level">Level</label>
+                        <select id="bot-level"><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>
+                    </div>
+                    <label for="bot-runs">Test length</label>
+                    <select id="bot-runs">
+                        <option value="1">One run: continue after winning</option>
+                        <option value="10" selected>10 games: restart after win or loss</option>
+                        <option value="25">25 games: restart after win or loss</option>
+                    </select>
+                    <div class="dev-row bot-actions">
+                        <button id="bot-start" class="dev-pill" type="button">Start</button>
+                        <button id="bot-stop" class="dev-pill dev-pill-danger" type="button" disabled>Stop</button>
+                        <button id="bot-export" class="dev-pill" type="button" disabled>Export</button>
+                    </div>
+                    <div id="bot-status" role="status">Idle</div>
+                    <dl class="bot-stats">
+                        <div><dt>Run</dt><dd id="bot-attempt">-</dd></div>
+                        <div><dt>Drops</dt><dd id="bot-drops">0</dd></div>
+                        <div><dt>Game time</dt><dd id="bot-time">-</dd></div>
+                        <div><dt>Wall time</dt><dd id="bot-wall-time">-</dd></div>
+                        <div><dt>Win rate</dt><dd id="bot-win-rate">-</dd></div>
+                        <div><dt>First win</dt><dd id="bot-first-win">-</dd></div>
+                        <div><dt>Average win</dt><dd id="bot-average">-</dd></div>
+                        <div><dt>Fastest win</dt><dd id="bot-best">-</dd></div>
+                    </dl>
+                    <div id="bot-record">0 W / 0 L / 0 timed out</div>
+                    <p class="dev-hint">Starts a fresh game with normal drop odds and earned powers. A win means two Suns merge. Unwon tests stop at 15 game minutes or 1,000 drops. Game time pauses during search; wall time includes it. Compare tests at the same Speed and physics settings. Results stay separate from player stats.</p>
+                </section>
+                <section id="fast-sim" aria-label="Background simulator">
+                    <div class="dev-section-title">Background simulator</div>
+                    <label for="sim-level">Level</label>
+                    <select id="sim-level"><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>
+                    <label for="sim-strategy">Bot strategy</label>
+                    <select id="sim-strategy"><option value="quick">Quick: simpler move search</option><option value="smart">Smart: physics lookahead (slower)</option></select>
+                    <label for="sim-runs">Games to calculate</label>
+                    <select id="sim-runs"><option value="1">1 fixed sequence</option><option value="10" selected>10 sequences</option><option value="25">25 sequences</option><option value="100">100 sequences</option></select>
+                    <label for="sim-seed">Sequence seed</label>
+                    <input id="sim-seed" type="text" maxlength="80" value="planet-merge-1" spellcheck="false">
+                    <label for="sim-limit">Game minutes per run</label>
+                    <input id="sim-limit" type="number" min="1" max="60" step="1" value="15">
+                    <div class="dev-row bot-actions">
+                        <button id="sim-start" class="dev-pill" type="button">Calculate</button>
+                        <button id="sim-stop" class="dev-pill dev-pill-danger" type="button" disabled>Stop</button>
+                        <button id="sim-export" class="dev-pill" type="button" disabled>Export</button>
+                    </div>
+                    <div id="sim-status" role="status">No test yet</div>
+                    <div id="sim-progress">Ready</div>
+                    <p id="sim-context" class="dev-hint"></p>
+                    <dl class="bot-stats">
+                        <div><dt>Wins within limit</dt><dd id="sim-rate">-</dd></div>
+                        <div><dt>Calculation time</dt><dd id="sim-compute-time">-</dd></div>
+                        <div><dt>Average time to win</dt><dd id="sim-win-time">-</dd></div>
+                        <div><dt>Average time to lose</dt><dd id="sim-loss-time">-</dd></div>
+                        <div><dt>Win time range</dt><dd id="sim-win-range">-</dd></div>
+                        <div><dt>Loss time range</dt><dd id="sim-loss-range">-</dd></div>
+                        <div><dt>Total game time</dt><dd id="sim-game-time">-</dd></div>
+                    </dl>
+                    <div id="sim-record">0 wins / 0 losses / 0 at limit</div>
+                    <p class="dev-hint">Runs invisibly using physics settings captured when you click Calculate. The bot sees the current planet and NEXT. Repeat the seed, strategy and settings in the same browser for the same test; batches use a different seed per run. Times use normal game speed and exclude thinking time. Each run stops at its first win, loss, game time limit or 1,000 drops. At limit means no outcome yet, not a loss. Results estimate this bot's play, not human play.</p>
+                    <details><summary>Individual results</summary>
+                        <div class="sim-table-wrap"><table><thead><tr><th>Run</th><th>Result</th><th>Game time</th><th>Drops</th><th>Seed</th></tr></thead><tbody id="sim-results"></tbody></table></div>
+                    </details>
+                </section>
                 <div class="dev-row">
                     <span class="dev-label">Auto-Drop</span>
                     <button id="auto-drop-btn" class="dev-pill">OFF</button>

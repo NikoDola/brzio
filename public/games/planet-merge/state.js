@@ -12,4 +12,6 @@
 export const round = {
   playing: false,
   gameOver: false,
+  testing: false,
+  botActive: false,
 };

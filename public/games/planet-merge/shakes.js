@@ -11,14 +11,12 @@
    the lose checks are suspended, so a shake can never cost you the
    game... unless Level 6+ turns the shield off (see levels.js's `rainbow`
    flag). Level 7+ also fires shake bursts on their own (the earthquake). */
-import { LAYOUT, r, BALANCE } from "./config.js";
-import { world, bodyLvl, wakeAllShapes, setShieldArch, archPoint } from "./physics.js";
-import { TUNING } from "./tuning.js";
+import { BALANCE } from "./config.js";
+import { popPlanets, shakeIncrement } from "./game-rules.js";
+import { world, bodyLvl, setShieldArch, archPoint } from "./physics.js";
 import { round } from "./state.js";
 import { getLevel, rainbowEnabled, autoShakeEnabled } from "./levels.js";
 
-const { Body, Composite } = Matter; // CDN global
-const { H, WALL } = LAYOUT;
 
 const shakesFillEl = document.getElementById("shakes-fill");
 const shakesLabelEl = document.getElementById("shakes-label");
@@ -34,12 +32,6 @@ let lastShakeAt = 0;
 let protectUntil = 0;
 let protectActive = false;
 
-function shakeIncrement(chain) {
-  if (chain >= 6) return 5;
-  if (chain === 5) return 10;
-  if (chain >= 3) return 5; // 3 or 4 in a row
-  return 1; // 1 or 2
-}
 function shakeColor(pct) {
   if (pct >= 100) return "#34C77B"; // green, full
   if (pct >= 66) return "#FECA57"; // yellow
@@ -90,47 +82,7 @@ export function armFull() {
 
 // Escape-proofing: keep every planet's speed inside the playfield. Upward is
 // capped hard (no ceiling); horizontal is capped to contain + avoid tunneling.
-function clampShakeVelocity(body, maxUp = BALANCE.SHAKE_MAX_UP, maxSide = BALANCE.SHAKE_MAX_SIDE) {
-  let { x: vx, y: vy } = body.velocity;
-  if (vx > maxSide) vx = maxSide;
-  else if (vx < -maxSide) vx = -maxSide;
-  if (vy < -maxUp) vy = -maxUp; // limit how fast they rise
-  Body.setVelocity(body, { x: vx, y: vy });
-}
-
-// POP: only planets that are settled (slow + supported from below) jump. The
-// height is divided down by the mass stacked on top, so an exposed top planet
-// flies high while a buried one barely lifts. Supported means resting on the
-// floor OR on another planet. Only a planet in the air with nothing under it is
-// skipped, so it can't be re-popped (and can't pile up + escape).
-function applyPop(intensity) {
-  const base = TUNING.shakeStrength * intensity;
-  const floorY = H - WALL; // top surface of the floor
-  for (const body of Composite.allBodies(world)) {
-    if (body.label !== "shape") continue;
-    if (Math.hypot(body.velocity.x, body.velocity.y) > BALANCE.SETTLE_SPEED) continue; // airborne
-    const lvl = bodyLvl.get(body.id);
-    const rB = lvl !== undefined ? r(lvl) : 20;
-    let supported = body.position.y + rB >= floorY - 6; // sitting on the ground
-    let massAbove = 0;
-    for (const other of Composite.allBodies(world)) {
-      if (other === body || other.label !== "shape") continue;
-      const dx = Math.abs(other.position.x - body.position.x);
-      const lo = bodyLvl.get(other.id);
-      const rO = lo !== undefined ? r(lo) : 20;
-      if (dx > rB + rO) continue; // not in this column
-      const dy = other.position.y - body.position.y;
-      if (dy < 0) massAbove += other.mass; // above → weighs it down
-      else if (dy < rB + rO + 4) supported = true; // just below → holds it up
-    }
-    if (!supported) continue; // floating with nothing under it: can't pop
-    const up = base / (1 + massAbove * BALANCE.POP_LOAD); // less on top → higher
-    Body.setVelocity(body, { x: (Math.random() * 2 - 1) * up * 0.3, y: -up });
-    Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.08);
-    clampShakeVelocity(body, BALANCE.POP_MAX_UP, BALANCE.POP_MAX_SIDE);
-  }
-  wakeAllShapes();
-}
+function applyPop(intensity) { popPlanets(world, bodyLvl, intensity); }
 
 // Brief centred notice, e.g. explaining that manual shaking is off at Level 7.
 // Throttled so mashing the panel doesn't stack duplicates.
@@ -151,6 +103,11 @@ function flashShakeNotice(text) {
 }
 
 shakesPanelEl?.addEventListener("click", () => {
+  if (round.botActive) return;
+  tryShake();
+});
+
+export function tryShake() {
   if (!round.playing || round.gameOver) return;
   // Auto-shake levels take the button away: the earthquake fires on its own now.
   if (autoShakeEnabled()) {
@@ -175,7 +132,8 @@ shakesPanelEl?.addEventListener("click", () => {
   if (rainbowEnabled()) protectUntil = now + BALANCE.PROTECT_MS;
   shakePct = Math.max(0, shakePct - BALANCE.SHAKE_COST);
   updateShakeUI();
-});
+  return true;
+}
 
 /* Level 7+ earthquake. On a random subset of drops the shake fires by itself,
    1..6 times in a row (like rapid button presses). Deliberately erratic: most

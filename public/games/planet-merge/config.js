@@ -20,8 +20,9 @@ export const LAYOUT = {
     PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/
     PLAYER_CONTAINER_Y: 73, // y-centre of the ship/player container
     SCORE_Y:      61,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
-    WALL_TOP:     108,    // y where the side walls begin; above is open air, so an overfull stack can push planets over the edge and out (falling out ends the game)
-    BASE_R:       216,    // pixel radius of a shape whose size is 100 (the Sun) — +20% from 180
+    WALL_TOP:     211,    // 10% less depth: lower the old 108px rim by 0.10 * (1140 - 108), keeping the floor fixed
+    BASE_R:       216,    // reference pixel radius for a size-100 shape before planet scaling
+    PLANET_SCALE: 0.9,    // all planet bodies and colliders are 10% smaller
     VANISH_BONUS: 4096,   // bonus score when two Suns touch and vanish (2x a Sun)
 };
 
@@ -38,6 +39,7 @@ export const BALANCE = {
     DESTROY_UNLOCK:        5,     // merges in one chain to earn the Eliminate power
 
     NO_ROOM_MS:            900,   // full board must persist this long before it ends the run (rides out mid-chain crowding)
+    NO_ROOM_PROBE_SCALE:   1.5,   // loss check uses 1.5x the held planet's radius; actual drops stay normal size
 
     // Shakes meter (see shakes.js)
     SHAKE_COST:            10,    // % of the meter spent per shake click (10 clicks per full bar)
@@ -66,7 +68,7 @@ export const BALANCE = {
 
    ┌─────────────┬────────────────────────────────────────────────────────┐
    │ name        │ cosmetic label                                         │
-   │ size        │ radius as % of LAYOUT.BASE_R (Sun = 100)                │
+   │ size        │ radius as % of BASE_R, before PLANET_SCALE             │
    │ sides       │ 0 = circle (all planets are circles)                   │
    │ color       │ fill hex (fallback when SVG can't load)                │
    │ glow        │ stroke / outline hex                                   │
@@ -137,7 +139,7 @@ export const SHAPES = [
         glow:      '#7a2a08',
         pts:       16,
         droppable: true,
-        dropRate:  3,
+        dropRate:  7,
         asset:     'planet_mars_body.svg',
         expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
@@ -150,7 +152,7 @@ export const SHAPES = [
         glow:      '#9c7a2e',
         pts:       32,
         droppable: true,   // drops in early levels only (see LEVELS in game.js)
-        dropRate:  1,      // rare: it's a big planet
+        dropRate:  6,      // more large drops speed up both merging and crowding
         asset:     'planet_venus_body.svg',
         expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
     },
@@ -232,11 +234,13 @@ export const SHAPES = [
         dropRate:  0,
         asset:     'planet_jupiter_body.svg',
         expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
+        bodyLayer: 'rear',   // draw beneath normal planet bodies in crowded stacks
+        bodyOpacity: 0.5,
     },
 
     {   /* ── 12  Sun — MAX (two Suns touching → both vanish!) ─────────── */
         name:      'Sun',
-        size:      85,      // 20% smaller than the old 95; accessories scale with it
+        size:      85,      // global PLANET_SCALE also applies to the Sun and its accessories
         sides:     0,
         color:     '#F8EFBA',
         glow:      '#f9ca24',
@@ -246,10 +250,10 @@ export const SHAPES = [
         asset:     'planet_sun_body.svg',
         expressions: true,  // plain disc body + face overlays (casual/hurt/sad)
         // Two decorative accessories, both pure paint (never collide). The corona
-        // sits behind the disc, inflated 20px so its flame bumps poke past the
+        // sits behind the disc, inflated so its flame bumps poke past the
         // edge; the sunglasses sit in front, over the face.
         accessories: [
-            { asset: 'planet_sun_accesories.svg',  layer: 'back',  inflatePx: 65 },
+            { asset: 'planet_sun_accesories.svg',  layer: 'back',  opacity: 0.5,  inflatePx: 65 * LAYOUT.PLANET_SCALE },
             {
                 asset:  'planet_sun_accesories2.svg',
                 layer:  'front',
@@ -270,7 +274,7 @@ export const SHAPES = [
    ════════════════════════════════════════════════════════════════════════ */
 
 /** Pixel radius for a given level index */
-export const r = (lvl) => Math.round(SHAPES[lvl].size / 100 * LAYOUT.BASE_R);
+export const r = (lvl) => Math.round(SHAPES[lvl].size / 100 * LAYOUT.BASE_R) * LAYOUT.PLANET_SCALE;
 
 /**
  * Angle correction that aligns drawProcedural's vertex convention

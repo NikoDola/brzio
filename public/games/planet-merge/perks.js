@@ -8,6 +8,7 @@
    unlocking one pops a card in the centre that flies into the collection
    card under the merges panel. */
 import { SHAPES } from "./config.js";
+import { round } from "./state.js";
 import { casualFaceSrc } from "./planet-icons.js";
 import { playPerk, makeExplainClip } from "./audio.js";
 
@@ -186,6 +187,7 @@ const perkToastQueue = [];
 let perkToastPlaying = false;
 
 export function earnPerk(id) {
+  if (round.testing) return;
   if (earnedPerks.has(id)) return;
   const perk = PERKS.find((p) => p.id === id);
   if (!perk) return; // ignore ids that aren't real perks (e.g. droppable planets)

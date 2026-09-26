@@ -18,6 +18,7 @@
 //   win       - two Suns touched after at least five minutes of play; once per mode
 //   quit      - the player left mid-round (best-effort beacon, once per round)
 
+import { round } from "./state.js";
 const ENDPOINT = "/api/stats";
 const GAME = "planet-merge";
 const OPEN_FLAG = "pm_open_reported"; // sessionStorage key, dedupes opens
@@ -188,6 +189,7 @@ export function reportOpen() {
 // Logs a "start" when the player enters a round, and resets the per-round
 // trackers + clock so the matching quit/game_over is measured from here.
 export function reportGameStart(mode) {
+  if (round.testing) return;
   startedAt = Date.now();
   endReported = false;
   quitReported = false;
@@ -198,6 +200,7 @@ export function reportGameStart(mode) {
 // avoids needless writes for trivial/automated attempts; the server enforces
 // the same minimum independently. markModeWon() supplies the two-Suns trigger.
 export function reportModeWin(mode, score) {
+  if (round.testing) return;
   const durationMs = startedAt ? Date.now() - startedAt : 0;
   if (durationMs < MIN_WIN_DURATION_MS) return false;
 
@@ -214,6 +217,7 @@ export function reportModeWin(mode, score) {
 }
 
 export function reportGameEnd(outcome, score, mode) {
+  if (round.testing) return;
   if (endReported) return; // report a round's end only once
   endReported = true;
   send("game_over", {

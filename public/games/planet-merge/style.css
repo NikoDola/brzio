@@ -1966,6 +1966,25 @@ html.dev-mode #dev-panel {
 
 #dev-body.open { display: flex; }
 
+#smart-bot { display: grid; gap: 9px; border-block: 1px solid rgba(255,255,255,.12); padding-block: 12px; font-size: 11px; }
+#smart-bot select { width: 100%; min-width: 0; background: #16213e; color: #fff; border: 1px solid #ffffff30; border-radius: 6px; padding: 7px; font: inherit; }
+.bot-actions { flex-wrap: wrap; }
+.bot-actions .dev-pill { padding-inline: 12px; flex: 1; }
+#bot-status { color: #8ce3d1; min-height: 28px; }
+.bot-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0; }
+.bot-stats dt { color: #c7cede; font-size: 10px; }
+.bot-stats dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; font-weight: 700; }
+#smart-bot .dev-hint { margin: 0; line-height: 1.5; }
+#fast-sim { display: grid; gap: 9px; border-bottom: 1px solid rgba(255,255,255,.12); padding-block: 12px; font-size: 11px; }
+#fast-sim select, #fast-sim input { width: 100%; min-width: 0; background: #16213e; color: #fff; border: 1px solid #ffffff30; border-radius: 6px; padding: 7px; font: inherit; }
+#fast-sim .dev-hint { margin: 0; line-height: 1.5; }
+#sim-status { color: #8cdfd0; }
+.sim-table-wrap { max-height: 180px; overflow: auto; margin-top: 8px; }
+#sim-context { overflow-wrap: anywhere; }
+.sim-table-wrap table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sim-table-wrap th, .sim-table-wrap td { padding: 6px; border-bottom: 1px solid #ffffff20; text-align: left; white-space: nowrap; }
+#dev-body :disabled { opacity: .4; cursor: default; }
+
 .dev-row {
     display: flex;
     align-items: center;

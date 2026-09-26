@@ -6,6 +6,7 @@
    mass/impact editor, and the "clear all local storage" button. None of this
    ships to a real player; see ../CLAUDE.md for how ?dev=1 is gated. */
 import { SHAPES } from "./config.js";
+import { round } from "./state.js";
 import { setDebugColliders } from "./renderer.js";
 import { applyTuningToBodies, wakeAllShapes, engine } from "./physics.js";
 import { TUNING } from "./tuning.js";
@@ -74,11 +75,22 @@ let simSpeed = 1; // physics time multiplier (1× = normal, 10× = turbo)
 let forceChoose = false;
 let forceDestroy = false;
 
-export const isAutoDropOn = () => autoDropOn;
+export const isAutoDropOn = () => autoDropOn && !round.botActive;
 export const getAutoDropX = () => autoDropX;
 export const getSimSpeed = () => simSpeed;
-export const getForceChoose = () => forceChoose;
-export const getForceDestroy = () => forceDestroy;
+export const getForceChoose = () => forceChoose && !round.botActive;
+export const getForceDestroy = () => forceDestroy && !round.botActive;
+
+export function prepareBotControls() {
+  setDropMode("weighted");
+  dropModeEl.value = "weighted";
+  autoDropOn = false;
+  autoDropBtn.textContent = "OFF";
+  autoDropBtn.classList.remove("active");
+  forceChoose = false;
+  forceDestroy = false;
+  syncForcePowerButtons();
+}
 
 let onForcePowerChanged = () => {};
 export function onForcePowerChange(callback) {

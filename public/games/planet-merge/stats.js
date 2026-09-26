@@ -1,6 +1,7 @@
 /* ════════════════════════════════════════════════════════════════════════
    stats.js  —  persistent play stats (shown in the Game Statistic overlay)
    ════════════════════════════════════════════════════════════════════════ */
+import { round } from "./state.js";
 const HIGH_KEY = "pm_high_score";
 const GAMES_KEY = "pm_games_played";
 const TIME_KEY = "pm_play_time_ms";
@@ -33,6 +34,7 @@ let pointsBalance = loadNum(POINTS_KEY);
    Every finished run banks its final score here (game.js endGame). Shown on
    the start screen; later this becomes the currency for buying skins. */
 export function addPoints(n) {
+  if (round.testing) return;
   const amount = Math.max(0, Math.floor(n || 0));
   if (!amount) return;
   pointsBalance += amount;
@@ -43,18 +45,21 @@ export function getPoints() {
 }
 
 export function recordHigh(score) {
+  if (round.testing) return;
   if (score > highScore) {
     highScore = score;
     saveNum(HIGH_KEY, highScore);
   }
 }
 export function recordBestChain(c) {
+  if (round.testing) return;
   if (c > bestChain) {
     bestChain = c;
     saveNum(CHAIN_KEY, bestChain);
   }
 }
 export function recordGamePlayed() {
+  if (round.testing) return;
   gamesPlayed += 1;
   saveNum(GAMES_KEY, gamesPlayed);
 }
@@ -83,9 +88,11 @@ function addTodayMs(ms) {
 // on game end and on leaving (visibilitychange), resumed when the tab returns.
 let playClockStart = 0;
 export function startPlayClock() {
+  if (round.testing) return;
   playClockStart = Date.now();
 }
 export function bankPlayTime() {
+  if (round.testing) { playClockStart = 0; return; }
   if (!playClockStart) return;
   const elapsed = Date.now() - playClockStart;
   totalPlayMs += elapsed;

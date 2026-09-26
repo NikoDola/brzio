@@ -20,44 +20,12 @@
    end; the win is recorded (localStorage) and the next mode unlocks. Twelve
    modes are planned; three exist. `getLevel()` stays the analytics label. */
 import { SHAPES } from "./config.js";
+import { round } from "./state.js";
 import { planetIconHTML, applyLegendMode } from "./planet-icons.js";
 import { playPerk } from "./audio.js";
 
-export const MODES = [
-  {
-    num: 1,
-    name: "Level 1",
-    iconLvl: 0, // the Star icon fronts the no-Stars mode; deliberate for now
-    drops: [1, 2, 3, 4, 5], // Moon, Pluto, Mercury, Mars, Venus
-    eliminate: true,
-    choose: true,
-    rainbow: true,
-    scoreMult: 1.2,
-    blurb: "The opening run. Moon through Venus drop, no Stars yet, and the rainbow shield keeps your shakes safe.",
-  },
-  {
-    num: 2,
-    name: "Level 2",
-    iconLvl: 1, // Moon
-    drops: [0, 1, 2, 3, 4, 5], // Stars join the pool
-    eliminate: true,
-    choose: true,
-    rainbow: true,
-    scoreMult: 1.4,
-    blurb: "Stars join the drop pool and crowd the board faster. The rainbow shield still protects your shakes.",
-  },
-  {
-    num: 3,
-    name: "Level 3",
-    iconLvl: 2, // Pluto
-    drops: [0, 1, 2, 3, 4, 5],
-    eliminate: true,
-    choose: true,
-    rainbow: false, // shaking can now throw a planet out and end the run
-    scoreMult: 1.5,
-    blurb: "No rainbow shield. A careless shake can throw a planet over the rim and end the run.",
-  },
-];
+import { MODES } from "./level-config.js";
+export { MODES };
 
 let mode = 1;
 export const getLevel = () => mode;
@@ -164,6 +132,7 @@ export function onModeWinsChange(cb) {
 /** Record a win (two Suns touched). First time only: persist, banner, and
  *  refresh anything showing lock states. The run keeps going regardless. */
 export function markModeWon(n) {
+  if (round.testing) return false;
   if (wonModes.has(n)) return false;
   wonModes.add(n);
   saveWins();
@@ -255,6 +224,7 @@ function renderLevelCard(n = mode) {
     <p class="level-blurb">${m.blurb}</p>
     <div class="level-drops-label">Dropping in this level</div>
     <div class="level-drops-icons">${icons}</div>
+    <p class="level-blurb">Mars and Venus drop more often. The container is 10% shallower, so watch the rim.</p>
     <ul class="level-rules">
       ${ruleHTML(
         m.choose !== false,

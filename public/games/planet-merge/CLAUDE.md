@@ -1,6 +1,6 @@
 # Planet Merge
 
-A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus, winning the current level (the run keeps going). The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board so crowded that a Venus-sized planet has nowhere left to drop.
+A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus, winning the current level (the run keeps going). The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board too crowded for a safety probe with 1.5 times the waiting planet's radius.
 
 Before diving in here, read [`../CLAUDE.md`](../CLAUDE.md). It covers the rules shared by every game on the site (iframe embedding, scroll locking, dev mode) and the site-wide writing rule: no em dashes, anywhere.
 
@@ -34,6 +34,10 @@ Each file has one job. Don't copy logic between them.
 | [config.js](config.js) | `LAYOUT` (canvas and ship geometry), `BALANCE` (chain thresholds, cooldowns, shake costs), and every planet's definition in `SHAPES`. **This is the file you edit to rebalance the game or add a planet.** |
 | [tuning.js](tuning.js) | Live-tunable physics numbers (planet weight curve, impact kick, shake strength), shared by physics.js and the dev panel. |
 | [physics.js](physics.js) | Everything Matter.js: the engine, the walls, the shield arch, tracking which body is which, building colliders from artwork, spawning and removing bodies. |
+| [game-rules.js](game-rules.js) | DOM-free drop geometry, impacts, perch nudges, container guards, loss rules, shake rewards and shake impulses shared with simulations. |
+| [level-config.js](level-config.js) | DOM-free `MODES` definitions shared by the level UI and simulations. |
+| [dev-bot.js](dev-bot.js), [bot-planner.js](bot-planner.js), [bot-worker.js](bot-worker.js), [bot-results.js](bot-results.js) | Visible Smart Bot controls, move search, background forecasts and test reports. |
+| [dev-simulator.js](dev-simulator.js), [simulation-worker.js](simulation-worker.js), [simulation-core.js](simulation-core.js), [simulation-results.js](simulation-results.js) | Background batch controls, isolated physics sessions, seeded sequences, timing and outcome summaries. |
 | [renderer.js](renderer.js) | All the drawing on the canvas: planets and their faces, the ship marker and its beam, the big sky score with the ship's shadow, effects, previews. It only reads game state and paints it. It never changes anything. |
 | [game.js](game.js) | The brain and the entry point. Game loop, input, merges, the chain counter, superpowers, autopilot, the death replay, ship skins, save/restore, fullscreen, restart. |
 | [state.js](state.js) | The tiny shared `round` flags (playing, game over) every other module reads. |
@@ -57,12 +61,14 @@ Each file has one job. Don't copy logic between them.
 
 The game thinks in a fixed canvas that is **840 wide by 1160 tall**, no matter what size the screen is. On smaller screens the canvas is scaled down visually, but the game math always uses those fixed numbers. (They come from `LAYOUT.W` and `LAYOUT.H` in config.js.)
 
+The inner depth is 929px, about 10% less than the previous 1032px. The rim moved down from y=108 to y=211; the floor and width stay fixed. Merges above the rim keep their contact height instead of being teleported below the wall.
+
 A few key spots on that canvas:
 
 - The playfield's inner edges sit at `WALL_X` = 60, so planets live between x=60 and x=780. The visible walls are 20px thick and drawn just outside those edges.
-- The side walls only start at y=108 (`WALL_TOP` in config.js); above that the container is open air. The physics floor spans just the inner width, so a planet pushed over a wall has nothing to land on and falls out of the world. A red dashed warning line appears 50px below the ship once older board planets reach the top fifth of the container, but it is only a warning. Freshly dropped falling planets are ignored for this warning. It is not a collision boundary.
+- The side walls only start at y=211 (`WALL_TOP` in config.js); above that the container is open air. The physics floor spans just the inner width, so a planet pushed over a wall has nothing to land on and falls out of the world. A red dashed warning line appears 48px below the rim once older board planets reach the top quarter of the container, but it is only a warning. Freshly dropped falling planets are ignored for this warning. It is not a collision boundary.
 - The ship (the "player marker") is centred at y=73 and follows the pointer horizontally. The planet waiting to drop hangs just below it, so its y depends on its own radius (see `dropYFor` in game.js), roughly y=155 plus the radius.
-- `BASE_R` = 216 is the radius of a hypothetical size-100 planet. The Sun is size 95, so the biggest real planet has a radius of about 205px. Every planet's radius is `size / 100 * BASE_R`.
+- `BASE_R` = 216 is the reference radius of a hypothetical size-100 planet. `PLANET_SCALE` = 0.9 makes every planet 10% smaller. The Sun is size 85, so the biggest real planet has a radius of about 166px. Every planet's radius is `round(size / 100 * BASE_R) * PLANET_SCALE`.
 
 ---
 
@@ -89,9 +95,11 @@ All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest.
 
 One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It's decided by the `drops` list on each level in levels.js (the per-planet `dropRate` is still used, as the weighting within that roster). The `droppable` flag only feeds `rndLvl()` in config.js, which nothing calls anymore. In the live game the roster comes from the selected mode: Level 1 drops Moon, Pluto, Mercury, Mars, and Venus; Levels 2 and 3 add Stars. Every other planet only ever shows up by merging.
 
-Most planets are `expressions: true`: the body SVG is faceless (`planet_earth_body.svg`) and separate casual/hurt/sad face overlays share its viewBox (`planet_earth_casual.svg` etc). A hit planet flinches (hurt, 1s), sulks (sad, 2s), then relaxes. Missing face files fail silently, so art can land incrementally.
+Most planets are `expressions: true`: the body SVG is faceless (`planet_earth_body.svg`) and separate casual/hurt/sad face overlays share its viewBox (`planet_earth_casual.svg` etc). A planet created by a merge shows its `planet-merge_<name>-merge.svg` face for 0.8s, then returns to its normal reaction. A hit planet flinches (hurt, 1s), sulks (sad, 2s), then relaxes. Missing face files fail silently, so art can land incrementally.
 
-**Accessories** are decorative bitmaps layered around a planet without ever touching the collider (which stays a plain circle). Saturn's ring and the Sun's corona + sunglasses are `accessories: [...]` entries on those `SHAPES` (see config.js for the schema: a `layer` of `back` or `front`, plus `wRatio`/`hRatio`/`inflatePx` for size and `xRatio`/`yRatio` for offset, all fractions of the body diameter). They're pure paint: the game draws every `back` accessory behind all planets, then all bodies + faces, then `front` accessories on top, so a ring never covers a neighbour and never collides. The Sun's sunglasses are the only `front` accessory.
+**Accessories** are decorative bitmaps layered around a planet without ever touching the collider (which stays a plain circle). Saturn's ring and the Sun's corona + sunglasses are `accessories: [...]` entries on those `SHAPES` (see config.js for the schema: a `layer` of `back` or `front`, optional `opacity`, plus `wRatio`/`hRatio`/`inflatePx` for size and `xRatio`/`yRatio` for offset, all fractions of the body diameter). They're pure paint: the game draws every `back` accessory behind all planets, then Jupiter's rear body, then normal bodies + faces, then `front` accessories on top, so a ring never covers a neighbour and never collides. The Sun's corona is drawn at 50% opacity behind all planets; its sunglasses are the only `front` accessory. Jupiter's body and face use `bodyLayer: 'rear'` and `bodyOpacity: 0.5`, so they appear beneath other planet bodies at half opacity.
+
+Normal drop weights are Stars 5, Moon 4, Pluto 3, Mercury 2, Mars 7, Venus 6. In Level 1, Mars drops 31.8% of the time and Venus 27.3%. In Levels 2 and 3, Mars drops 25.9% and Venus 22.2%; the first drop still uses the two smallest planets.
 
 To add a planet, just add it to `SHAPES`. The drop odds and the merge order sort themselves out.
 
@@ -195,6 +203,28 @@ Please don't switch back to "run physics N times per frame." That ties game spee
 
 ---
 
+## Smart bot testing
+
+`dev-bot.js` owns the controls, worker, attempts, and latest saved report (`pm_dev_bot_report_v1`). `bot-results.js` owns first-win timing and summaries. `bot-worker.js` loads the same pinned Matter.js version as the game and runs `bot-planner.js` off the UI thread. The planner compares candidate drops with physics forecasts, looks one visible NEXT planet ahead, values merges and room, and penalizes spill risk. It uses shared collider construction and contact cleanup. Forecasts approximate live physics; this is a heuristic, not a guarantee of the best possible move or a win.
+
+The bot spends only earned powers and can use shielded shakes when crowded. Starting it resets forced drops/powers to normal and locks other dev controls. Player input is ignored while it runs. It does not write normal scores, perks, points, mode unlocks, saves or gameplay analytics. Stopped test boards remain isolated until a normal game is started or restored. Aborted attempts are excluded from win rate; unwon attempts time out after 15 game minutes or 1,000 drops. A later loss never erases an earlier win. The live board and game clock pause during a forecast, keeping the snapshot stable. Test only at matching Speed/physics settings when comparing results; wall time includes planning and pauses.
+
+Both planners include the midpoint of every legal opening along the drop row. Keep this alongside the regular candidate grid: a grid alone can miss a narrow opening and leave the bot waiting on a playable board.
+
+### Background simulator
+
+The DEV panel can calculate 1, 10, 25 or 100 fresh games without rendering or changing the visible board. Choose the level, strategy, sequence seed and time limit. Quick ranks projected landings and NEXT moves; Smart uses the visible bot's physics lookahead. Both are heuristics and see only the current planet and NEXT. Quick is useful for broad balance checks; use Smart to compare the stronger search.
+
+`simulation-core.js` advances isolated Matter.js worlds in fixed 8ms steps as quickly as the CPU permits. Shared factories and `game-rules.js` provide collisions, container guards, shakes and loss checks. The session also reproduces weighted drops, merges, Choose countdown/cycling, Eliminate expiry and earned shield use. It captures the current physics tuning and solver settings, uses normal game speed and excludes computation time from game time. Bot timing is simulated, so it estimates this bot's play rather than human completion time or an exact replay of a live frame schedule.
+
+Each run ends at the first two-Sun win, a real loss, the selected time limit (default 15 minutes, maximum 60) or 1,000 drops. A limit is reported separately from losses; it has no invented win/loss time. Win rate counts wins within the limit across completed runs. Cancelled partial runs are excluded. Summaries show average and range of win/loss times, total simulated game time and actual calculation time.
+
+Drop and physics randomness use independent seeded streams. A batch appends `/1`, `/2`, etc. to the seed. Copy an individual result's seed into a single run to repeat it with the same strategy, settings, code and browser. Floating-point physics can diverge between runtimes. Export JSON includes captured settings, planet definitions, outcomes, generated planet sequences and timestamped actions. The latest report is stored separately in `pm_dev_simulation_v1`. Background tests never import player stats, saves, perks or analytics. The two bot tools cannot run simultaneously; stopping a background worker keeps completed results.
+
+Run `node --test tests/planet-merge-bot.test.mjs tests/planet-merge-simulation.test.mjs` from the repo root. Set `MATTER_JS_PATH` to a local Matter.js 0.19 CommonJS file to include physics integration assertions. No CDN download is performed by the test suite.
+
+---
+
 ## Building colliders from artwork
 
 > **Dormant as of the all-circle change.** No planet currently sets `outline: true`, so none of this runs: `loadOutlines()` is still called at boot but finds nothing, and the poly-decomp CDN script is loaded but unused. It's kept because the machinery is intact and an outline planet could be re-added. If you're trimming, this whole path (plus the poly-decomp `<script>` in play.html) is safe to delete.
@@ -223,6 +253,8 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 |---|---|
 | **Local Storage CLEAR** | Wipes perks, stats, the points balance, mode wins, and the saved game for testing (leaves saved scenarios alone) |
 | **Scenarios** | Save the current board as a replayable test case (stored in `pm_dev_scenarios`); each card's ▶ loads that exact planet arrangement back in via the same restore path as Continue. For reproducing physics bugs and checking a fix holds. |
+| **Smart Bot** | Fresh weighted games on Level 1/2/3. One run continues after the first win; batches of 10 or 25 restart on each win/loss. Tracks first-win game time, wall time, win rate, average and fastest win. Export JSON includes every attempt and physics settings. |
+| **Background simulator** | Calculate 1/10/25/100 seeded games with Quick or Smart strategy, without visible play. Reports wins, losses, limits and completion times. Stop preserves finished runs; Export includes settings, sequences and actions. |
 | **Auto-Drop** | Keeps dropping at a fixed spot for stress-testing |
 | **Speed** | Runs physics 1x to 10x faster |
 | **Drop X** | Where auto-drop drops, from left to right |
@@ -240,7 +272,7 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 
 The score-threshold ladder is gone. The player picks a **mode** (shown as "Level 1/2/3" in the UI) from the New Game chooser, and that mode's rules hold for the WHOLE run, like the old easy/normal/hard. Twelve modes are planned; three exist. A boolean called `playing` (state.js) tracks whether a round is active.
 
-The modes live in the `MODES` array at the top of levels.js. Each row: the planet icon it wears (`iconLvl`), which planets drop, whether chains can grant each power, whether shakes raise the rainbow shield, and the mode's **score multiplier**. To add a mode, append a row: the chooser, the info card, and the unlock chain follow automatically.
+The modes live in the `MODES` array in level-config.js and are re-exported by levels.js. Each row: the planet icon it wears (`iconLvl`), which planets drop, whether chains can grant each power, whether shakes raise the rainbow shield, and the mode's **score multiplier**. To add a mode, append a row: the chooser, the info card, and the unlock chain follow automatically.
 
 The modes as shipped (both powers on in all three):
 
@@ -276,7 +308,7 @@ When two Suns touch, they pop, you get a flat bonus (`VANISH_BONUS` 4096, times 
 Both lose checks live in game.js, and the game-over overlay names the reason (`#loss-reason`).
 
 1. **A planet falls out of the container** (`checkOver`). The side walls stop at `WALL_TOP`, so an overfull stack can push a planet over the rim. Escapes are tracked honestly: a planet only counts as escaping if it actually crossed the open rim while outside the walls (`rimEscapedIds`); anything else outside the x range is a tunneling glitch and gets pushed back in. An escapee that tips back inside the container is forgiven. The run ends only when the escaped planet has fallen past the bottom of the canvas. The shake shield (`isProtected`) suspends this check, and every planet gets a 1.6s grace after spawning (which also protects freshly-restored saves).
-2. **The board is full** (`checkBoardFull`). Every sampled drop spot across the width is blocked for a Venus-sized planet (`BOARD_ROOM_TEST_LVL` in game.js; it was Earth once, but the bigger probe blocked spots from far below the drop row and ended runs that still looked mid-height), and it stays that way for `NO_ROOM_MS` (900ms, config.js). The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once things settle. The check only arms once older board planets reach the top fifth of the container, which is also when the red dashed warning line appears 50px below the ship. Freshly dropped falling planets are ignored for 1.6s, so the warning does not flash just because a new planet enters from the top. It runs on a 96ms sampling cadence and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
+2. **The board is full** (`checkBoardFull`). Every sampled drop spot across the width is blocked for a probe with 1.5 times the radius of the planet currently waiting to drop, and it stays that way for `NO_ROOM_MS` (900ms, config.js). Actual drops and blocked previews use the normal radius. While Choose is active, every droppable planet's 1.5x probe must be blocked. The dwell time is deliberate: a chain mid-cascade briefly crowds the board, and it must not end a run that has room again once it settles. The check only arms once older board planets reach the top quarter of the container, which is also when the red dashed warning line appears 48px below the rim. Freshly dropped falling planets are ignored for 1.6s, so the warning does not flash just because a new planet enters from the top. It runs on a 96ms sampling cadence and stands down during cooldowns, the choose countdown, the shield, or while an escape is in flight.
 
 ### The death replay
 
