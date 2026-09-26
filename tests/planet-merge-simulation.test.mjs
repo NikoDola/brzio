@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { seededRandom, summarizeSimulations } from '../public/games/planet-merge/simulation-results.js';
 import { LAYOUT, r } from '../public/games/planet-merge/config.js';
+import { createDropPicker, firstDropFor } from '../public/games/planet-merge/level-config.js';
 
 test('seeded streams repeat and different sequences vary', () => {
   const sample = seed => { const random = seededRandom(seed); return Array.from({ length: 20 }, () => random()); };
@@ -33,6 +34,19 @@ if (hasMatter) {
 }
 const base = { level: 1, seed: 'test-sequence', strategy: 'quick' };
 
+test('simulations use the live level picker and preserve explicit captured weights', { skip: !hasMatter }, () => {
+  for (const config of [base, { ...base, level: 2 }, { ...base, level: 3 },
+    { ...base, level: 2, dropRates: [0, 0, 0, 0, 0, 100] }]) {
+    const result = core.runSimulation({ ...config, maxDrops: 3, maxGameMs: 20000 });
+    const random = seededRandom(config.seed + '/drops');
+    const expected = [firstDropFor(config.level, random)];
+    const pick = createDropPicker(config.level, random, config.dropRates);
+    while (expected.length < result.sequence.length) expected.push(pick());
+    assert.equal(result.drops, 3);
+    assert.deepEqual(result.sequence, expected);
+  }
+});
+
 test('two Suns produce a real physics win and the first win time', { skip: !hasMatter }, () => {
   const floor = LAYOUT.H - LAYOUT.WALL - r(11);
   const result = core.runSimulation({ ...base, initialBodies: [{ lvl: 11, x: 420, y: floor }, { lvl: 11, x: 420, y: floor - 2 * r(11) + 4 }] });
@@ -45,10 +59,13 @@ test('a planet that passed the rim and fell off the canvas loses', { skip: !hasM
   sim.step(); assert.equal(sim.state().outcome, 'loss'); assert.equal(sim.state().reason, 'planet-out'); sim.dispose();
 });
 
-test('a blocked Venus drop persists through the real no-room grace before losing', { skip: !hasMatter }, () => {
+test('a blocked held planet persists through the real no-room grace before losing', { skip: !hasMatter }, () => {
+  // Three different sleeping planets cover the rim after the 10% size reduction.
+  // Keep them apart so a collision cannot wake them and reopen a drop lane.
   const sim = core.createSimulation({ ...base, initialBodies: [
-    { lvl: 7, x: 200, y: 260, sleeping: true, born: -5000 },
-    { lvl: 10, x: 550, y: 260, sleeping: true, born: -5000 },
+    { lvl: 7, x: 150, y: 240, sleeping: true, born: -5000 },
+    { lvl: 9, x: 385, y: 240, sleeping: true, born: -5000 },
+    { lvl: 8, x: 637, y: 240, sleeping: true, born: -5000 },
   ] });
   for (let i = 0; i < 100; i++) sim.step();
   assert.equal(sim.state().outcome, null);

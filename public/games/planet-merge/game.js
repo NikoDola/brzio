@@ -55,9 +55,9 @@ import {
   stopTargetLockConstant,
 } from "./audio.js";
 import { round } from "./state.js";
-import { applyLegendMode, showLegend, hideLegend, planetIconHTML } from "./planet-icons.js";
+import { applyLegendMode, showLegend, hideLegend } from "./planet-icons.js";
 import { earnPerk, perkCardEl, perksOverlayEl, openToLastEarnedTab, renderPerksGrid, perksOpen } from "./perks.js";
-import { recordHigh, recordBestChain, recordGamePlayed, startPlayClock, bankPlayTime, updateStatsUI, addPoints, getPoints } from "./stats.js";
+import { recordHigh, recordBestChain, recordGamePlayed, recordLevelReached, startPlayClock, bankPlayTime, updateStatsUI, addPoints, getPoints } from "./stats.js";
 import { dailyLimitReached, showLimitMsg } from "./settings.js";
 import {
   curLevel,
@@ -65,19 +65,14 @@ import {
   droppableLvls,
   pickLvl,
   firstDrop,
-  resetLevel,
   restoreLevel,
   levelInfoOpen,
-  MODES,
   setMode,
   modeScoreMult,
-  isModeUnlocked,
-  isModeWon,
-  markModeWon,
-  openModeInfo,
-  onModeWinsChange,
+  advanceLevel,
 } from "./levels.js";
-import { addShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield, tryShake } from "./shakes.js";
+import { dropRatesFor } from "./level-config.js";
+import { addShake, rewardLevelShake, resetShake, maybeAutoShake, isProtected, tickShield, drawShield, tryShake } from "./shakes.js";
 import { createDevBot } from "./dev-bot.js";
 import { createDevSimulator } from "./dev-simulator.js";
 import {
@@ -1276,16 +1271,19 @@ function flushVanishes() {
     // Two Suns just disappeared — wake the whole field so any stack
     // above the vanish point collapses into the gap.
     wakeAllShapes();
-    // Two Suns pay a big bonus and the run keeps going. Touching them is also
-    // how a mode is WON: record it (first time shows the unlock banner).
+    // Pay the bonus at the completed level's multiplier before advancing.
     const bonus = Math.round(VANISH_BONUS * modeScoreMult());
     score += bonus;
     mergeCount++;
     scoreEl.textContent = formatScore(score);
     recordHigh(score);
+    const { completedLevel, firstWin } = advanceLevel();
+    rewardLevelShake();
+    recordLevelReached(getLevel());
     revokeBannedCharges();
-    const wonMode = getLevel();
-    if (markModeWon(wonMode)) reportModeWin(wonMode, score);
+    noRoomMs = 0;
+    boardFullCheckMs = 0;
+    if (firstWin) reportModeWin(completedLevel, score);
     devBot?.win(totalMs);
     playPop();
     flashes.push({ x: mx, y: my, t: totalMs, big: true });
@@ -1374,6 +1372,7 @@ function endGame(reason = "unknown", detail = {}) {
   stopAutoPilot();
   clearDestroyPower();
   finalEl.textContent = formatScore(score);
+  document.getElementById("final-level").textContent = String(getLevel());
   const culpritName = detail.lvl !== undefined ? SHAPES[detail.lvl]?.name : "";
   if (lossReasonEl) {
     lossReasonEl.textContent =
@@ -1771,7 +1770,7 @@ window.addEventListener("orientationchange", () => {
    `showStartScreen` wipes the board and reopens the start overlay. */
 const startOverlayEl = document.getElementById("start-overlay");
 
-function resetGameState() {
+function resetGameState(level = 1) {
   Composite.allBodies(world)
     .filter((b) => b.label === "shape")
     .forEach((b) => World.remove(world, b));
@@ -1793,7 +1792,7 @@ function resetGameState() {
 
   score = 0;
   mergeCount = 0;
-  resetLevel();
+  setMode(level);
   scoreEl.textContent = formatScore(0);
   resetShake();
   curLvl = firstDrop();
@@ -1828,6 +1827,7 @@ function resetGameState() {
 
 function startGame() {
   if (dailyLimitReached()) {
+    showStartScreen();
     showLimitMsg(true);
     return;
   }
@@ -1835,11 +1835,11 @@ function startGame() {
   devBot?.stop();
   round.testing = false;
   round.playing = true;
-  resetLevel();
+  resetGameState();
+  recordLevelReached(getLevel());
   reportGameStart(getLevel());
   recordGamePlayed();
   startPlayClock();
-  resetGameState();
   applyLegendMode(droppableLvls);
   showLegend();
   startOverlayEl.classList.remove("visible");
@@ -1916,7 +1916,6 @@ function showStartScreen() {
   syncAutoPilotUI();
   syncStartResumeUI();
   hideLegend();
-  hideModeChooser();
   overlayEl.classList.remove("visible");
   startOverlayEl.classList.add("visible");
 }
@@ -1929,7 +1928,7 @@ restartEl.addEventListener("click", () => {
     showStartScreen();
     return;
   }
-  resetGameState();
+  startGame();
 });
 
 const playBtnEl = document.getElementById("play-btn");
@@ -1950,7 +1949,7 @@ function showNewGameConfirm() {
 
 function syncStartResumeUI() {
   const hasSave = !!loadSave();
-  if (playLabelEl) playLabelEl.textContent = hasSave ? "New Game" : "Play";
+  if (playLabelEl) playLabelEl.textContent = hasSave ? "New Game" : "Play Endless";
   if (resumeContinueBtn) resumeContinueBtn.hidden = !hasSave;
   if (!hasSave) hideNewGameConfirm();
   syncPointsUI();
@@ -1958,84 +1957,11 @@ function syncStartResumeUI() {
 
 window.addEventListener("planet-merge-save-change", syncStartResumeUI);
 
-/* ── MODE CHOOSER (New Game → pick a Level) ───────────────────────────────
-   Rows are rebuilt on every open so lock/WON states are always current. A
-   row: [planet icon] Level N + subline, and an ⓘ button opening the same
-   info card the in-run LEVEL cell uses (levels.js renders it). Locked rows
-   say what unlocks them and don't start a game. */
-const modeOverlayEl = document.getElementById("mode-overlay");
-const modeListEl = document.getElementById("mode-list");
-const modeCloseEl = document.getElementById("mode-close");
+// Lifetime points balance on the start screen, banked at each game over.
 const pointsBalanceEl = document.getElementById("points-balance");
-
-// Lifetime points balance on the start screen (banked at each game over;
-// later this becomes the currency for buying ship skins).
 function syncPointsUI() {
   if (pointsBalanceEl) pointsBalanceEl.textContent = formatScore(getPoints());
 }
-
-function hideModeChooser() {
-  modeOverlayEl?.classList.remove("visible");
-}
-
-function renderModeChooser() {
-  if (!modeListEl) return;
-  modeListEl.innerHTML = "";
-  for (const m of MODES) {
-    const unlocked = isModeUnlocked(m.num);
-    const row = document.createElement("div");
-    row.className = `mode-row${unlocked ? "" : " locked"}`;
-
-    const icon = document.createElement("span");
-    icon.className = "mode-row-icon";
-    icon.innerHTML = planetIconHTML(m.iconLvl);
-
-    const text = document.createElement("span");
-    text.className = "mode-row-text";
-    const sub = unlocked
-      ? `x${m.scoreMult} points${isModeWon(m.num) ? ' · <span class="mode-won-badge">WON</span>' : ""}`
-      : `Win ${MODES[m.num - 2]?.name || "the previous level"} to unlock`;
-    text.innerHTML = `<span class="mode-row-name">${m.name}${unlocked ? "" : " 🔒"}</span>
-      <span class="mode-row-sub">${sub}</span>`;
-
-    const info = document.createElement("button");
-    info.type = "button";
-    info.className = "mode-row-info";
-    info.setAttribute("aria-label", `About ${m.name}`);
-    info.textContent = "ⓘ";
-    info.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openModeInfo(m.num);
-    });
-
-    row.append(icon, text, info);
-    if (unlocked) {
-      row.addEventListener("click", () => {
-        playPop();
-        hideModeChooser();
-        setMode(m.num);
-        startGame();
-      });
-    }
-    modeListEl.appendChild(row);
-  }
-}
-
-function showModeChooser() {
-  renderModeChooser();
-  modeOverlayEl?.classList.add("visible");
-}
-
-modeCloseEl?.addEventListener("click", () => {
-  playSelect();
-  hideModeChooser();
-});
-
-// A win landing mid-run keeps the chooser honest if it's somehow open, and
-// the dev Unlock Modes button refreshes it the same way.
-onModeWinsChange(() => {
-  if (modeOverlayEl?.classList.contains("visible")) renderModeChooser();
-});
 
 playBtnEl?.addEventListener("mouseenter", () => playPlanetHit());
 playBtnEl?.addEventListener("click", () => {
@@ -2048,7 +1974,7 @@ playBtnEl?.addEventListener("click", () => {
     showNewGameConfirm();
     return;
   }
-  showModeChooser();
+  startGame();
 });
 
 cancelNewGameBtn?.addEventListener("click", () => {
@@ -2061,7 +1987,7 @@ confirmNewGameBtn?.addEventListener("click", () => {
   clearSave();
   syncStartResumeUI();
   hideNewGameConfirm();
-  showModeChooser();
+  startGame();
 });
 
 resumeContinueBtn?.addEventListener("click", () => {
@@ -2130,10 +2056,10 @@ syncShipSkin();
 // Silent auto-save. Called when the player leaves mid-game; there is no manual
 // save button. Skips when there's nothing meaningful to save (no round active
 // or after a loss).
-// Build the v3 round blob (mode + score + charges + every body's transform).
+// Build the v3 round blob (level + score + charges + every body's transform).
 // Shared by the silent auto-save and the dev "save scenario" tool, both of
-// which rebuild a live round through restoreGame(). `level` holds the MODE
-// number now; v2 ladder-era saves are dropped by loadSave.
+// which rebuild a live round through restoreGame(). Existing v3 saves continue
+// from their saved level; v2 score-ladder saves are dropped by loadSave.
 function buildRoundSnapshot() {
   return {
     v: 3,
@@ -2160,6 +2086,7 @@ function restoreGame(data) {
   round.testing = false;
   round.playing = true;
   restoreLevel(data.level);
+  recordLevelReached(getLevel());
 
   // Wipe the current board + all transient state, same teardown resetGameState
   // does, then rebuild from the snapshot instead of starting fresh.
@@ -2329,8 +2256,8 @@ function botPhysicsSettings() {
 
 devBot = createDevBot({
   canStart: () => !devSimulator?.active,
-  settings: () => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
-    wallTop: WALL_TOP, dropRates: SHAPES.map(s => s.dropRate), planner: 'physics-next-v1' }),
+  settings: level => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
+    wallTop: WALL_TOP, dropRates: dropRatesFor(level), planner: 'physics-next-v1' }),
   onStart() {
     saveGame();
     bankPlayTime();
@@ -2346,12 +2273,11 @@ devBot = createDevBot({
     syncAutoPilotUI();
   },
   startRound(level) {
-    setMode(level);
     round.playing = true;
-    resetGameState();
+    resetGameState(level);
     applyLegendMode(droppableLvls);
     showLegend();
-    for (const id of ['start-overlay', 'mode-overlay', 'level-overlay', 'perks-overlay', 'settings-overlay', 'new-game-confirm']) {
+    for (const id of ['start-overlay', 'level-overlay', 'perks-overlay', 'settings-overlay', 'new-game-confirm']) {
       document.getElementById(id)?.classList.remove('visible');
     }
     syncAutoPilotUI();
@@ -2376,8 +2302,8 @@ devBot = createDevBot({
 
 devSimulator = createDevSimulator({
   isBusy: () => Boolean(devBot?.active),
-  settings: () => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
-    layout: { ...LAYOUT }, balance: { ...BALANCE }, dropRates: SHAPES.map(s => s.dropRate),
+  settings: level => ({ physics: botPhysicsSettings(), tuning: structuredClone(TUNING),
+    layout: { ...LAYOUT }, balance: { ...BALANCE }, dropRates: dropRatesFor(level),
     planets: SHAPES.map(s => ({ name: s.name, size: s.size, pts: s.pts, sides: s.sides })),
     simulationVersion: 1, knowledge: 'current-and-next', timing: 'normal-speed' }),
 });

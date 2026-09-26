@@ -4,6 +4,16 @@
 
 Planet Merge ongoing changes.
 
+## Latest balance pass (September 27, 2026)
+
+- Astra reviewed the first two levels. The plan, exact odds and small bot comparison are in [BALANCE_PLAN.md](public/games/planet-merge/BALANCE_PLAN.md).
+- Level 1 now uses Moon/Pluto/Mercury 10% each, Mars 30%, Venus 40%, with no Stars. Level 2 onward uses Stars 10%, Moon/Pluto 15% each, Mercury 10%, Mars/Venus 25% each.
+- `level-config.js` supplies shared weighted and opening pickers to live play and simulations. Bot and simulator reports capture the selected test level's effective rates.
+- Level cards and player-facing post copy match the new odds. Two Suns still advance the same board; Level 3 still removes the shield from new shakes.
+- The three-seed Quick check reached a Sun in two new Level 1 runs versus none before, but neither profile completed a Sun pair. A higher win rate remains unconfirmed.
+
+The entries below describe earlier changes; consult current code and the game-folder guide for the latest rules.
+
 ## Changes Made
 
 - Added a red dashed warning line in `public/games/planet-merge/game.js`.

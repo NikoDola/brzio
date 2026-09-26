@@ -1,7 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════════
-   config.js  —  THE ONLY FILE YOU NEED TO EDIT
-   Change shapes, sizes, colours, drop chances here.
-   Everything else reads from this file automatically.
+   config.js: planet definitions, layout and shared gameplay constants.
+   Change per-level drop chances in level-config.js.
    ════════════════════════════════════════════════════════════════════════ */
 
 
@@ -19,7 +18,7 @@ export const LAYOUT = {
     PLAYER_MARKER_PLANET_BOTTOM_PAD: 0.05, // held planet sits 5% above the holder bottom
     PLAYER_MARKER_ASSET: "ship-container_alien.svg", // default 10:7 ship skin in assets/images/
     PLAYER_CONTAINER_Y: 73, // y-centre of the ship/player container
-    SCORE_Y:      61,     // y-centre of the big faded score painted in the open sky above the container, independent from each planet's dynamic drop row
+    SCORE_Y:      135,    // centre the big faded score in the open sky between the HUD and the container rim
     WALL_TOP:     211,    // 10% less depth: lower the old 108px rim by 0.10 * (1140 - 108), keeping the floor fixed
     BASE_R:       216,    // reference pixel radius for a size-100 shape before planet scaling
     PLANET_SCALE: 0.9,    // all planet bodies and colliders are 10% smaller
@@ -43,6 +42,7 @@ export const BALANCE = {
 
     // Shakes meter (see shakes.js)
     SHAKE_COST:            10,    // % of the meter spent per shake click (10 clicks per full bar)
+    LEVEL_SHAKE_REFILL:    25,    // Sun pair reward, usable immediately and capped at 100%
     SHAKE_WINDOW_MS:       700,   // "still shaking" window that ramps the streak
     SHAKE_MAX_STREAK:      3,     // streak multiplier cap so mashing can't run away
     SHAKE_MAX_UP:          5,     // velocity clamp, upward (px/tick)
@@ -52,7 +52,7 @@ export const BALANCE = {
     POP_LOAD:              0.05,  // how much mass stacked on top dampens the pop height
     SETTLE_SPEED:          3,     // a planet moving faster than this counts as airborne
     PROTECT_MS:            4000,  // rainbow shield duration, refreshed on each shake
-    AUTO_SHAKE_CHANCE:     0.5,   // odds a Level 7+ drop triggers an earthquake burst
+    AUTO_SHAKE_CHANCE:     0.5,   // odds an autoShake-enabled drop triggers an earthquake burst
 
     // Collision impact feel
     IMPACT_KICK_MIN_SPEED: 4,     // px/tick — ignore gentle resting contacts
@@ -151,7 +151,7 @@ export const SHAPES = [
         color:     '#e6c07a',
         glow:      '#9c7a2e',
         pts:       32,
-        droppable: true,   // drops in early levels only (see LEVELS in game.js)
+        droppable: true,   // normal roster and odds live in level-config.js
         dropRate:  6,      // more large drops speed up both merging and crowding
         asset:     'planet_venus_body.svg',
         expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
@@ -215,6 +215,7 @@ export const SHAPES = [
             {
                 asset:  'planet_saturn_extra.svg',
                 layer:  'back',
+                opacity: 0.6,
                 wRatio: 330 / 200,   // ring width  ÷ body diameter
                 hRatio: 77.9 / 200,  // ring height ÷ body diameter
                 xRatio: 3 / 312,     // nudge ~3px right at Saturn's size (÷ body diameter)
@@ -235,7 +236,6 @@ export const SHAPES = [
         asset:     'planet_jupiter_body.svg',
         expressions: true,  // bare body + separate face overlays (casual/hurt/sad)
         bodyLayer: 'rear',   // draw beneath normal planet bodies in crowded stacks
-        bodyOpacity: 0.5,
     },
 
     {   /* ── 12  Sun — MAX (two Suns touching → both vanish!) ─────────── */
@@ -253,10 +253,11 @@ export const SHAPES = [
         // sits behind the disc, inflated so its flame bumps poke past the
         // edge; the sunglasses sit in front, over the face.
         accessories: [
-            { asset: 'planet_sun_accesories.svg',  layer: 'back',  opacity: 0.5,  inflatePx: 65 * LAYOUT.PLANET_SCALE },
+            { asset: 'planet_sun_accesories.svg',  layer: 'back',  opacity: 0.6,  inflatePx: 65 * LAYOUT.PLANET_SCALE },
             {
                 asset:  'planet_sun_accesories2.svg',
                 layer:  'front',
+                opacity: 1,
                 wRatio: 228 / 200,   // glasses width  ÷ body diameter
                 hRatio: 71 / 200,    // glasses height ÷ body diameter
                 xRatio: 0,             // centred horizontally

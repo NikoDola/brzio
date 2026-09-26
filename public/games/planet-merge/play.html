@@ -75,6 +75,7 @@
                     <h2>Game Over</h2>
                     <div class="loss-reason" id="loss-reason">Lost because the board filled up.</div>
                     <div class="final-line">Score: <span id="final-score">0</span></div>
+                    <div class="final-line">Level reached: <span id="final-level">1</span></div>
                     <button id="restart-btn">Play Again</button>
                 </div>
             </div>
@@ -98,7 +99,7 @@
                     <div class="start-content">
                         <p id="limit-msg" class="limit-msg" hidden>Daily play time is up. Ask a parent to lift the limit in Settings.</p>
                         <button id="play-btn" type="button">
-                            <span class="play-label">Play</span>
+                            <span class="play-label">Play Endless</span>
                         </button>
                         <button id="resume-continue" class="start-secondary-btn" type="button" hidden>Continue</button>
                         <button id="game-stat-btn" type="button">
@@ -106,19 +107,6 @@
                             Game Statistic
                         </button>
                     </div>
-                </div>
-            </div>
-            <!-- Mode chooser: opens from Play / New Game. Rows are rendered by
-                 game.js from MODES (levels.js) so lock and WON states are live.
-                 Each row's info button opens #level-overlay for that mode,
-                 which sits later in the DOM so the card stacks on top. -->
-            <div id="mode-overlay">
-                <div class="perks-inner">
-                    <div class="perks-header">
-                        <h2 class="perks-title">Choose Level</h2>
-                        <button id="mode-close" type="button" aria-label="Close">✕</button>
-                    </div>
-                    <div class="mode-list" id="mode-list"></div>
                 </div>
             </div>
             <div id="new-game-confirm" role="dialog" aria-modal="true" aria-labelledby="new-game-confirm-title">
@@ -144,6 +132,7 @@
                         <div class="stat-line"><span class="stat-line-label">Best score</span><span class="stat-line-value" id="stat-best-score">0</span></div>
                         <div class="stat-line"><span class="stat-line-label">Time played</span><span class="stat-line-value" id="stat-time-played">0m</span></div>
                         <div class="stat-line"><span class="stat-line-label">Best merge streak</span><span class="stat-line-value" id="stat-best-chain">0</span></div>
+                        <div class="stat-line"><span class="stat-line-label">Highest level</span><span class="stat-line-value" id="stat-best-level">0</span></div>
                     </div>
 
                     <div class="main-panel perks-panel" data-main-panel="perks">
@@ -167,7 +156,7 @@
                             <h3 class="settings-section-title">How to Play</h3>
                             <div class="howto-variant howto-desktop">
                                 <div class="howto-section">
-                                    <p>Move your mouse to aim, then click to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                                    <p>Move your mouse to aim, then click to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and merge two Suns to advance a level without clearing your board. Every new run starts at Level 1.</p>
                                 </div>
                                 <div class="howto-section">
                                     <h3>Controls</h3>
@@ -180,7 +169,7 @@
                             </div>
                             <div class="howto-variant howto-mobile">
                                 <div class="howto-section">
-                                    <p>Slide your finger to aim, then tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and reach two Suns to clear the mode.</p>
+                                    <p>Slide your finger to aim, then tap to drop a planet. Two of the same planet merge into the next size up. Chain merges in one drop to earn superpowers, and merge two Suns to advance a level without clearing your board. Every new run starts at Level 1.</p>
                                 </div>
                                 <div class="howto-section">
                                     <h3>Controls</h3>
@@ -232,13 +221,14 @@
                             <div class="stat-line"><span class="stat-line-label">Best score</span><span class="stat-line-value" id="set-stat-best">0</span></div>
                             <div class="stat-line"><span class="stat-line-label">Time played</span><span class="stat-line-value" id="set-stat-time">0m</span></div>
                             <div class="stat-line"><span class="stat-line-label">Best merge streak</span><span class="stat-line-value" id="set-stat-chain">0</span></div>
+                            <div class="stat-line"><span class="stat-line-label">Highest level</span><span class="stat-line-value" id="set-stat-level">0</span></div>
                         </section>
                     </div>
                 </div>
             </div>
             <!-- Current-level card: opened from the LEVEL cell in the HUD.
                  The body is rendered by levels.js each time it opens, so the
-                 bullets always match the live LEVELS row. -->
+                 bullets always match the current endless level. -->
             <div id="level-overlay">
                 <div class="perks-inner">
                     <div class="perks-header">
@@ -375,9 +365,9 @@
                     <span class="dev-label">Destroy Power</span>
                     <button id="force-destroy-btn" class="dev-pill">OFF</button>
                 </div>
-                <div class="dev-row" title="Mark every mode won so all Levels are selectable without grinding two Suns.">
-                    <span class="dev-label">Modes</span>
-                    <button id="unlock-modes-btn" class="dev-pill" type="button">Unlock all</button>
+                <div class="dev-row" title="Record the first three levels as completed, for testing repeat level-ups. Does not change the active level.">
+                    <span class="dev-label">Level history</span>
+                    <button id="unlock-modes-btn" class="dev-pill" type="button">Mark first 3</button>
                 </div>
                 <div class="dev-stats">
                     <span>Drops <b id="stat-drops">0</b></span>

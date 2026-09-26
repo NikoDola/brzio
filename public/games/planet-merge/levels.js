@@ -1,35 +1,17 @@
-/* ════════════════════════════════════════════════════════════════════════
-   levels.js: the selectable game MODES (shown to players as "Level N"),
-   win/unlock tracking, the win banner, and the level info card
-   ════════════════════════════════════════════════════════════════════════
-
-   The old single endless run that ramped through score thresholds is gone.
-   A player now picks a mode from the New Game chooser, and that mode's rules
-   hold for the WHOLE run (like the old easy/normal/hard). Each MODES entry:
-     num       → 1-based mode number ("Level 1" in the UI)
-     iconLvl   → SHAPES index drawn as the mode's face in the chooser + HUD
-     drops     → droppable planet levels for the entire run
-     eliminate → can chains grant the Eliminate (destroy) power
-     choose    → can chains grant the Choose-your-next-planet power
-     rainbow   → do shakes raise the rainbow shield? false = shaking is risky
-     autoShake → earthquakes fire on their own (reserved for future modes)
-     scoreMult → every point earned in this mode is multiplied by this
-     blurb     → one-liner for the info card
-
-   WINNING: make two Suns touch (they vanish for the bonus). The run does NOT
-   end; the win is recorded (localStorage) and the next mode unlocks. Twelve
-   modes are planned; three exist. `getLevel()` stays the analytics label. */
-import { SHAPES } from "./config.js";
+/* Endless progression: each Sun pair completes the active level and starts
+   the next one on the same board. Lifetime wins are history, never a gate.
+   level-config.js defines the opening stages and all later multipliers. */
+import { SHAPES, BALANCE } from "./config.js";
 import { round } from "./state.js";
 import { planetIconHTML, applyLegendMode } from "./planet-icons.js";
 import { playPerk } from "./audio.js";
 
-import { MODES } from "./level-config.js";
+import { MODES, levelFor, dropRatesFor, createDropPicker, firstDropFor } from "./level-config.js";
 export { MODES };
 
 let mode = 1;
 export const getLevel = () => mode;
-export const curLevel = () => MODES[mode - 1];
+export const curLevel = () => levelFor(mode);
 export const modeScoreMult = () => curLevel().scoreMult ?? 1;
 // Shakes raise the rainbow shield unless the mode turns it off. No current
 // mode uses autoShake; the earthquake machinery in shakes.js stays dormant
@@ -38,18 +20,11 @@ export const rainbowEnabled = () => curLevel().rainbow !== false;
 export const autoShakeEnabled = () => curLevel().autoShake === true;
 
 export let droppableLvls = [];
-let dropTable = [];
-let dropTotal = 0;
+let pickWeighted;
 
 function rebuildDropTable() {
-  dropTable.length = 0;
-  dropTotal = 0;
   droppableLvls = curLevel().drops.slice();
-  for (const lvl of droppableLvls) {
-    const w = SHAPES[lvl].dropRate || 1;
-    dropTable.push({ lvl, w });
-    dropTotal += w;
-  }
+  pickWeighted = createDropPicker(mode);
 }
 rebuildDropTable();
 
@@ -62,12 +37,7 @@ export function setDropMode(m) {
 
 export function pickLvl() {
   if (dropMode === "weighted") {
-    let rand = Math.random() * dropTotal;
-    for (const e of dropTable) {
-      rand -= e.w;
-      if (rand <= 0) return e.lvl;
-    }
-    return dropTable[dropTable.length - 1].lvl;
+    return pickWeighted();
   }
   if (dropMode === "random") return Math.floor(Math.random() * SHAPES.length);
   return dropMode;
@@ -77,31 +47,25 @@ export function pickLvl() {
 // current roster, so the player isn't handed a big planet from cold.
 export function firstDrop() {
   if (dropMode !== "weighted") return pickLvl();
-  const small = droppableLvls.slice().sort((a, b) => a - b);
-  return Math.random() < 0.5 ? small[0] : small[Math.min(1, small.length - 1)];
+  return firstDropFor(mode);
 }
 
-/* ── MODE SELECTION ──────────────────────────────────────────────────────
-   The New Game chooser (game.js) calls setMode(n) before startGame(). Play
-   Again keeps the current mode (resetLevel just re-applies it); Continue
-   restores the saved one. */
+// New games start at 1; Continue and dev tools can restore any level.
 export function setMode(n) {
-  mode = Math.min(MODES.length, Math.max(1, n || 1));
+  mode = levelFor(n).num;
   rebuildDropTable();
   applyLegendMode(droppableLvls);
   updateLevelHud();
 }
-// Re-apply the CURRENT mode (new game / Play Again keeps the player's pick).
+// Every fresh endless run begins at Level 1.
 export function resetLevel() {
-  setMode(mode);
+  setMode(1);
 }
 export function restoreLevel(savedMode) {
   setMode(savedMode || 1);
 }
 
-/* ── WINS + UNLOCKS ──────────────────────────────────────────────────────
-   Winning a mode (two Suns touched) unlocks the next one. Wins persist in
-   localStorage; the dev panel can wipe or grant them for testing. */
+// Keep existing completion history compatible with earlier saves.
 const WINS_KEY = "pm_mode_wins";
 
 function loadWins() {
@@ -121,33 +85,29 @@ function saveWins() {
 }
 
 export const isModeWon = (n) => wonModes.has(n);
-export const isModeUnlocked = (n) => n <= 1 || wonModes.has(n - 1);
-
-let onWinsChanged = () => {};
-// game.js registers this to refresh the New Game chooser when a win lands.
-export function onModeWinsChange(cb) {
-  onWinsChanged = cb;
-}
-
-/** Record a win (two Suns touched). First time only: persist, banner, and
- *  refresh anything showing lock states. The run keeps going regardless. */
+/** Record a completed level once for lifetime history and analytics. */
 export function markModeWon(n) {
   if (round.testing) return false;
   if (wonModes.has(n)) return false;
   wonModes.add(n);
   saveWins();
-  showWinToast(n);
-  updateLevelHud();
-  onWinsChanged();
   return true;
 }
 
-// Dev helpers (dev-panel.js): unlock everything silently / wipe all wins.
+/** Each Sun pair advances this run, even when the level was beaten before. */
+export function advanceLevel() {
+  const completedLevel = mode;
+  const firstWin = markModeWon(completedLevel);
+  setMode(completedLevel + 1);
+  if (!round.testing) showWinToast(completedLevel);
+  return { completedLevel, firstWin };
+}
+
+// Dev helpers: mark the opening stages complete / wipe completion history.
 export function unlockAllModes() {
   MODES.forEach((m) => wonModes.add(m.num));
   saveWins();
   updateLevelHud();
-  onWinsChanged();
 }
 export function clearModeWins() {
   wonModes.clear();
@@ -155,22 +115,22 @@ export function clearModeWins() {
     localStorage.removeItem(WINS_KEY);
   } catch {}
   updateLevelHud();
-  onWinsChanged();
 }
 
 /* ── WIN BANNER ──────────────────────────────────────────────────────────
    Reuses the .level-toast styling from the old level-up banner: slides in
    from the top for ~2.6s, never pauses the game. */
 function showWinToast(n) {
-  const next = MODES[n]; // undefined when the last mode was won
-  const iconLvl = next ? next.iconLvl : MODES[n - 1].iconLvl;
+  const next = levelFor(n + 1);
+  const change = next.num === 2 ? "Stars join the drops" : next.num === 3
+    ? "Rainbow shield is now off" : "Keep merging to climb higher";
   const toast = document.createElement("div");
   toast.className = "level-toast";
   toast.innerHTML = `
-    <div class="level-toast-visual">${planetIconHTML(iconLvl)}</div>
-    <div class="level-toast-title">${MODES[n - 1].name} complete!</div>
-    <div class="level-toast-now">Two Suns touched. You won!</div>
-    ${next ? `<div class="level-toast-next">${next.name} unlocked</div>` : `<div class="level-toast-next">All levels complete!</div>`}`;
+    <div class="level-toast-visual">${planetIconHTML(next.iconLvl)}</div>
+    <div class="level-toast-title">${next.name}!</div>
+    <div class="level-toast-now">${change}</div>
+    <div class="level-toast-next">x${next.scoreMult} points · +${BALANCE.LEVEL_SHAKE_REFILL}% shake</div>`;
   document.body.appendChild(toast);
   playPerk();
   requestAnimationFrame(() => toast.classList.add("show"));
@@ -180,12 +140,7 @@ function showWinToast(n) {
   }, 2600);
 }
 
-/* ── LEVEL HUD CELL + INFO CARD ──────────────────────────────────────────
-   The LEVEL cell shows the mode's planet icon + number. Clicking it opens
-   #level-overlay with the card for the CURRENT mode. The New Game chooser's
-   info buttons open the same card for any mode via openModeInfo(n).
-   game.js checks levelInfoOpen() in drop() so the spacebar can't fire a
-   planet under the card. */
+// The LEVEL cell opens rules and the next goal for the active level.
 const levelPanelEl = document.getElementById("level-panel");
 const levelValueEl = document.getElementById("level-value");
 const levelIconEl = document.getElementById("level-icon");
@@ -199,6 +154,8 @@ export const levelInfoOpen = () => !!levelOverlayEl?.classList.contains("visible
 function updateLevelHud() {
   if (levelValueEl) levelValueEl.textContent = String(mode);
   if (levelIconEl) levelIconEl.innerHTML = planetIconHTML(curLevel().iconLvl);
+  levelPanelEl?.setAttribute("aria-label", `Level ${mode}. Merge two Suns to reach Level ${mode + 1}. View level rules`);
+  if (levelInfoOpen()) renderLevelCard();
 }
 
 /* One card bullet: green check when a mechanic is on, red cross when the
@@ -212,19 +169,21 @@ function ruleHTML(on, onText, offText) {
 
 function renderLevelCard(n = mode) {
   if (!levelBodyEl) return;
-  const m = MODES[n - 1];
-  if (!m) return;
+  const m = levelFor(n);
   if (levelTitleEl) {
-    levelTitleEl.innerHTML = `${m.name}${isModeWon(n) ? ' <span class="mode-won-badge">WON</span>' : ""}`;
+    levelTitleEl.textContent = m.name;
   }
   const icons = m.drops
     .map((l) => `<span class="level-drop-icon" title="${SHAPES[l].name}">${planetIconHTML(l)}</span>`)
     .join("");
+  const rates = dropRatesFor(n);
+  const total = rates.reduce((sum, rate) => sum + rate, 0);
+  const odds = m.drops.map(lvl => `${SHAPES[lvl].name} ${Math.round(rates[lvl] / total * 100)}%`).join(", ");
   levelBodyEl.innerHTML = `
     <p class="level-blurb">${m.blurb}</p>
     <div class="level-drops-label">Dropping in this level</div>
     <div class="level-drops-icons">${icons}</div>
-    <p class="level-blurb">Mars and Venus drop more often. The container is 10% shallower, so watch the rim.</p>
+    <p class="level-blurb">Normal drop chances: ${odds}. The opening drop is one of the two smallest planets.</p>
     <ul class="level-rules">
       ${ruleHTML(
         m.choose !== false,
@@ -246,11 +205,10 @@ function renderLevelCard(n = mode) {
         <span>Points multiplier: every point counts x${m.scoreMult}</span>
       </li>
     </ul>
-    <div class="level-next">Win by making two Suns touch. The run keeps going after, so chase the score.</div>`;
+    <div class="level-next">Merge two Suns to reach Level ${m.num + 1}. Keep your board and score, and gain ${BALANCE.LEVEL_SHAKE_REFILL}% ready-to-use shake energy.</div>`;
 }
 
-/** Open the info card for any mode (used by the New Game chooser's ⓘ buttons
- *  and by the in-run LEVEL cell). */
+/** Open the rules and next goal for an endless level. */
 export function openModeInfo(n = mode) {
   renderLevelCard(n);
   levelOverlayEl?.classList.add("visible");

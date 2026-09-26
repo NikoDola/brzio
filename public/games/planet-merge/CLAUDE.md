@@ -1,6 +1,6 @@
 # Planet Merge
 
-A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus, winning the current level (the run keeps going). The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board too crowded for a safety probe with 1.5 times the waiting planet's radius.
+A Suika-style merge game. A little ship follows your pointer along the top and drops planets into an open container; two of the same kind touching merge into the next size up. Get two Suns to touch and they pop for a bonus, advancing to the next level on the same board. The container is open at the top: overfill it and planets get pushed over the rim. A planet falling out of the container ends the game, and so does a board too crowded for a safety probe with 1.5 times the waiting planet's radius.
 
 Before diving in here, read [`../CLAUDE.md`](../CLAUDE.md). It covers the rules shared by every game on the site (iframe embedding, scroll locking, dev mode) and the site-wide writing rule: no em dashes, anywhere.
 
@@ -31,20 +31,20 @@ Each file has one job. Don't copy logic between them.
 
 | File | What it handles |
 |---|---|
-| [config.js](config.js) | `LAYOUT` (canvas and ship geometry), `BALANCE` (chain thresholds, cooldowns, shake costs), and every planet's definition in `SHAPES`. **This is the file you edit to rebalance the game or add a planet.** |
+| [config.js](config.js) | `LAYOUT` (canvas and ship geometry), `BALANCE` (chain thresholds, cooldowns, shake costs), and every planet's definition in `SHAPES`. Edit level drop odds in `level-config.js`. |
 | [tuning.js](tuning.js) | Live-tunable physics numbers (planet weight curve, impact kick, shake strength), shared by physics.js and the dev panel. |
 | [physics.js](physics.js) | Everything Matter.js: the engine, the walls, the shield arch, tracking which body is which, building colliders from artwork, spawning and removing bodies. |
 | [game-rules.js](game-rules.js) | DOM-free drop geometry, impacts, perch nudges, container guards, loss rules, shake rewards and shake impulses shared with simulations. |
-| [level-config.js](level-config.js) | DOM-free `MODES` definitions shared by the level UI and simulations. |
+| [level-config.js](level-config.js) | DOM-free opening `MODES`, `levelFor(n)`, per-level `dropRatesFor(n)` and shared weighted/opening pickers, used by live play and simulations. |
 | [dev-bot.js](dev-bot.js), [bot-planner.js](bot-planner.js), [bot-worker.js](bot-worker.js), [bot-results.js](bot-results.js) | Visible Smart Bot controls, move search, background forecasts and test reports. |
 | [dev-simulator.js](dev-simulator.js), [simulation-worker.js](simulation-worker.js), [simulation-core.js](simulation-core.js), [simulation-results.js](simulation-results.js) | Background batch controls, isolated physics sessions, seeded sequences, timing and outcome summaries. |
 | [renderer.js](renderer.js) | All the drawing on the canvas: planets and their faces, the ship marker and its beam, the big sky score with the ship's shadow, effects, previews. It only reads game state and paints it. It never changes anything. |
 | [game.js](game.js) | The brain and the entry point. Game loop, input, merges, the chain counter, superpowers, autopilot, the death replay, ship skins, save/restore, fullscreen, restart. |
 | [state.js](state.js) | The tiny shared `round` flags (playing, game over) every other module reads. |
-| [levels.js](levels.js) | The selectable `MODES` ("Level 1/2/3"): rosters, rainbow/power flags, score multipliers, win/unlock persistence, the win banner, and the mode info card behind the LEVEL hud cell and the chooser's ⓘ buttons. |
+| [levels.js](levels.js) | Endless level progression, drop rosters, power/shield flags, multipliers, completion history, level-up banners and the LEVEL info card. |
 | [shakes.js](shakes.js) | The SHAKES meter, the shake itself, the rainbow shield, and the auto earthquake. |
 | [perks.js](perks.js) | The `PERKS` list, the perks overlay, unlock toasts and animations. |
-| [stats.js](stats.js) | Lifetime stats (games, best score, play time, best chain) and the points wallet (`pm_points`) in localStorage. |
+| [stats.js](stats.js) | Lifetime stats (games, best score, highest level, play time, best chain) and the points wallet (`pm_points`) in localStorage. |
 | [settings.js](settings.js) | The Settings overlay: How to Play copy, sound toggle wiring, parent PIN, daily play-time limit. |
 | [save-storage.js](save-storage.js) | The localStorage plumbing behind auto-save and the Continue button. |
 | [audio.js](audio.js) | All sound effects and the mute flag. |
@@ -80,7 +80,7 @@ The old fixed crosshair is gone. What the player steers is a **ship**:
 - The **NEXT planet rides inside the ship** in a small slot. The old NEXT hud cell still exists in play.html but is `hidden`; don't resurrect it, the ship is the next-preview now.
 - The **current planet hangs below the ship** at the end of a dashed guide line. Drop it and the next planet animates out of the ship's slot down into the waiting position (the "handoff", eased over one drop cooldown, 560ms).
 - A teal **tractor beam** glows under the ship (`drawAlienBeam`). It's skipped on mobile for performance.
-- The **big faded score** is painted in the open sky at y=61, and the ship's silhouette casts a moving shadow on the digits only (`drawScoreShadow`). The HUD score chip was removed; `scoreEl` in game.js is a stub object so old writes stay harmless.
+- The **big faded score** is painted near the middle of the open sky at y=135, between the HUD and the container rim. The ship's silhouette casts a moving shadow on the digits only (`drawScoreShadow`). The HUD score chip was removed; `scoreEl` in game.js is a stub object so old writes stay harmless.
 - **Ship skins:** `SHIP_SKINS` in game.js (alien, baby, car, native-indian). The start screen has a prev/next selector; the choice persists in localStorage (`planet-merge-ship-skin`) and swaps the baked marker bitmap via `setPlayerMarkerAsset`.
 
 Input: mouse move aims, click drops. On touch, the drop point snaps to wherever the finger lands, follows it while dragging, and drops on release. Spacebar also drops. Drops are refused while an overlay (perks, level card) is open, while the shake shield is up, during the drop cooldown, and while the Choose countdown is running.
@@ -93,13 +93,13 @@ When a board planet overlaps the drop spot, the waiting planet dims to 0.7 opaci
 
 All 12 planets are defined in `SHAPES` in config.js, listed smallest to largest. Each one carries a few settings: its size, score value, drop weighting, which image file it uses, and whether it has face expressions or decorative accessories. **Every planet is a plain circle collider now** (`sides: 0`, no `outline`), so shape never affects physics.
 
-One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It's decided by the `drops` list on each level in levels.js (the per-planet `dropRate` is still used, as the weighting within that roster). The `droppable` flag only feeds `rndLvl()` in config.js, which nothing calls anymore. In the live game the roster comes from the selected mode: Level 1 drops Moon, Pluto, Mercury, Mars, and Venus; Levels 2 and 3 add Stars. Every other planet only ever shows up by merging.
+One thing that trips people up: **the list of planets that can actually drop is not decided by the per-planet `droppable` flag.** It comes from the `drops` list in `level-config.js`; each level's `dropWeights` sets the odds. `dropRatesFor(n)` resolves the full array, with zeroes outside the roster and `SHAPES.dropRate` as a fallback for a missing weight. The `droppable` flag only feeds the unused legacy `rndLvl()` in config.js. Level 1 drops Moon, Pluto, Mercury, Mars, and Venus; Level 2 onward add Stars. Every other planet only ever shows up by merging.
 
 Most planets are `expressions: true`: the body SVG is faceless (`planet_earth_body.svg`) and separate casual/hurt/sad face overlays share its viewBox (`planet_earth_casual.svg` etc). A planet created by a merge shows its `planet-merge_<name>-merge.svg` face for 0.8s, then returns to its normal reaction. A hit planet flinches (hurt, 1s), sulks (sad, 2s), then relaxes. Missing face files fail silently, so art can land incrementally.
 
-**Accessories** are decorative bitmaps layered around a planet without ever touching the collider (which stays a plain circle). Saturn's ring and the Sun's corona + sunglasses are `accessories: [...]` entries on those `SHAPES` (see config.js for the schema: a `layer` of `back` or `front`, optional `opacity`, plus `wRatio`/`hRatio`/`inflatePx` for size and `xRatio`/`yRatio` for offset, all fractions of the body diameter). They're pure paint: the game draws every `back` accessory behind all planets, then Jupiter's rear body, then normal bodies + faces, then `front` accessories on top, so a ring never covers a neighbour and never collides. The Sun's corona is drawn at 50% opacity behind all planets; its sunglasses are the only `front` accessory. Jupiter's body and face use `bodyLayer: 'rear'` and `bodyOpacity: 0.5`, so they appear beneath other planet bodies at half opacity.
+**Accessories** are decorative bitmaps layered around a planet without ever touching the collider (which stays a plain circle). Saturn's ring and the Sun's corona + sunglasses are `accessories: [...]` entries on those `SHAPES` (see config.js for the schema: a `layer` of `back` or `front`, optional `opacity`, plus `wRatio`/`hRatio`/`inflatePx` for size and `xRatio`/`yRatio` for offset, all fractions of the body diameter). They're pure paint: the game draws every `back` accessory behind all planets, then Jupiter's rear body, then normal bodies + faces, then `front` accessories on top, so a ring never covers a neighbour and never collides. Saturn's ring and the Sun's rays are drawn at 60% opacity; the Sun's sunglasses are fully opaque. Jupiter's body and face remain fully opaque, even though `bodyLayer: 'rear'` places them beneath other planet bodies.
 
-Normal drop weights are Stars 5, Moon 4, Pluto 3, Mercury 2, Mars 7, Venus 6. In Level 1, Mars drops 31.8% of the time and Venus 27.3%. In Levels 2 and 3, Mars drops 25.9% and Venus 22.2%; the first drop still uses the two smallest planets.
+Normal Level 1 drop chances are Moon 10%, Pluto 10%, Mercury 10%, Mars 30%, Venus 40%, with no Stars. Level 2 onward uses Stars 10%, Moon 15%, Pluto 15%, Mercury 10%, Mars 25%, Venus 25%. Larger drops give the opening level more merge material; Level 2 asks for more small matches. Level 3 retains that mix so removing the shield is its own difficulty step. The first drop remains a 50/50 choice between the two smallest roster planets. Choose Planet and dev overrides do not use the normal odds. See [BALANCE_PLAN.md](BALANCE_PLAN.md) for the rationale and validation limits.
 
 To add a planet, just add it to `SHAPES`. The drop odds and the merge order sort themselves out.
 
@@ -117,7 +117,7 @@ Hit enough merges in one drop and you earn a power:
 2. Then the waiting planet **auto-cycles** through the current level's droppable roster, one planet every `CHOOSE_ROTATE_MS` (0.5s).
 3. The player picks by timing the normal drop tap. The drop consumes the charge.
 
-Choose is on in all three current modes; it still switches off whenever autopilot is on (an auto-cycling planet under an auto-dropper is chaos).
+Choose is on in all endless levels; it still switches off whenever autopilot is on (an auto-cycling planet under an auto-dropper is chaos).
 
 **5 merges in one drop earns Eliminate (destroy).** Pulsing pink crosshairs appear, but only on planets of droppable sizes: the big merge-only planets can't be wiped. Click (or tap) a target and every planet of that type is destroyed. Details that matter:
 
@@ -126,7 +126,7 @@ Choose is on in all three current modes; it still switches off whenever autopilo
 - The explanation overlay shows only the first time ever (localStorage `planet-merge-destroy-help-seen`). Later charges just show crosshairs.
 - Destroy supersedes Choose: earning it clears any pending Choose charge, so the two prompts never stack.
 
-Eliminate is on in all three current modes too. `revokeBannedCharges` still exists for the dev force-toggles and for future modes that ban a power: a banned power's held charge is taken away on the spot.
+Eliminate is on in all endless levels too. `revokeBannedCharges` still exists for the dev force-toggles and for future modes that ban a power: a banned power's held charge is taken away on the spot.
 
 (For the record: this used to be a timer-based combo system, with a 3-second window carrying across drops. That's gone on purpose. Chains are a per-drop skill reward, so please don't bring the timer back.)
 
@@ -219,7 +219,7 @@ The DEV panel can calculate 1, 10, 25 or 100 fresh games without rendering or ch
 
 Each run ends at the first two-Sun win, a real loss, the selected time limit (default 15 minutes, maximum 60) or 1,000 drops. A limit is reported separately from losses; it has no invented win/loss time. Win rate counts wins within the limit across completed runs. Cancelled partial runs are excluded. Summaries show average and range of win/loss times, total simulated game time and actual calculation time.
 
-Drop and physics randomness use independent seeded streams. A batch appends `/1`, `/2`, etc. to the seed. Copy an individual result's seed into a single run to repeat it with the same strategy, settings, code and browser. Floating-point physics can diverge between runtimes. Export JSON includes captured settings, planet definitions, outcomes, generated planet sequences and timestamped actions. The latest report is stored separately in `pm_dev_simulation_v1`. Background tests never import player stats, saves, perks or analytics. The two bot tools cannot run simultaneously; stopping a background worker keeps completed results.
+Drop and physics randomness use independent seeded streams. A batch appends `/1`, `/2`, etc. to the seed. Copy an individual result's seed into a single run to repeat it with the same strategy, settings, code and browser. Floating-point physics can diverge between runtimes. Export JSON includes captured settings, planet definitions, outcomes, generated planet sequences and timestamped actions. Both dev tools capture the selected test level's effective drop rates. The simulation uses the same picker as live play, with captured `dropRates` taking precedence when provided. Fresh-level tests do not measure the carried board or shake refill in endless progression. The latest report is stored separately in `pm_dev_simulation_v1`. Background tests never import player stats, saves, perks or analytics. The two bot tools cannot run simultaneously; stopping a background worker keeps completed results.
 
 Run `node --test tests/planet-merge-bot.test.mjs tests/planet-merge-simulation.test.mjs` from the repo root. Set `MATTER_JS_PATH` to a local Matter.js 0.19 CommonJS file to include physics integration assertions. No CDN download is performed by the test suite.
 
@@ -261,47 +261,46 @@ Start the site first with `npm run dev`. The dev panel does not exist on the liv
 | **Drop** | Which planet drops: weighted (normal), random (any of the 12 equally), or a specific one |
 | **Colliders** | Overlays the real physics shapes for debugging |
 | **Choose / Destroy Power** | Force a power permanently armed (it re-arms after each use) for UI work |
-| **Modes: Unlock all** | Marks every mode won so Levels 2+ are selectable without grinding two Suns |
+| **Level history: Mark first 3** | Marks the first three stages complete for testing repeat completions; does not change the active level |
 | **Planet Physics** | Live sliders for mass power, impact kick, shake strength and falloff, plus a JSON editor and a fill-the-shake-meter button |
 | **Solver Iter** | Live contact-solver iterations (position 6-20; velocity follows at ~0.6x). Shipping value 14/8. For finding the cheapest setting that still holds the anti-crush fix: lower it, replay a crush Scenario, watch for embedding |
 | **Stats** | Drops, games, average score this session, and Phys: physics ms per frame (avg / max over ~2s; ~8 ms is the 60 Hz budget) |
 
 ---
 
-## Selectable levels (modes)
+## Endless levels
 
-The score-threshold ladder is gone. The player picks a **mode** (shown as "Level 1/2/3" in the UI) from the New Game chooser, and that mode's rules hold for the WHOLE run, like the old easy/normal/hard. Twelve modes are planned; three exist. A boolean called `playing` (state.js) tracks whether a round is active.
+Play and Play Again start one endless run at Level 1. Every pair of Suns that touches is removed for a bonus, then `advanceLevel()` switches to the next level automatically. The rest of the board, score, held/next planets, powers and chain remain intact. There is no final level or victory screen. A run ends only on a normal loss.
 
-The modes live in the `MODES` array in level-config.js and are re-exported by levels.js. Each row: the planet icon it wears (`iconLvl`), which planets drop, whether chains can grant each power, whether shakes raise the rainbow shield, and the mode's **score multiplier**. To add a mode, append a row: the chooser, the info card, and the unlock chain follow automatically.
+`level-config.js` keeps the three opening definitions in `MODES`. `levelFor(n)` resolves any positive level; levels after 3 inherit the last stage and add 0.1 to its multiplier per level. Both Choose and Eliminate stay available throughout:
 
-The modes as shipped (both powers on in all three):
+- **Level 1** (Star icon, x1.2): Moon, Pluto, Mercury, Mars and Venus can drop. Mars/Venus make up 70% of normal drops for a gentler first milestone. Shakes have a rainbow shield.
+- **Level 2** (Moon icon, x1.4): Stars join at 10%, smaller planets become more frequent, and Mars/Venus make up 50%. Shakes still have the shield.
+- **Level 3** (Pluto icon, x1.5): drop chances stay the same as Level 2; new shakes have no shield. A shield already active when advancing is allowed to finish.
+- **Level 4 onward**: Level 3's roster and power rules, with x1.6, x1.7 and so on. No additional hazards are introduced yet.
 
-- **Level 1** (Stars icon, x1.2 points): drops Moon, Pluto, Mercury, Mars, Venus. No Stars. Yes, the no-Stars mode wears the Star icon; deliberate for now.
-- **Level 2** (Moon icon, x1.4 points): Stars join the drop pool.
-- **Level 3** (Pluto icon, x1.5 points): same roster as Level 2, but no rainbow shield, so shaking can end the run.
+Each advancement adds `LEVEL_SHAKE_REFILL` (25 percentage points, capped at 100%) and arms the meter immediately. `flushVanishes` awards the bonus using the completed level's multiplier before advancing; later merges use the new multiplier. Duplicate collision events cannot advance the same Sun pair twice because body activity is checked before processing. Multiple distinct Sun pairs can each advance a level.
 
-**Winning and unlocking:** you win a mode by making two Suns touch (the vanish). The run does NOT end; the win is stored in localStorage (`pm_mode_wins`), a banner slides in ("Level 1 complete! Level 2 unlocked", reusing the old level-toast styling), and the next mode becomes selectable. `isModeUnlocked(n)` is simply "n is 1 or mode n-1 was won". The dev panel's "Unlock all" pill grants every win for testing; the Local Storage CLEAR wipes them.
+Completion history stays under `pm_mode_wins`, but never gates advancement. Replaying a previously completed stage still advances and shows the banner. Dev bot rounds progress identically without saving normal history or stats. Background simulations and bot batches still end at the first Sun-pair milestone for comparable benchmark results.
 
-The **start screen** shows the ship-skin selector, the **points balance chip** (see Scoring), a Play button (relabelled "New Game" when a save exists, alongside a Continue button), and a Game Statistic button. Play (after the save-loss confirm, if any) opens the **mode chooser** (`#mode-overlay`): one row per mode with the planet icon, the name, a multiplier subline, a lock (with "Win Level N-1 to unlock") or a WON badge, and an ⓘ button opening that mode's info card. Rows are rebuilt on every open so lock/WON states are always current. Play Again after a loss stays in the same mode without the chooser; Continue restores the saved mode. The merge-order legend hides the Star icon in modes where Stars don't drop.
+The start screen launches directly into play. New Game still confirms before discarding a save. Continue restores the saved level without capping it at 3, including earlier v3 saves. Highest level reached is stored as `pm_best_level` and displayed in both stats panels; the game-over overlay shows the level reached in that run.
 
-### The LEVEL cell and the mode info card
+### The LEVEL cell and info card
 
-The hud bar has a LEVEL cell between Settings and SHAKES showing the current mode's planet icon and number. Clicking it opens the info card (same overlay pattern as perks and settings) for the mode being played: its blurb, which planets drop (as icons), whether Choose and Eliminate work, the rainbow shield state, the points multiplier, and the win rule. The chooser's ⓘ buttons open the same card for any mode (`openModeInfo(n)` in levels.js), and it stacks above the chooser because `#level-overlay` comes later in the DOM at the same z-index.
-
-The card renders from the `MODES` row every time it opens, so it can never drift: edit a row and the card follows. Dropping is blocked while the card is open (game.js checks `levelInfoOpen()` in `drop()`), the game itself keeps running.
+The HUD shows the active level's number and planet icon. Its card lists the current roster, power and shield rules, points multiplier, and the next Sun-pair goal. It refreshes if an advancement happens while the card is open. Dropping is blocked while the card is open; physics continues. The merge-order legend shows Stars as soon as Level 2 begins.
 
 ### Scoring
 
 - Each merge is worth the points of the planet you merged (defined in config.js). Points double per size: Stars are worth 1, Moon 2, on up to the Sun at 2048.
 - A **chain** (several merges from one drop) multiplies the whole chain's points by how long it was. Five merges worth 10 points total become 10 x 5 = 50. The score climbs live as the chain plays out, and resets on the next drop.
-- The **mode multiplier** (x1.2 / x1.4 / x1.5) applies to every point as it lands on the score: the chain bookkeeping stays in raw units and only the added delta is multiplied (`modeScoreMult()` in registerChain and the vanish bonus). The +N popups show the multiplied value.
+- The **level multiplier** (x1.2 / x1.4 / x1.5 / x1.6 / ...) applies to every point as it lands on the score: the chain bookkeeping stays in raw units and only the added delta is multiplied (`modeScoreMult()` in registerChain and the vanish bonus). The +N popups show the multiplied value.
 - Note that the score counts **points**, not merges. Merges are counted separately, because some perks care about the raw number of merges.
 - On screen the score is shortened past a thousand (12,400 shows as 12.4k, then m).
 - **The points wallet:** when a run ends, its final score is added to a lifetime balance (`pm_points`, stats.js `addPoints`/`getPoints`) shown as the chip on the start screen. It is the future currency for buying ship skins; nothing spends it yet. Abandoning a saved run via New Game forfeits its unbanked score, by design.
 
-### Two Suns (the win, still no end screen)
+### Two Suns (advance without ending the run)
 
-When two Suns touch, they pop, you get a flat bonus (`VANISH_BONUS` 4096, times the mode multiplier), the mode is marked WON (`markModeWon` in flushVanishes), and the game keeps going. There's no victory screen, only the unlock banner. A run only ends by losing.
+Two Suns touching pay `VANISH_BONUS` (4096) times the completed level's multiplier. `advanceLevel()` records completion and applies the next level, `rewardLevelShake()` grants the refill, and a short banner announces the new rules. Other planets stay on the board. The no-room dwell resets so the cleared space is checked afresh.
 
 ### How you lose (two ways, one warning line)
 
@@ -322,7 +321,7 @@ There's a SHAKES bar in the HUD that fills as you merge: +1% per merge normally,
 
 One subtlety that used to be a bug: merges set off by the shake itself keep feeding the meter in odd increments, so it can land on a value below one click's cost. The last click always spends whatever remains, so the meter reaches exactly 0, disarms, and starts refilling. Never bring back a "must have at least SHAKE_COST" guard; that strands the meter at 3% armed and unclickable.
 
-Normally a shake also throws up a rainbow arch across the top for 4 seconds and suspends the game-over check while it's active, so a shake can never cost you the run. The arch is not just paint: physics.js adds a real bouncy segmented ceiling along the same curve, so popped planets bounce back down instead of escaping. New drops are blocked while the shield is up.
+Normally a shake also throws up a rainbow arch across the top for 4 seconds and suspends the game-over check while it's active, so a shake can never cost you the run. Its left and right ends sit 14px above the container rim, and its centre rises 120px above the rim. The arch is not just paint: physics.js adds a real bouncy segmented ceiling along the same curve, so popped planets bounce back down instead of escaping. New drops are blocked while the shield is up.
 
 - **Level 3 turns the rainbow off** (`rainbow: false` on its `MODES` row). You can still shake, but there's no shield and no game-over pause, so a badly-timed shake can throw a planet over the wall and out, ending the run.
 - The **auto earthquake** (`autoShake: true`, `maybeAutoShake` in shakes.js: the manual button locks and drops randomly fire 1-6 shake bursts on their own) is fully built but dormant: no current mode enables it. It's reserved for a future mode; don't delete it.
@@ -345,7 +344,7 @@ A simple achievement system. Everything runs off the `PERKS` list near the top o
 
 ## Auto-save, resume, and parent controls
 
-- **Auto-save is silent.** There is no save button. When the tab is hidden mid-round (close, app switch, screen lock), `saveGame()` snapshots the run (mode, score, merge count, current/next planet, both power charges including the destroy expiry counter, and every body's position/angle/velocity) into localStorage `pm_saved_game` (a `v: 3` blob; older versions, including ladder-era v2 saves, are silently dropped).
+- **Auto-save is silent.** There is no save button. When the tab is hidden mid-round (close, app switch, screen lock), `saveGame()` snapshots the run (level, score, merge count, current/next planet, both power charges including the destroy expiry counter, and every body's position/angle/velocity) into localStorage `pm_saved_game` (a `v: 3` blob with no level cap; prior v3 saves are compatible and older versions are dropped).
 - **The start screen offers a one-time Continue.** Resuming consumes the save (no rewinding to the same point twice); leaving again writes a fresh one. Clicking New Game wipes it. Restored charges are re-checked against the current level's bans, and every restored body gets the normal spawn grace so resuming can never instantly lose.
 - **Parent controls** (settings.js): an optional daily play-time limit, guarded by an optional 4-digit PIN. It only blocks STARTING a new round, never cuts a live one. `startGame()` checks `dailyLimitReached()` and shows a message on the start screen instead.
 - Settings also hosts the How to Play copy (desktop and mobile variants) and the sound toggle (the mute flag itself lives in audio.js).

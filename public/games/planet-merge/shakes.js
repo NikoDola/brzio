@@ -9,8 +9,8 @@
 
    While shaking, a rainbow arch shields the top: planets bounce off it and
    the lose checks are suspended, so a shake can never cost you the
-   game... unless Level 6+ turns the shield off (see levels.js's `rainbow`
-   flag). Level 7+ also fires shake bursts on their own (the earthquake). */
+   game... unless Level 3+ turns the shield off (see levels.js's `rainbow`
+   flag). Automatic earthquakes are reserved for future level rules. */
 import { BALANCE } from "./config.js";
 import { popPlanets, shakeIncrement } from "./game-rules.js";
 import { world, bodyLvl, setShieldArch, archPoint } from "./physics.js";
@@ -23,7 +23,7 @@ const shakesLabelEl = document.getElementById("shakes-label");
 const shakesValueEl = document.getElementById("shakes-value");
 const shakesPanelEl = document.getElementById("shakes-panel");
 let shakePct = 0;
-let shakeArmed = false; // usable once the meter has filled to 100%
+let shakeArmed = false; // usable at 100%, or immediately after a Sun-pair refill
 let shakeStreak = 1; // multiplier; clicking again ramps it 1.3x (capped)
 let lastShakeAt = 0;
 
@@ -64,6 +64,13 @@ export function addShake(chainCount) {
   updateShakeUI();
 }
 
+// A Sun pair grants an immediately usable refill without interrupting a shield.
+export function rewardLevelShake() {
+  shakePct = Math.min(100, shakePct + BALANCE.LEVEL_SHAKE_REFILL);
+  shakeArmed = true;
+  updateShakeUI();
+}
+
 export function resetShake() {
   shakePct = 0;
   shakeArmed = false;
@@ -84,7 +91,7 @@ export function armFull() {
 // capped hard (no ceiling); horizontal is capped to contain + avoid tunneling.
 function applyPop(intensity) { popPlanets(world, bodyLvl, intensity); }
 
-// Brief centred notice, e.g. explaining that manual shaking is off at Level 7.
+// Brief centred notice explaining when level rules disable manual shaking.
 // Throttled so mashing the panel doesn't stack duplicates.
 let shakeNoticeAt = 0;
 function flashShakeNotice(text) {
@@ -127,7 +134,7 @@ export function tryShake() {
       : 1;
   lastShakeAt = now;
   applyPop(shakeStreak);
-  // Rainbow shield only from levels that still allow it (off at Level 6+), so a
+  // Rainbow shield only from levels that still allow it (off at Level 3+), so a
   // late-game shake no longer buys immunity from the lose checks.
   if (rainbowEnabled()) protectUntil = now + BALANCE.PROTECT_MS;
   shakePct = Math.max(0, shakePct - BALANCE.SHAKE_COST);
@@ -135,11 +142,8 @@ export function tryShake() {
   return true;
 }
 
-/* Level 7+ earthquake. On a random subset of drops the shake fires by itself,
-   1..6 times in a row (like rapid button presses). Deliberately erratic: most
-   drops stay calm, some erupt. No rainbow shield backs it (off since Level 6),
-   so an unlucky burst can genuinely topple your stack. Bypasses the meter, since
-   this is now an environmental hazard, not a resource the player spends. */
+/* Reserved automatic earthquake rule. No current endless level enables it.
+   On random drops it fires 1..6 bursts without spending the manual meter. */
 export function maybeAutoShake() {
   if (!autoShakeEnabled()) return;
   if (Math.random() >= BALANCE.AUTO_SHAKE_CHANCE) return; // this drop stays quiet

@@ -10,24 +10,24 @@
       {
         "type": "section",
         "heading": "How to play",
-        "body": "Move your cursor across the top of the playfield to aim. Click (or tap, on mobile) to drop the waiting planet. When two of the same planet touch, they merge into the next size up.\n\nThe planet you're holding is shown by the crosshair at the top. The planet coming after it rides inside the moving holder above the drop point. Drop the wrong one in the wrong spot and the stack creeps upward, and the container is open at the top: overfill it and planets get pushed over the rim. Its sides are about 10% shorter, with the same floor and width, so a tall stack can spill sooner. There are two ways to lose. If a planet falls out of the container, the run ends. And if the stack gets too crowded for a safe drop of the planet you are holding, that ends it too. The safety check uses one and a half times that planet's radius, so it can end the run before every normal-size drop spot is blocked. A red dashed warning line appears just below the rim when the board itself is getting too high, not just because a new planet is falling in. When a stacked planet is in the way of your aim, the waiting planet dims, winces, and shows a red cross: you can't drop there, slide over to a free spot.\n\nYou pick a level when you start a new game (three exist for now, more are coming), and its rules hold for the whole run. Level 1 drops Moon through Venus with no Stars, and every point counts x1.2. Level 2 adds Stars to the pool and pays x1.4. Level 3 also takes the rainbow shield off your shakes, so shaking turns risky, and pays x1.5. You win a level by making two Suns touch: they vanish for a big bonus, the next level unlocks, and the run keeps going, so keep chasing the score. Every finished run adds its final score to the points balance shown on the start screen. The LEVEL panel above the playfield shows which level you're in: tap it, or the little info button next to each level in the chooser, for a card listing what drops, which powers are on, and the level's point multiplier."
+        "body": "Move your cursor across the top of the playfield to aim. Click (or tap, on mobile) to drop the waiting planet. When two of the same planet touch, they merge into the next size up.\n\nThe planet you're holding is shown by the crosshair at the top. The planet coming after it rides inside the moving holder above the drop point. Drop the wrong one in the wrong spot and the stack creeps upward, and the container is open at the top: overfill it and planets get pushed over the rim. Its sides are about 10% shorter, with the same floor and width, so a tall stack can spill sooner. There are two ways to lose. If a planet falls out of the container, the run ends. And if the stack gets too crowded for a safe drop of the planet you are holding, that ends it too. The safety check uses one and a half times that planet's radius, so it can end the run before every normal-size drop spot is blocked. A red dashed warning line appears just below the rim when the board itself is getting too high, not just because a new planet is falling in. When a stacked planet is in the way of your aim, the waiting planet dims, winces, and shows a red cross: you can't drop there, slide over to a free spot.\n\nEvery new endless run starts at Level 1. Merge two Suns to advance automatically to the next level on the same board, keeping your score and planets. The Suns vanish for a big bonus at the completed level's multiplier, and each level-up adds 25% shake energy (capped at 100%) that you can use immediately. Level 1 drops Moon through Venus with no Stars, favors Mars and Venus to help you build your first Suns, and pays x1.2 points. Level 2 adds Stars, increases the share of smaller planets, and pays x1.4. Level 3 keeps Level 2's drop chances, removes the rainbow shield from new shakes, and pays x1.5. Level 4 and beyond keep Level 3's rules and add 0.1 to the points multiplier each level: x1.6, x1.7, and onward. There is no final level. Keep merging Suns until the board fills up or a planet falls out. Every finished run adds its final score to your points balance and records the highest level you reached. Play Again starts at Level 1; Continue restores your saved board, score, and level. Tap the LEVEL panel above the playfield for the current rules and your next goal."
       },
       {
         "type": "highlight",
         "variant": "green",
         "heading": "Chains and superpowers",
-        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Planet\". After a short countdown, the planet you're holding starts cycling through the droppable roster, and you drop the moment the one you want comes up.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero.\n\nBoth powers are available in all three current levels. Harder levels down the road may take them away."
+        "body": "Every drop starts a fresh chain. The counter resets to zero the moment a new planet leaves your cursor. No slow accumulation across drops, no time window.\n\nGet 3 merges from one drop's cascade and you unlock \"Choose Planet\". After a short countdown, the planet you're holding starts cycling through the droppable roster, and you drop the moment the one you want comes up.\n\nGet 5 merges from one drop's cascade and you unlock \"Destroy\". Every planet on the board lights up with a red crosshair. Click any one and every planet of that exact size vanishes off the board.\n\nUnused powers carry over until you spend them. The chain counter doesn't. Drop a new planet and you're back to zero.\n\nBoth powers stay available throughout the endless run."
       },
       {
         "type": "highlight",
         "variant": "rose",
         "heading": "Shakes and the rainbow shield",
-        "body": "Merging also fills the SHAKES meter on the side. When it fills up, tap it to shake the board: every resting planet pops upward, and the lighter the load stacked on top of it, the higher it flies. It's a way to unstick a messy pile or nudge two planets together. Each tap spends 10% of the bar (the last sliver counts as a full tap, so the meter always drains to zero and starts building again). Tap again while it's still shaking and the next jolt hits a little harder.\n\nWhile you're shaking, a rainbow arch guards the top of the playfield and the lose checks pause, so a shake can never end your run. The exception is Level 3, which takes the rainbow away: there a careless shake can throw a planet over the wall and out, costing you the game."
+        "body": "Merging also fills the SHAKES meter on the side. When it fills up, tap it to shake the board: every resting planet pops upward, and the lighter the load stacked on top of it, the higher it flies. It's a way to unstick a messy pile or nudge two planets together. Each tap spends 10% of the bar (the last sliver counts as a full tap, so the meter always drains to zero and starts building again). Tap again while it's still shaking and the next jolt hits a little harder.\n\nWhile you're shaking, a rainbow arch guards the top of the playfield and the lose checks pause, so a shake can never end your run. The exception is Level 3 and beyond, which take the rainbow away: there a careless shake can throw a planet over the wall and out, costing you the game."
       },
       {
         "type": "section",
         "heading": "The droppables",
-        "body": "The small bodies fall from the top, Venus included. Everything else is born from a merge. The pool depends on the level you picked: Level 1 holds the Stars back, Levels 2 and 3 let them drop. Mars and Venus now turn up more often, helping you reach bigger merges while filling the container faster. Mars drops about 32% of the time in Level 1 and 26% in Levels 2 and 3. Venus drops about 27% in Level 1 and 22% in Levels 2 and 3. The opening drop is still one of the two smallest planets in your level."
+        "body": "The small bodies fall from the top, Venus included. Everything larger is born from a merge. Level 1 is a gentler start: Moon, Pluto and Mercury each have a 10% chance, Mars 30%, and Venus 40%. Frequent Mars and Venus matches help you build toward your first Suns. From Level 2 onward, Stars have a 10% chance, Moon and Pluto 15% each, Mercury 10%, and Mars and Venus 25% each. More small planets add extra steps on the way to the next Suns. These are the normal random-drop chances; the opening drop is still a 50/50 choice between the two smallest planets in your level, and Choose Planet lets you pick from the whole roster."
       },
       {
         "type": "card-grid",
@@ -36,12 +36,12 @@
           {
             "src": "/games/planet-merge/assets/images/planet_star.svg",
             "heading": "1. Stars",
-            "body": "Tiny twinklers. Drop the most often. Two stars merge into a Moon."
+            "body": "Tiny twinklers. Join the drops at Level 2 with a 10% chance. Two stars merge into a Moon."
           },
           {
             "src": "/games/planet-merge/assets/images/planet_moon.svg",
             "heading": "2. Moon",
-            "body": "Crescent-shaped, with a physics collider that follows the actual silhouette, so it nestles into gaps differently than a round body. Two moons make a Pluto."
+            "body": "Small cratered moon. It rolls and stacks like the other round planets. Two moons make a Pluto."
           },
           {
             "src": "/games/planet-merge/assets/images/planet_pluto.svg",
@@ -63,7 +63,7 @@
       {
         "type": "section",
         "heading": "Forged by merging",
-        "body": "Everything from here on only exists if you make it. Each step up doubles roughly in mass and gets harder to set up."
+        "body": "Venus can drop directly or grow from two Mars planets. Earth and everything larger must be made by merging matching pairs."
       },
       {
         "type": "card-grid",
@@ -92,7 +92,7 @@
           {
             "src": "/games/planet-merge/assets/images/planet_saturn.svg",
             "heading": "10. Saturn",
-            "body": "Ringed beauty. The collider includes the rings as separate pieces, so they tangle with whatever's nearby. Two Saturns become Jupiter."
+            "body": "Ringed beauty. Its rings are decorative; the round body rolls and stacks with the other planets. Two Saturns become Jupiter."
           },
           {
             "src": "/games/planet-merge/assets/images/planet_jupiter.svg",

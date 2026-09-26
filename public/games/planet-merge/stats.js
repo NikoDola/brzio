@@ -6,6 +6,7 @@ const HIGH_KEY = "pm_high_score";
 const GAMES_KEY = "pm_games_played";
 const TIME_KEY = "pm_play_time_ms";
 const CHAIN_KEY = "pm_best_chain";
+const LEVEL_KEY = "pm_best_level";
 const POINTS_KEY = "pm_points"; // lifetime points balance (future skin currency)
 
 // Shared localStorage helpers (also used by settings.js for the parent-limit
@@ -28,6 +29,7 @@ let highScore = loadNum(HIGH_KEY);
 let gamesPlayed = loadNum(GAMES_KEY);
 let totalPlayMs = loadNum(TIME_KEY);
 let bestChain = loadNum(CHAIN_KEY);
+let bestLevel = loadNum(LEVEL_KEY);
 let pointsBalance = loadNum(POINTS_KEY);
 
 /* ── Points wallet ────────────────────────────────────────────────────────
@@ -62,6 +64,12 @@ export function recordGamePlayed() {
   if (round.testing) return;
   gamesPlayed += 1;
   saveNum(GAMES_KEY, gamesPlayed);
+}
+
+export function recordLevelReached(level) {
+  if (round.testing || !Number.isInteger(level) || level <= bestLevel) return;
+  bestLevel = level;
+  saveNum(LEVEL_KEY, bestLevel);
 }
 
 // Today's play time (resets at midnight) for the parent-control daily limit.
@@ -131,6 +139,8 @@ export function updateStatsUI() {
   set("set-stat-best", best);
   set("set-stat-time", time);
   set("set-stat-chain", chain);
+  set("stat-best-level", String(bestLevel));
+  set("set-stat-level", String(bestLevel));
 }
 
 // Dev "Local Storage CLEAR": wipe every persistent stat back to zero.
@@ -140,12 +150,14 @@ export function clearStats() {
     localStorage.removeItem(GAMES_KEY);
     localStorage.removeItem(TIME_KEY);
     localStorage.removeItem(CHAIN_KEY);
+    localStorage.removeItem(LEVEL_KEY);
     localStorage.removeItem(POINTS_KEY);
   } catch {}
   highScore = 0;
   gamesPlayed = 0;
   totalPlayMs = 0;
   bestChain = 0;
+  bestLevel = 0;
   pointsBalance = 0;
   playClockStart = 0;
   updateStatsUI();

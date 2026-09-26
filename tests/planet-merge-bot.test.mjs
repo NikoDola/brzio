@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { summarizeBotResults, recordBotWin } from '../public/games/planet-merge/bot-results.js';
 import { createDevBot } from '../public/games/planet-merge/dev-bot.js';
+import { createDevSimulator } from '../public/games/planet-merge/dev-simulator.js';
 import { LAYOUT, SHAPES } from '../public/games/planet-merge/config.js';
+import { dropRatesFor } from '../public/games/planet-merge/level-config.js';
 
 test('first win is recorded once; later loss and aborted attempts do not inflate the denominator', () => {
   const win = { outcome: 'running', firstWinMs: null };
@@ -15,24 +17,17 @@ test('first win is recorded once; later loss and aborted attempts do not inflate
     winRate: 1 / 3, averageWinMs: 120000, bestWinMs: 120000 });
 });
 
-test('pacing keeps floor and width, removes 10% of depth, and gives Mars and Venus the requested odds', () => {
+test('container keeps its floor, width and 10% depth reduction', () => {
   assert.equal(LAYOUT.H - LAYOUT.WALL, 1140);
   assert.equal(LAYOUT.W - 2 * LAYOUT.WALL_X, 720);
   assert.ok(Math.abs((1140 - LAYOUT.WALL_TOP) / (1140 - 108) - .90) < .001);
-  for (const roster of [[1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]]) {
-    const total = roster.reduce((sum, lvl) => sum + SHAPES[lvl].dropRate, 0);
-    const mars = SHAPES[4].dropRate / total;
-    const venus = SHAPES[5].dropRate / total;
-    assert.ok(mars >= .25 && mars <= .35);
-    assert.ok(venus >= .20 && venus <= .30);
-  }
 });
 
 function harness(runs = 10) {
   const elements = new Map();
   const el = id => {
     if (!elements.has(id)) elements.set(id, { textContent: '', disabled: false, value: '',
-      handlers: {}, addEventListener(name, handler) { this.handlers[name] = handler; } });
+      handlers: {}, addEventListener(name, handler) { this.handlers[name] = handler; }, replaceChildren() {} });
     return elements.get(id);
   };
   el('bot-level').value = '1'; el('bot-runs').value = String(runs);
@@ -48,7 +43,7 @@ function harness(runs = 10) {
     postMessage(message) { this.message = message; }
   };
   let state = { simMs: 0, score: 0, gameOver: false, ready: true, curLvl: 1, maxSpeed: 0 };
-  const bot = createDevBot({ settings: () => ({}), onStart() {}, onStop() { stops++; },
+  const bot = createDevBot({ settings: level => ({ dropRates: dropRatesFor(level) }), onStart() {}, onStop() { stops++; },
     startRound() { starts++; state = { ...state, simMs: 0, gameOver: false }; },
     state: () => state, snapshot: () => ({}), shake: () => false, destroy: () => false,
     drop: () => { drops++; return true; } });
@@ -56,6 +51,28 @@ function harness(runs = 10) {
     get worker() { return workers.at(-1); }, get starts() { return starts; }, get stops() { return stops; }, get drops() { return drops; },
     report: () => JSON.parse(storage.get('pm_dev_bot_report_v1')) };
 }
+
+test('bot reports capture the selected test level odds', () => {
+  const h = harness(1);
+  h.el('bot-level').value = '2';
+  h.start();
+  assert.deepEqual(h.report().config.dropRates, dropRatesFor(2));
+  h.bot.stop();
+});
+
+test('background simulator sends the selected test level odds to its worker', () => {
+  const h = harness(1);
+  for (const [id, value] of Object.entries({ 'sim-level': '2', 'sim-runs': '1',
+    'sim-seed': 'selected-level', 'sim-strategy': 'quick', 'sim-limit': '15' })) h.el(id).value = value;
+  const simulator = createDevSimulator({ isBusy: () => false,
+    settings: level => ({ dropRates: dropRatesFor(level) }) });
+  h.el('sim-start').handlers.click();
+  assert.equal(simulator.active, true);
+  assert.equal(h.worker.message.config.level, 2);
+  assert.deepEqual(h.worker.message.config.dropRates, dropRatesFor(2));
+  h.el('sim-stop').handlers.click();
+  assert.equal(simulator.active, false);
+});
 
 test('single run continues on win, retains first time, and excludes cancelled worker replies', () => {
   const h = harness(1); h.start(); h.bot.tick();

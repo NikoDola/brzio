@@ -43,8 +43,8 @@ export function loadSave() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    // v3 = the selectable-modes format (`level` = mode number); older saves
-    // from the score-ladder era are silently dropped.
+    // v3 stores the active level, now with no upper cap. Earlier selectable
+    // mode saves resume into endless play; score-ladder saves are dropped.
     if (!d || d.v !== 3 || !Array.isArray(d.bodies)) return null;
     return d;
   } catch (_) {

@@ -79,11 +79,11 @@ World.add(world, createContainerBodies());
 /* ── SHAKE SHIELD ARCH ───────────────────────────────────────────────────
    A temporary, bouncy ceiling arching from wall to wall, switched on while the
    player is shaking. Planets flung upward bounce off it instead of escaping the
-   open top, and game.js suspends the danger check while it's up. It sits ABOVE
-   the drop row so it never interferes with normal play. Drawn (game.js) as a
-   rainbow along this same curve. */
-const ARCH_END_Y = 72;  // y at the side walls
-const ARCH_PEAK_Y = 26; // y at the centre (lower y = higher)
+   open top, and game.js suspends the danger check while it's up. Drops are
+   disabled during protection. Drawn (game.js) as a rainbow along this same
+   curve, with its ends just above the container rim. */
+const ARCH_END_Y = WALL_TOP - 14;   // leave a small visible gap above each wall
+const ARCH_PEAK_Y = WALL_TOP - 120; // arch over the open sky (lower y = higher)
 export function archPoint(t) {
     const x = WALL_X + (W - 2 * WALL_X) * t;
     const u = t * 2 - 1;                                  // -1..1 across the span

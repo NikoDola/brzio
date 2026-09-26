@@ -193,7 +193,7 @@ forceDestroyBtn.addEventListener("click", () => {
   notifyForcePowerChange();
 });
 
-// Mark every mode won so Levels 2+ can be tested without grinding two Suns.
+// Seed completion history so repeated level-ups can be tested.
 document.getElementById("unlock-modes-btn")?.addEventListener("click", () => {
   unlockAllModes();
 });

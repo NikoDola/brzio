@@ -98,7 +98,8 @@ export function createDevBot(hooks) {
 
   start.addEventListener('click', () => {
     if (active || hooks.canStart?.() === false) return;
-    report = { version: 1, startedAt: Date.now(), config: { ...hooks.settings(), level: Number(modeEl.value), runs: Number(runsEl.value), maxGameMs: MAX_GAME_MS, maxDrops: MAX_DROPS }, attempts: [] };
+    const level = Number(modeEl.value);
+    report = { version: 1, startedAt: Date.now(), config: { ...hooks.settings(level), level, runs: Number(runsEl.value), maxGameMs: MAX_GAME_MS, maxDrops: MAX_DROPS }, attempts: [] };
     active = true;
     try {
       worker = new Worker(new URL('./bot-worker.js', import.meta.url));

@@ -67,8 +67,9 @@ export function createDevSimulator(hooks) {
     el('sim-seed').value = seed;
     const limit = Math.max(1, Math.min(60, Number(el('sim-limit').value) || 15));
     el('sim-limit').value = limit;
+    const level = Number(el('sim-level').value);
     report = { version: 1, startedAt: Date.now(), status: 'running', current: null, computeMs: 0, results: [],
-      config: { ...hooks.settings(), seed, level: Number(el('sim-level').value), runs: Number(el('sim-runs').value),
+      config: { ...hooks.settings(level), seed, level, runs: Number(el('sim-runs').value),
         strategy: el('sim-strategy').value, maxGameMs: limit * 60000, maxDrops: 1000 } };
     active = true; const id = ++requestId;
     botStartWasDisabled = el('bot-start').disabled; el('bot-start').disabled = true;

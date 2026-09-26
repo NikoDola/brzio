@@ -1,7 +1,7 @@
 // A DOM-free game session. Time advances in fixed steps, without animation,
 // audio, storage, or waiting for real time. The bot only sees current + NEXT.
 import { SHAPES, LAYOUT, BALANCE, r } from './config.js';
-import { MODES } from './level-config.js';
+import { levelFor, createDropPicker, firstDropFor } from './level-config.js';
 import { TUNING } from './tuning.js';
 import { createPlanetBody, createContainerBodies, createShieldSegments, limitSpin,
   wakeAllShapes, separateOverlapping, separatePenetrations } from './physics.js';
@@ -15,8 +15,7 @@ const { Engine, Composite, Events, Body, Sleeping } = Matter;
 export const SIMULATION_VERSION = 1;
 
 export function createSimulation(config) {
-  const mode = MODES[config.level - 1];
-  if (!mode) throw new Error('Choose Level 1, 2 or 3.');
+  const mode = levelFor(config.level);
   Object.assign(TUNING, structuredClone(config.tuning || TUNING));
   const random = seededRandom(config.seed + '/physics');
   const dropsRandom = seededRandom(config.seed + '/drops');
@@ -31,17 +30,12 @@ export function createSimulation(config) {
   let choose = false, chooseReady = 0, chooseRotate = 0, destroy = 0;
   let shakePct = 0, shakeArmed = false, protectUntil = 0, shield = [];
   let room = { noRoomMs: 0, checkMs: 0 }, outcome = null, reason = '';
-  const weights = config.dropRates || SHAPES.map(s => s.dropRate);
+  const pickWeighted = createDropPicker(config.level, dropsRandom, config.dropRates);
   const pick = () => {
-    let target = dropsRandom() * mode.drops.reduce((sum, lvl) => sum + weights[lvl], 0);
-    let lvl = mode.drops.at(-1);
-    for (const candidate of mode.drops) {
-      target -= weights[candidate];
-      if (target <= 0) { lvl = candidate; break; }
-    }
+    const lvl = pickWeighted();
     sequence.push(lvl); return lvl;
   };
-  let curLvl = mode.drops[dropsRandom() < .5 ? 0 : 1];
+  let curLvl = firstDropFor(config.level, dropsRandom);
   sequence.push(curLvl);
   let nxtLvl = pick();
   Composite.add(world, createContainerBodies());
